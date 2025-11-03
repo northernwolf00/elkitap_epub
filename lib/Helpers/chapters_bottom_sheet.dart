@@ -159,12 +159,11 @@ class ChaptersBottomSheet extends StatelessWidget {
                           Navigator.of(context).pop(true);
                         },
                         child: Container(
-                          color: isCurrentChapter
-                              ? Colors.grey[300]
-                              : Colors.white,
+                          color:
+                              isCurrentChapter ? Colors.grey[400] : backColor,
                           padding: EdgeInsets.symmetric(
                             horizontal: 16.w,
-                            vertical: 12.h,
+                            vertical: 20.h,
                           ),
                           child: Row(
                             children: [
@@ -187,7 +186,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                                         chapters[i].chapter),
                                     style: TextStyle(
                                       color: isCurrentChapter
-                                          ? Colors.grey
+                                          ? Colors.grey[300]
                                           : Colors.grey,
                                       fontFamily: fontNames
                                           .where((element) =>
@@ -209,7 +208,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                                 Text(
                                   '${chapters[i].startPage}',
                                   style: TextStyle(
-                                    color: fontColor.withOpacity(0.5),
+                                    color: Colors.grey,
                                     fontSize: 13.sp,
                                   ),
                                 ),
