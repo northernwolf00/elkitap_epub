@@ -1,13 +1,4 @@
-Got it 👍 You want me to **rewrite the entire CosmosEpub README** but:
 
-* 🔹 Replace the package name **CosmosEpub** → **ElKitap EPUB Reader**
-* 🔹 Remove the image/banner section
-* 🔹 Keep all the structure, formatting, and examples intact
-* 🔹 Update wording accordingly (like email, etc., if needed)
-
-Here’s your fully revised version 👇
-
----
 
 # ElKitap EPUB Reader 💫
 
@@ -171,12 +162,3 @@ The library will automatically:
 2. Apply proper RTL layout and navigation
 3. Handle mixed LTR/RTL content appropriately
 
----
-
-***Note: Some exceptions are not fully handled. For example, if you assign the same `bookId` to another book, it might open the wrong progress or even break 💀. Please manage such cases in your app.***
-
-***For questions or feedback, feel free to reach out or open an issue.***
-
----
-
-Would you like me to **update the contact info** (email/link) to yours or keep it generic (like “open an issue”)?
