@@ -1,4 +1,3 @@
-import 'package:cosmos_epub/Model/book_progress_model.dart';
 import 'package:cosmos_epub/cosmos_epub.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +10,7 @@ void main() async {
 
   if (_initialized) {
     // Use BookProgressModel model instance anywhere in your app to access current book progress of specific book
-    BookProgressModel bookProgress = CosmosEpub.getBookProgress('bookId');
+    CosmosEpub.getBookProgress('bookId');
     await CosmosEpub.setCurrentPageIndex('bookId', 1);
     await CosmosEpub.setCurrentChapterIndex('bookId', 2);
     await CosmosEpub.deleteBookProgress('bookId');

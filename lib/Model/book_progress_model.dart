@@ -10,5 +10,12 @@ class BookProgressModel {
   int? currentChapterIndex;
   int? currentPageIndex;
 
-  BookProgressModel({this.currentChapterIndex, this.currentPageIndex, this.bookId});
+  List<int>? chapterPageCounts; 
+
+  BookProgressModel({
+    this.currentChapterIndex,
+   this.currentPageIndex, 
+   this.bookId,
+    this.chapterPageCounts,
+   });
 }

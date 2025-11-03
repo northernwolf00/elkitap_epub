@@ -39,7 +39,8 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
-    - assets/
+    - assets/fonts/
+    - assets/images/
 
   fonts:
     #book fonts
