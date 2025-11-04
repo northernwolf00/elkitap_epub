@@ -333,6 +333,7 @@
 //         });
 //   }
 // }
+import 'dart:developer';
 import 'dart:ui';
 import 'package:cosmos_epub/PageFlip/page_flip_widget.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
@@ -592,6 +593,9 @@ class _PagingWidgetState extends State<PagingWidget> {
     List<Future<Widget>> futures = _pageTexts.map((text) async {
       final _scrollController = ScrollController();
       final pageTextDirection = RTLHelper.getTextDirection(text);
+
+      log('pageTextDirection: $pageTextDirection');
+      log('text: $text');
 
       return InkWell(
         onTap: widget.onTextTap,
