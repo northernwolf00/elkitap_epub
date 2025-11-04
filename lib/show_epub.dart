@@ -13,7 +13,7 @@ import 'package:screen_brightness/screen_brightness.dart';
 
 import 'Component/constants.dart';
 import 'Component/theme_colors.dart';
-import 'Helpers/chapters.dart';
+
 import 'Helpers/custom_toast.dart';
 import 'Helpers/pagination.dart';
 import 'Helpers/progress_singleton.dart';

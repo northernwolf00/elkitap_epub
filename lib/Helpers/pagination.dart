@@ -409,7 +409,7 @@ class _PagingWidgetState extends State<PagingWidget> {
 
   // NEW: For global page calculation
   int _globalTotalPages = 0;
-  int _chapterStartPage = 0;
+ 
 
   @override
   void initState() {
@@ -481,38 +481,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     return pageCount;
   }
 
-  /// Calculate which page the current chapter starts at
-  Future<int> _calculateChapterStartPage(String textBeforeChapter) async {
-    if (textBeforeChapter.isEmpty) return 0;
 
-    final pageSize = _initializedRenderBox.size;
-    final textDirection = RTLHelper.getTextDirection(textBeforeChapter);
-    final textSpan = TextSpan(text: textBeforeChapter, style: widget.style);
-
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: textDirection,
-    );
-    textPainter.layout(minWidth: 0, maxWidth: pageSize.width);
-
-    List<LineMetrics> lines = textPainter.computeLineMetrics();
-    double currentPageBottom = pageSize.height;
-    int pageCount = 0;
-
-    for (var line in lines) {
-      final top = line.baseline - line.ascent;
-      final bottom = line.baseline + line.descent;
-
-      if (currentPageBottom < bottom) {
-        pageCount++;
-        currentPageBottom = top + pageSize.height - 150.h;
-      }
-    }
-
-    return pageCount;
-  }
-
-  /// Actual pagination logic
   Future<void> _paginate() async {
     final pageSize = _initializedRenderBox.size;
     _pageTexts.clear();
