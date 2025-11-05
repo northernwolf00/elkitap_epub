@@ -1108,14 +1108,14 @@ class ShowEpubState extends State<ShowEpub> {
                                   padding:
                                       EdgeInsets.symmetric(horizontal: 16.w),
                                   child: Container(
-                                    height: 28.h,
+                                    height: 40.h,
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(50),
-                                      color: Colors.grey.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(100),
+                                      color: const Color(0xFFE8E8E8),
                                     ),
                                     child: Stack(
                                       children: [
-                                        // Progress bar based on GLOBAL pages
+                                        // Progress bar
                                         LayoutBuilder(
                                           builder: (context, constraints) {
                                             final globalTotal = controllerPaging
@@ -1127,29 +1127,57 @@ class ShowEpubState extends State<ShowEpub> {
                                                     .clamp(0.0, 1.0)
                                                 : 0.0;
 
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                  left: 5),
-                                              child: Container(
-                                                width: constraints.maxWidth *
-                                                    progress,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey,
-                                                  borderRadius:
-                                                      BorderRadius.circular(50),
-                                                ),
+                                            return AnimatedContainer(
+                                              duration: const Duration(
+                                                  milliseconds: 300),
+                                              curve: Curves.easeInOut,
+                                              width: constraints.maxWidth *
+                                                  progress,
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFA8A8A8),
+                                                borderRadius:
+                                                    BorderRadius.circular(100),
                                               ),
                                             );
                                           },
                                         ),
-                                        // Display GLOBAL page numbers
+                                        // Page numbers
                                         Center(
-                                          child: Text(
-                                            '${controllerPaging.currentPage} / ${controllerPaging.globalTotalPages}',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14.sp,
-                                              color: fontColor,
+                                          child: RichText(
+                                            text: TextSpan(
+                                              children: [
+                                                TextSpan(
+                                                  text:
+                                                      '${controllerPaging.currentPage}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 20.sp,
+                                                    color: Colors.black,
+                                                    letterSpacing: -0.5,
+                                                  ),
+                                                ),
+                                                TextSpan(
+                                                  text: ' /',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w400,
+                                                    fontSize: 20.sp,
+                                                    color: Colors.black
+                                                        .withOpacity(0.4),
+                                                    letterSpacing: -0.5,
+                                                  ),
+                                                ),
+                                                TextSpan(
+                                                  text:
+                                                      '${controllerPaging.globalTotalPages}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w400,
+                                                    fontSize: 20.sp,
+                                                    color: Colors.black
+                                                        .withOpacity(0.4),
+                                                    letterSpacing: -0.5,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
