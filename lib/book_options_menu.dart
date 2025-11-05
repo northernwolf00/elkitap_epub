@@ -53,25 +53,25 @@ class BookOptionsMenu extends StatelessWidget {
         itemBuilder: (BuildContext context) => [
           _buildMenuItem(
             label: 'Book description',
-            icon: CupertinoIcons.book,
+            // icon: Icons.book,
             fontColor: fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
             label: 'Contents',
-            icon: CupertinoIcons.list_bullet,
+            // icon: CupertinoIcons.list_bullet,
             fontColor: fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
             label: 'Add to shelf',
-            icon: CupertinoIcons.add_circled,
+            // icon: CupertinoIcons.add_circled,
             fontColor: fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
             label: 'Save to My Books',
-            icon: CupertinoIcons.square_arrow_down,
+            // icon: CupertinoIcons.square_arrow_down,
             fontColor: fontColor,
             showDivider: false,
           ),
@@ -83,7 +83,7 @@ class BookOptionsMenu extends StatelessWidget {
   /// Custom reusable menu item with optional divider
   PopupMenuEntry<String> _buildMenuItem({
     required String label,
-    required IconData icon,
+    // required IconData icon,
     required Color fontColor,
     bool showDivider = false,
   }) {
@@ -106,11 +106,11 @@ class BookOptionsMenu extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(
-                  icon,
-                  color: fontColor,
-                  size: 20.sp,
-                ),
+                // Icon(
+                //   icon,
+                //   color: fontColor,
+                //   size: 20.sp,
+                // ),
               ],
             ),
           ),
@@ -142,9 +142,6 @@ class BookOptionsMenu extends StatelessWidget {
     // TODO: Implement save to My Books action
   }
 }
-
-
-
 
 // import 'package:flutter/material.dart';
 // import 'package:flutter_svg/flutter_svg.dart';

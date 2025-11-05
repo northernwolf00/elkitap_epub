@@ -505,33 +505,46 @@ class ShowEpubState extends State<ShowEpub> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  // Small A (decrease)
-
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 20),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _fontSizeProgress -= 1.0;
-                                          // Clamp value between min and max
-                                          _fontSizeProgress = _fontSizeProgress
-                                              .clamp(15.0, 30.0);
-                                          _fontSize = _fontSizeProgress;
-                                          gs.write(libFontSize, _fontSize);
-                                          updateUI();
-                                          controllerPaging.paginate();
-                                        });
-                                      },
-                                      child: Container(
-                                        width: 40.w,
-                                        height: 40.h,
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          "A",
-                                          style: TextStyle(
+                                  // Small A (decrease) - LEFT SIDE
+                                  Expanded(
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: Radius.circular(12.r),
+                                        bottomLeft: Radius.circular(12.r),
+                                      ),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(12.r),
+                                          bottomLeft: Radius.circular(12.r),
+                                        ),
+                                        splashColor:
+                                            Colors.grey.withOpacity(0.3),
+                                        highlightColor:
+                                            Colors.grey.withOpacity(0.1),
+                                        onTap: () {
+                                          setState(() {
+                                            _fontSizeProgress -= 1.0;
+                                            _fontSizeProgress =
+                                                _fontSizeProgress.clamp(
+                                                    15.0, 30.0);
+                                            _fontSize = _fontSizeProgress;
+                                            gs.write(libFontSize, _fontSize);
+                                            updateUI();
+                                            controllerPaging.paginate();
+                                          });
+                                        },
+                                        child: Container(
+                                          height: 40.h,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            "A",
+                                            style: TextStyle(
                                               fontSize: 16.sp,
                                               color: fontColor,
-                                              fontWeight: FontWeight.w600),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -541,43 +554,53 @@ class ShowEpubState extends State<ShowEpub> {
                                   Container(
                                     width: 1,
                                     height: 30.h,
-                                    margin:
-                                        EdgeInsets.symmetric(horizontal: 12.w),
                                     color: Colors.grey.withOpacity(0.3),
                                   ),
 
-                                  // Large A (increase)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 20),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _fontSizeProgress += 1.0;
-                                          // Clamp value between min and max
-                                          _fontSizeProgress = _fontSizeProgress
-                                              .clamp(15.0, 30.0);
-                                          _fontSize = _fontSizeProgress;
-                                          gs.write(libFontSize, _fontSize);
-                                          updateUI();
-                                          controllerPaging.paginate();
-                                        });
-                                      },
-                                      child: Container(
-                                        width: 40.w,
-                                        height: 40.h,
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          "A",
-                                          style: TextStyle(
+                                  // Large A (increase) - RIGHT SIDE
+                                  Expanded(
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.only(
+                                        topRight: Radius.circular(12.r),
+                                        bottomRight: Radius.circular(12.r),
+                                      ),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.only(
+                                          topRight: Radius.circular(12.r),
+                                          bottomRight: Radius.circular(12.r),
+                                        ),
+                                        splashColor:
+                                            Colors.grey.withOpacity(0.3),
+                                        highlightColor:
+                                            Colors.grey.withOpacity(0.1),
+                                        onTap: () {
+                                          setState(() {
+                                            _fontSizeProgress += 1.0;
+                                            _fontSizeProgress =
+                                                _fontSizeProgress.clamp(
+                                                    15.0, 30.0);
+                                            _fontSize = _fontSizeProgress;
+                                            gs.write(libFontSize, _fontSize);
+                                            updateUI();
+                                            controllerPaging.paginate();
+                                          });
+                                        },
+                                        child: Container(
+                                          height: 40.h,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            "A",
+                                            style: TextStyle(
                                               fontSize: 22.sp,
                                               color: fontColor,
-                                              fontWeight: FontWeight.w600),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-
-                                  // Brightness toggle
                                 ],
                               ),
                             ),
