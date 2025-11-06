@@ -335,6 +335,7 @@
 // }
 import 'dart:developer';
 import 'dart:ui';
+import 'package:cosmos_epub/Helpers/selectable_text_with_addnote.dart';
 import 'package:cosmos_epub/PageFlip/page_flip_widget.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
 import 'package:fading_edge_scrollview/fading_edge_scrollview.dart';
@@ -591,12 +592,18 @@ class _PagingWidgetState extends State<PagingWidget> {
                                 color: widget.style.color),
                           },
                         )
-                      : Text(
-                          text,
-                          textAlign: TextAlign.justify,
+                      :
+                      //  Text(
+                      //     text,
+                      //     textAlign: TextAlign.justify,
+                      // textDirection: pageTextDirection,
+                      // style: widget.style,
+                      // overflow: TextOverflow.visible,
+                      //   ),
+                      SelectableTextWithCustomToolbar(
+                          text: text,
                           textDirection: pageTextDirection,
                           style: widget.style,
-                          overflow: TextOverflow.visible,
                         ),
                 ),
               ),
