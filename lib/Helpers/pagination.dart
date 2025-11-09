@@ -564,8 +564,8 @@ class _PagingWidgetState extends State<PagingWidget> {
       final _scrollController = ScrollController();
       final pageTextDirection = RTLHelper.getTextDirection(text);
 
-      log('pageTextDirection: $pageTextDirection');
-      log('text: $text');
+      // log('pageTextDirection: $pageTextDirection');
+      // log('text: $text');
 
       return InkWell(
         onTap: widget.onTextTap,

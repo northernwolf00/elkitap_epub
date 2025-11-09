@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:selectable/selectable.dart';
 
 class SelectableTextWithCustomToolbar extends StatelessWidget {
   final String text;
@@ -15,93 +15,74 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        textSelectionTheme: TextSelectionThemeData(
-          selectionColor: Colors.amber.withOpacity(0.5),
-          cursorColor: Colors.blue,
-          selectionHandleColor: Colors.blue,
+    return Selectable(
+      selectWordOnLongPress: true,
+      selectWordOnDoubleTap: true,
+      selectionColor: const Color(0xFFB8B3E9).withOpacity(0.5),
+
+      popupMenuItems: [
+        // 🟩 Add Note
+        SelectableMenuItem(
+          title: 'Add Note',
+          isEnabled: (controller) => controller!.isTextSelected,
+          handler: (controller) {
+            final selectedText = controller!.getSelection()!.text!;
+            _handleAddNote(context, selectedText);
+            return true;
+          },
         ),
-      ),
-      child: SelectableText(
-        text,
-        textAlign: TextAlign.justify,
+
+        // 🟦 Share
+        SelectableMenuItem(
+          title: 'Share',
+          isEnabled: (controller) => controller!.isTextSelected,
+          handler: (controller) {
+            final selectedText = controller!.getSelection()!.text!;
+            _handleShare(context, selectedText);
+            return true;
+          },
+        ),
+
+        // 🟣 Copy
+        const SelectableMenuItem(type: SelectableMenuItemType.copy),
+      ],
+
+      child: Directionality(
         textDirection: textDirection,
-        style: style,
-        contextMenuBuilder: (context, editableTextState) {
-          final TextEditingValue value = editableTextState.textEditingValue;
-
-          // Get the selected text
-          final String selectedText = value.selection.textInside(value.text);
-
-          // Don't show menu if no text is selected
-          if (selectedText.isEmpty) {
-            return const SizedBox.shrink();
-          }
-
-          // Create custom button items
-          final List<ContextMenuButtonItem> buttonItems = [
-            // Add Note button
-            ContextMenuButtonItem(
-              label: 'Add Note',
-              onPressed: () {
-                ContextMenuController.removeAny();
-                _handleAddNote(context, selectedText);
-              },
-            ),
-            // Share button
-            ContextMenuButtonItem(
-              label: 'Share',
-              onPressed: () {
-                ContextMenuController.removeAny();
-                _handleShare(context, selectedText);
-              },
-            ),
-            // Copy button
-            ContextMenuButtonItem(
-              label: 'Copy',
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: selectedText));
-                ContextMenuController.removeAny();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Copied to clipboard'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
-          ];
-
-          return AdaptiveTextSelectionToolbar.buttonItems(
-            anchors: editableTextState.contextMenuAnchors,
-            buttonItems: buttonItems,
-          );
-        },
+        child: Text(
+          text,
+          textAlign: TextAlign.justify,
+          style: style,
+        ),
       ),
     );
   }
 
+  // 🧩 Custom SnackBar actions (color-coded)
   void _handleAddNote(BuildContext context, String selectedText) {
-    // TODO: Implement your note-adding logic here
-    // You can save to database, show dialog, etc.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Note added: "${_truncateText(selectedText)}"'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Colors.green,
-      ),
+    _showColoredSnackBar(
+      context,
+      'Note added: "${_truncateText(selectedText)}"',
+      Colors.white,
     );
   }
 
   void _handleShare(BuildContext context, String selectedText) {
-    // TODO: Implement your sharing logic here
-    // You can use share_plus package or other sharing methods
+    _showColoredSnackBar(
+      context,
+      'Sharing: "${_truncateText(selectedText)}"',
+      Colors.white,
+    );
+  }
+
+  void _showColoredSnackBar(BuildContext context, String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Sharing: "${_truncateText(selectedText)}"'),
+        content: Text(message),
         duration: const Duration(seconds: 2),
-        backgroundColor: Colors.blue,
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
