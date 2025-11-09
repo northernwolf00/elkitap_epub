@@ -120,13 +120,13 @@ class ShowEpubState extends State<ShowEpub> {
   int totalBookPages = 0;
   String fullBookText = '';
   Map<int, int> chapterStartPages = {}; // chapterIndex -> startPage
+  List<String> allChapterTexts = [];
 
   bool isCalculatingPages = false;
 
   @override
   void initState() {
     loadThemeSettings();
-
     bookId = widget.bookId;
     epubBook = widget.epubBook;
     // allFonts = GoogleFonts.asMap().cast<String, String>();
@@ -140,6 +140,18 @@ class ShowEpubState extends State<ShowEpub> {
     reLoadChapter(init: true);
 
     super.initState();
+  }
+
+  void onAllChaptersPaginated(Map<int, int> pageCounts) {
+    if (mounted) {
+      setState(() {
+        chapterPageCounts = pageCounts;
+        calculateChapterStartPages();
+        totalBookPages =
+            chapterPageCounts.values.fold(0, (sum, count) => sum + count);
+        controllerPaging.globalTotalPages = totalBookPages;
+      });
+    }
   }
 
   Future<void> calculateFullBookPagination() async {
@@ -185,28 +197,14 @@ class ShowEpubState extends State<ShowEpub> {
 
   // NEW: Calculate chapter start pages using the same logic as PagingWidget
   Future<void> calculateChapterStartPages() async {
-    if (fullBookText.isEmpty) return;
+    if (chapterPageCounts.isEmpty) return;
 
     chapterStartPages.clear();
     int cumulativePageCount = 0;
 
     for (int i = 0; i < epubBook.Chapters!.length; i++) {
       chapterStartPages[i] = cumulativePageCount + 1; // Pages are 1-indexed
-
-      // Get chapter text
-      String content = epubBook.Chapters![i].HtmlContent ?? '';
-      List<EpubChapter>? subChapters = epubBook.Chapters![i].SubChapters;
-      if (subChapters != null && subChapters.isNotEmpty) {
-        for (var subChapter in subChapters) {
-          content += subChapter.HtmlContent ?? '';
-        }
-      }
-
-      String chapterText = parse(content).documentElement?.text ?? '';
-
-      // Estimate page count for this chapter (will be refined by PagingWidget)
-      int estimatedPages = (chapterText.length / 2000).ceil(); // Rough estimate
-      cumulativePageCount += estimatedPages;
+      cumulativePageCount += chapterPageCounts[i] ?? 0;
     }
 
     // Update chapter list with start pages
@@ -312,6 +310,7 @@ class ShowEpubState extends State<ShowEpub> {
 
   Future<void> calculateFullBookText() async {
     StringBuffer fullText = StringBuffer();
+    allChapterTexts.clear();
 
     await Future.wait(epubBook.Chapters!.map((EpubChapter chapter) async {
       String content = chapter.HtmlContent ?? '';
@@ -322,7 +321,7 @@ class ShowEpubState extends State<ShowEpub> {
           content += subChapter.HtmlContent ?? '';
         }
       }
-
+      allChapterTexts.add(content);
       fullText.write(content);
     }));
 
@@ -1008,6 +1007,8 @@ class ShowEpubState extends State<ShowEpub> {
                                         });
                                       },
                                       onPageFlip: (currentPage, totalPages) {
+                                        onPageFlipUpdate(
+                                            currentPage, totalPages);
                                         if (widget.onPageFlip != null) {
                                           widget.onPageFlip!(
                                               currentPage, totalPages);
@@ -1062,6 +1063,9 @@ class ShowEpubState extends State<ShowEpub> {
                                               .chapter,
                                       totalChapters: chaptersList.length,
                                       fullBookText: fullBookText,
+                                      allChapterTexts: allChapterTexts,
+                                      onAllChaptersPaginated:
+                                          onAllChaptersPaginated,
                                     );
                                   }
                               }
@@ -1148,7 +1152,7 @@ class ShowEpubState extends State<ShowEpub> {
                                               children: [
                                                 TextSpan(
                                                   text:
-                                                      '${controllerPaging.currentPage}',
+                                                      '${controllerPaging.globalPage}',
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 20.sp,

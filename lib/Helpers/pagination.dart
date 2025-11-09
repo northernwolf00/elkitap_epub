@@ -366,6 +366,8 @@ class PagingWidget extends StatefulWidget {
   final String fullBookText; // NEW: Full book text for global calculation
   final Function(int)?
       onGlobalPaginationComplete; // NEW: Callback for total pages
+  final List<String> allChapterTexts;
+  final Function(Map<int, int>)? onAllChaptersPaginated;
   final TextStyle style;
   final Function handlerCallback;
   final VoidCallback onTextTap;
@@ -390,6 +392,8 @@ class PagingWidget extends StatefulWidget {
     required this.totalChapters,
     this.fullBookText = '', // NEW
     this.onGlobalPaginationComplete, // NEW
+    this.allChapterTexts = const [],
+    this.onAllChaptersPaginated,
     this.lastWidget,
   });
 
@@ -483,6 +487,44 @@ class _PagingWidgetState extends State<PagingWidget> {
     return pageCount;
   }
 
+  Future<int> _calculatePageCount(String text) async {
+    if (text.isEmpty) return 0;
+
+    final pageSize = _initializedRenderBox.size;
+    final textDirection = RTLHelper.getTextDirection(text);
+    final textSpan = TextSpan(text: text, style: widget.style);
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: textDirection,
+    );
+    textPainter.layout(minWidth: 0, maxWidth: pageSize.width);
+
+    List<LineMetrics> lines = textPainter.computeLineMetrics();
+    double currentPageBottom = pageSize.height;
+    int pageCount = 0;
+    int currentPageStartIndex = 0;
+
+    for (var line in lines) {
+      final top = line.baseline - line.ascent;
+      final bottom = line.baseline + line.descent;
+
+      if (currentPageBottom < bottom) {
+        pageCount++;
+        currentPageStartIndex = textPainter
+            .getPositionForOffset(Offset(line.left, top - 100.h))
+            .offset;
+        currentPageBottom = top + pageSize.height - 150.h;
+      }
+    }
+
+    // Add last page
+    if (currentPageStartIndex < text.length) {
+      pageCount++;
+    }
+
+    return pageCount;
+  }
 
   Future<void> _paginate() async {
     final pageSize = _initializedRenderBox.size;
@@ -498,6 +540,18 @@ class _PagingWidgetState extends State<PagingWidget> {
       // Notify parent widget of total pages
       if (widget.onGlobalPaginationComplete != null) {
         widget.onGlobalPaginationComplete!(_globalTotalPages);
+      }
+    }
+    if (widget.allChapterTexts.isNotEmpty) {
+      final Map<int, int> chapterPageCounts = {};
+      for (int i = 0; i < widget.allChapterTexts.length; i++) {
+        final chapterText =
+            parse(widget.allChapterTexts[i]).documentElement?.text ?? '';
+        final pageCount = await _calculatePageCount(chapterText);
+        chapterPageCounts[i] = pageCount;
+      }
+      if (widget.onAllChaptersPaginated != null) {
+        widget.onAllChaptersPaginated!(chapterPageCounts);
       }
     }
 
@@ -653,7 +707,6 @@ class _PagingWidgetState extends State<PagingWidget> {
 
                         // Calculate approximate global page position
                         // This is approximate since we're paginating chapter by chapter
-                        _handler.globalPage = pageIndex + 1;
 
                         widget.onPageFlip(pageIndex, pages.length);
                         if (_currentPageIndex == pages.length - 1) {
