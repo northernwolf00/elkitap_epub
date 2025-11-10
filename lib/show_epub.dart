@@ -1009,7 +1009,7 @@ class ShowEpubState extends State<ShowEpub> {
                                           showHeader = !showHeader;
                                         });
                                       },
-                                      onPageFlip: (currentPage, totalPages) {
+                                      onPageFlip: (currentPage, totalPages) async {
                                         onPageFlipUpdate(
                                             currentPage, totalPages);
                                         if (widget.onPageFlip != null) {
@@ -1037,7 +1037,16 @@ class ShowEpubState extends State<ShowEpub> {
                                         if (currentPage == 0) {
                                           prevSwipe++;
                                           if (prevSwipe > 1) {
-                                            prevChapter();
+                                            var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+                                            if (currentChapterIndex > 0) {
+                                              var previousChapterIndex = currentChapterIndex - 1;
+                                              var pageCountOfPreviousChapter = chapterPageCounts[previousChapterIndex] ?? 0;
+                                              await bookProgress.setCurrentPageIndex(bookId, pageCountOfPreviousChapter - 1); // Go to last page of previous chapter
+                                              reLoadChapter(index: previousChapterIndex); // Load the previous chapter
+                                            } else {
+                                              // Already at the first chapter, cannot go to previous page/chapter
+                                              // Optionally, show a toast or disable further backward swipe
+                                            }
                                           }
                                         } else {
                                           prevSwipe = 0;
