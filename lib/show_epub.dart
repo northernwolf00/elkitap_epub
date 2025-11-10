@@ -945,6 +945,9 @@ class ShowEpubState extends State<ShowEpub> {
     ScreenUtil.init(context,
         designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
 
+    var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    var chapterStart = chapterStartPages[currentChapterIndex] ?? 1;
+
     return WillPopScope(
         onWillPop: backPress,
         child: Scaffold(
@@ -1152,7 +1155,7 @@ class ShowEpubState extends State<ShowEpub> {
                                               children: [
                                                 TextSpan(
                                                   text:
-                                                      '${controllerPaging.globalPage}',
+                                                      'Chapter: $chapterStart | Page: ${(controllerPaging.globalPage) + 1}',
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 20.sp,
