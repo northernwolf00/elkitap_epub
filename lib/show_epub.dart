@@ -2,11 +2,15 @@ import 'dart:developer';
 
 import 'package:cosmos_epub/Helpers/chapters_bottom_sheet.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
+import 'package:cosmos_epub/Helpers/progress_bar_widget.dart';
 import 'package:cosmos_epub/book_options_menu.dart';
+import 'package:cosmos_epub/widgets/font_settings_modal.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:html/parser.dart';
 import 'package:screen_brightness/screen_brightness.dart';
@@ -149,7 +153,7 @@ class ShowEpubState extends State<ShowEpub> {
         calculateChapterStartPages();
         totalBookPages =
             chapterPageCounts.values.fold(0, (sum, count) => sum + count);
-        controllerPaging.globalTotalPages = totalBookPages;
+        controllerPaging.globalTotalPages.value = totalBookPages;
       });
     }
   }
@@ -226,20 +230,6 @@ class ShowEpubState extends State<ShowEpub> {
   }
 
   getTitleFromXhtml() {
-    ///Listener for slider
-    // controller.addListener(() {
-    //   if (controller.position.userScrollDirection == ScrollDirection.forward &&
-    //       showHeader == false) {
-    //     showHeader = true;
-    //     update();
-    //   } else if (controller.position.userScrollDirection ==
-    //           ScrollDirection.reverse &&
-    //       showHeader) {
-    //     showHeader = false;
-    //     update();
-    //   }
-    // });
-
     if (epubBook.Title != null) {
       bookTitle = epubBook.Title!;
       updateUI();
@@ -304,7 +294,7 @@ class ShowEpubState extends State<ShowEpub> {
           chapterPageCounts.values.fold(0, (sum, count) => sum + count);
 
       // Update global total in handler
-      controllerPaging.globalTotalPages = totalBookPages;
+      controllerPaging.globalTotalPages = totalBookPages as RxInt;
     });
   }
 
@@ -396,13 +386,23 @@ class ShowEpubState extends State<ShowEpub> {
     return true;
   }
 
+  void changeFontSize(double newSize) {
+    setState(() {
+      _fontSizeProgress = newSize;
+      _fontSize = newSize;
+      gs.write(libFontSize, _fontSize);
+      updateUI();
+      controllerPaging.paginate();
+    });
+  }
+
   void onPageFlipUpdate(int localPageIndex, int totalChapterPages) {
     int currentChapterIndex =
         bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
     int chapterStartPage = chapterStartPages[currentChapterIndex] ?? 1;
 
     setState(() {
-      controllerPaging.globalPage = chapterStartPage + localPageIndex;
+      controllerPaging.globalPage.value = chapterStartPage + localPageIndex;
     });
 
     widget.onPageFlip?.call(localPageIndex, totalChapterPages);
@@ -412,7 +412,7 @@ class ShowEpubState extends State<ShowEpub> {
   void onGlobalPaginationComplete(int totalPages) {
     setState(() {
       totalBookPages = totalPages;
-      controllerPaging.globalTotalPages = totalPages;
+      controllerPaging.globalTotalPages.value = totalPages;
     });
   }
 
@@ -427,8 +427,8 @@ class ShowEpubState extends State<ShowEpub> {
             chapters: chaptersList,
             accentColor: widget.accentColor,
             chapterListTitle: widget.chapterListTitle,
-            currentPage: controllerPaging.globalPage,
-            totalPages: controllerPaging.globalTotalPages,
+            currentPage: controllerPaging.globalPage.value,
+            totalPages: controllerPaging.globalTotalPages.value,
           ),
         ) ??
         false;
@@ -445,391 +445,6 @@ class ShowEpubState extends State<ShowEpub> {
     await Future.delayed(const Duration(seconds: 5));
     showBrightnessWidget = false;
     updateUI();
-  }
-
-  updateFontSettings() {
-    return showModalBottomSheet(
-        context: context,
-        elevation: 10,
-        clipBehavior: Clip.antiAlias,
-        backgroundColor: backColor,
-        enableDrag: true,
-        isScrollControlled: true,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20.r),
-                topRight: Radius.circular(20.r))),
-        builder: (context) {
-          return StatefulBuilder(
-              builder: (BuildContext context, setState) => Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Themes & Settings',
-                              style: TextStyle(
-                                fontSize: 20.sp,
-                                fontWeight: FontWeight.bold,
-                                color: fontColor,
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.close, color: fontColor),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 20.h),
-
-                        // Font Size Slider Section
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              width: MediaQuery.of(context).size.width - 120,
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 16.w, vertical: 3.h),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  // Small A (decrease) - LEFT SIDE
-                                  Expanded(
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: Radius.circular(12.r),
-                                        bottomLeft: Radius.circular(12.r),
-                                      ),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(12.r),
-                                          bottomLeft: Radius.circular(12.r),
-                                        ),
-                                        splashColor:
-                                            Colors.grey.withOpacity(0.3),
-                                        highlightColor:
-                                            Colors.grey.withOpacity(0.1),
-                                        onTap: () {
-                                          setState(() {
-                                            _fontSizeProgress -= 1.0;
-                                            _fontSizeProgress =
-                                                _fontSizeProgress.clamp(
-                                                    15.0, 30.0);
-                                            _fontSize = _fontSizeProgress;
-                                            gs.write(libFontSize, _fontSize);
-                                            updateUI();
-                                            controllerPaging.paginate();
-                                          });
-                                        },
-                                        child: Container(
-                                          height: 40.h,
-                                          alignment: Alignment.center,
-                                          child: Text(
-                                            "A",
-                                            style: TextStyle(
-                                              fontSize: 16.sp,
-                                              color: fontColor,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Divider
-                                  Container(
-                                    width: 1,
-                                    height: 30.h,
-                                    color: Colors.grey.withOpacity(0.3),
-                                  ),
-
-                                  // Large A (increase) - RIGHT SIDE
-                                  Expanded(
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      borderRadius: BorderRadius.only(
-                                        topRight: Radius.circular(12.r),
-                                        bottomRight: Radius.circular(12.r),
-                                      ),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(12.r),
-                                          bottomRight: Radius.circular(12.r),
-                                        ),
-                                        splashColor:
-                                            Colors.grey.withOpacity(0.3),
-                                        highlightColor:
-                                            Colors.grey.withOpacity(0.1),
-                                        onTap: () {
-                                          setState(() {
-                                            _fontSizeProgress += 1.0;
-                                            _fontSizeProgress =
-                                                _fontSizeProgress.clamp(
-                                                    15.0, 30.0);
-                                            _fontSize = _fontSizeProgress;
-                                            gs.write(libFontSize, _fontSize);
-                                            updateUI();
-                                            controllerPaging.paginate();
-                                          });
-                                        },
-                                        child: Container(
-                                          height: 40.h,
-                                          alignment: Alignment.center,
-                                          child: Text(
-                                            "A",
-                                            style: TextStyle(
-                                              fontSize: 22.sp,
-                                              color: fontColor,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              width: 60.w,
-                              height: 43.h,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10.r),
-                              ),
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                icon: Icon(
-                                  staticThemeId == 4
-                                      ? Icons.light_mode_outlined
-                                      : Icons.dark_mode_outlined,
-                                  color: fontColor,
-                                  size: 20.sp,
-                                ),
-                                onPressed: () {
-                                  updateTheme(staticThemeId == 4 ? 3 : 4);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        SizedBox(height: 12.h),
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Visibility(
-                            visible: true,
-                            child: Container(
-                              width: double.infinity,
-                              // padding: EdgeInsets.symmetric(
-                              //     horizontal: 20.w, vertical: 12.h),
-                              margin: EdgeInsets.only(
-                                  bottom: 20.h, left: 10.w, right: 10.w),
-                              decoration: BoxDecoration(
-                                color: backColor.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              child: Row(
-                                children: [
-                                  // The '0' symbol on the left
-                                  Padding(
-                                      padding: EdgeInsets.only(
-                                          right: 15.0
-                                              .w), // Adjust padding as needed
-                                      child: Container(
-                                        height: 18,
-                                        width: 18,
-                                        decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: fontColor, width: 2),
-                                            shape: BoxShape.circle),
-                                      )),
-                                  Expanded(
-                                    child: SliderTheme(
-                                      data: SliderThemeData(
-                                        trackHeight:
-                                            24.0, // Significantly increased height for the thick look
-                                        trackShape:
-                                            const RoundedRectSliderTrackShape(), // Default is already good for this shape
-
-                                        // 2. Set colors to match the grey gradient in the image
-                                        activeTrackColor: Colors.grey
-                                            .shade600, // Darker grey for the active (filled) part
-                                        inactiveTrackColor: Colors.grey
-                                            .shade300, // Lighter grey for the inactive part
-
-                                        // 3. Make the thumb (the drag handle) practically invisible
-                                        thumbShape: const RoundSliderThumbShape(
-                                          enabledThumbRadius:
-                                              0.0, // Set radius to 0 to hide it
-                                          disabledThumbRadius: 0.0,
-                                        ),
-                                        overlayShape:
-                                            const RoundSliderOverlayShape(
-                                          overlayRadius:
-                                              0.0, // Also hide the overlay
-                                        ),
-                                        // Ensure the thumb is transparent just in case
-                                        thumbColor: Colors.transparent,
-                                        disabledThumbColor: Colors.transparent,
-
-                                        // ------------------------------------------
-                                      ),
-                                      child: Slider(
-                                        value: brightnessLevel,
-                                        min: 0.0,
-                                        max: 1.0,
-                                        onChangeEnd: (double value) {
-                                          setBrightness(value);
-                                        },
-                                        onChanged: (double value) {
-                                          setState(() {
-                                            brightnessLevel = value;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                  // The sun icon on the right
-                                  Padding(
-                                    padding: EdgeInsets.only(left: 15.0.w),
-                                    child: Icon(
-                                      Icons.wb_sunny_outlined,
-                                      size: 25.sp,
-                                      color: fontColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Slider below
-                        // Row(
-                        //   children: [
-                        //     Icon(Icons.brightness_low,
-                        //         color: Colors.grey, size: 20.sp),
-                        //     Expanded(
-                        //       child: Slider(
-                        //         activeColor: widget.accentColor,
-                        //         inactiveColor: Colors.grey.withOpacity(0.3),
-                        //         value: _fontSizeProgress,
-                        //         min: 15.0,
-                        //         max: 30.0,
-                        //         onChangeEnd: (double value) {
-                        //           _fontSize = value;
-                        //           gs.write(libFontSize, _fontSize);
-                        //           updateUI();
-                        //           controllerPaging.paginate();
-                        //         },
-                        //         onChanged: (double value) {
-                        //           setState(() {
-                        //             _fontSizeProgress = value;
-                        //           });
-                        //         },
-                        //       ),
-                        //     ),
-                        //     Icon(Icons.brightness_high,
-                        //         color: Colors.grey, size: 20.sp),
-                        //   ],
-                        // ),
-
-                        // Theme Cards Grid
-                        GridView.count(
-                          shrinkWrap: true,
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 12.w,
-                          mainAxisSpacing: 12.h,
-                          childAspectRatio: 1.1,
-                          physics: NeverScrollableScrollPhysics(),
-                          children: [
-                            _buildThemeCard(
-                              context: context,
-                              id: 3,
-                              title: 'Bold',
-                              backgroundColor: staticThemeId == 4
-                                  ? Colors.black87
-                                  : Colors.white,
-                              textColor: staticThemeId == 4
-                                  ? Colors.white
-                                  : Colors.black,
-                              isSelected: staticThemeId == 3,
-                              setState: setState,
-                            ),
-                            _buildThemeCard(
-                              context: context,
-                              id: 4,
-                              title: 'Quite',
-                              backgroundColor: Color(0xFF4A4A4C),
-                              textColor: Colors.white,
-                              isSelected: staticThemeId == 4,
-                              setState: setState,
-                            ),
-                            _buildThemeCard(
-                              context: context,
-                              id: 1,
-                              title: 'Paper',
-                              backgroundColor: staticThemeId == 4
-                                  ? Colors.grey
-                                  : Color(0xFFF0ECED),
-                              textColor: Colors.black,
-                              isSelected: staticThemeId == 1,
-                              setState: setState,
-                            ),
-                            _buildThemeCard(
-                              context: context,
-                              id: 2,
-                              title: 'Bold',
-                              backgroundColor: staticThemeId == 4
-                                  ? Colors.black87
-                                  : Colors.white,
-                              textColor: staticThemeId == 4
-                                  ? Colors.white
-                                  : Colors.black,
-                              isSelected: staticThemeId == 2,
-                              setState: setState,
-                            ),
-                            _buildThemeCard(
-                              context: context,
-                              id: 5,
-                              title: 'Calm',
-                              backgroundColor: staticThemeId == 4
-                                  ? const Color.fromARGB(255, 85, 78, 65)
-                                  : Color(0xFFFFF8E7),
-                              textColor: Colors.black,
-                              isSelected: staticThemeId == 5,
-                              setState: setState,
-                            ),
-                            _buildThemeCard(
-                              context: context,
-                              id: 6,
-                              title: 'Focus',
-                              backgroundColor: Color(0xFFFFFCF4),
-                              textColor: Colors.black,
-                              isSelected: staticThemeId == 6,
-                              setState: setState,
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 20.h),
-                      ],
-                    ),
-                  ));
-        });
   }
 
   Widget _buildThemeCard({
@@ -1080,6 +695,7 @@ class ShowEpubState extends State<ShowEpub> {
 
                                         if (lastSwipe > 1) {
                                           nextChapter();
+                                          setState(() {});
                                         }
 
                                         isLastPage = true;
@@ -1134,89 +750,12 @@ class ShowEpubState extends State<ShowEpub> {
                               ),
 
                               // Center - Page progress indicator
-                              Expanded(
-                                child: Padding(
-                                  padding:
-                                      EdgeInsets.symmetric(horizontal: 16.w),
-                                  child: Container(
-                                    height: 40.h,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(100),
-                                      color: const Color(0xFFE8E8E8),
-                                    ),
-                                    child: Stack(
-                                      children: [
-                                        // Progress bar
-                                        LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            final globalTotal = controllerPaging
-                                                .globalTotalPages;
-                                            final globalCurrent =
-                                                controllerPaging.globalPage;
-                                            final progress = globalTotal > 0
-                                                ? (globalCurrent / globalTotal)
-                                                    .clamp(0.0, 1.0)
-                                                : 0.0;
-
-                                            return AnimatedContainer(
-                                              duration: const Duration(
-                                                  milliseconds: 300),
-                                              curve: Curves.easeInOut,
-                                              width: constraints.maxWidth *
-                                                  progress,
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFA8A8A8),
-                                                borderRadius:
-                                                    BorderRadius.circular(100),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        // Page numbers
-                                        Center(
-                                          child: RichText(
-                                            text: TextSpan(
-                                              children: [
-                                                TextSpan(
-                                                  text:
-                                                      '${(controllerPaging.globalPage) + 1}',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 20.sp,
-                                                    color: Colors.black,
-                                                    letterSpacing: -0.5,
-                                                  ),
-                                                ),
-                                                TextSpan(
-                                                  text: ' /',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w400,
-                                                    fontSize: 20.sp,
-                                                    color: Colors.black
-                                                        .withOpacity(0.4),
-                                                    letterSpacing: -0.5,
-                                                  ),
-                                                ),
-                                                TextSpan(
-                                                  text:
-                                                      '${controllerPaging.globalTotalPages}',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w400,
-                                                    fontSize: 20.sp,
-                                                    color: Colors.black
-                                                        .withOpacity(0.4),
-                                                    letterSpacing: -0.5,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              Obx(() => ProgressBarWidget(
+                                    currentPage:
+                                        controllerPaging.globalPage.value + 1,
+                                    totalPages:
+                                        controllerPaging.globalTotalPages.value,
+                                  )),
 
                               // Right - Font Settings button
                               Container(
@@ -1226,7 +765,19 @@ class ShowEpubState extends State<ShowEpub> {
                                     color: Colors.grey.withOpacity(0.2),
                                     shape: BoxShape.circle),
                                 child: IconButton(
-                                  onPressed: updateFontSettings,
+                                  onPressed: () {
+                                    updateFontSettings(
+                                      context: context,
+                                      backColor: backColor,
+                                      fontColor: fontColor,
+                                      brightnessLevel: brightnessLevel,
+                                      staticThemeId: staticThemeId,
+                                      setBrightness: setBrightness,
+                                      updateTheme: updateTheme,
+                                      fontSizeProgress: _fontSize,
+                                      onFontSizeChange: changeFontSize,
+                                    );
+                                  },
                                   icon: Text(
                                     "Aa",
                                     style: TextStyle(
@@ -1298,113 +849,6 @@ class ShowEpubState extends State<ShowEpub> {
                           fontColor: fontColor,
                           backColor: backColor,
                         )
-
-                        // Container(
-                        //   width: 34
-                        //       .w,
-                        //   height: 34
-                        //       .h,
-                        //   decoration: BoxDecoration(
-
-                        //     color: Colors.grey.withOpacity(0.2),
-                        //     shape: BoxShape.circle,
-                        //   ),
-                        //   child: PopupMenuButton<String>(
-
-                        //     icon: Icon(
-                        //       Icons.more_horiz,
-                        //       color: fontColor,
-                        //       size: 16
-                        //           .sp,
-                        //     ),
-
-                        //     color: backColor,
-
-                        //     shape: RoundedRectangleBorder(
-                        //       borderRadius: BorderRadius.circular(12
-                        //           .r),
-                        //     ),
-
-                        //     offset: Offset(0,
-                        //         50.h),
-
-                        //     onSelected: (value) {
-                        //       switch (value) {
-                        //         case 'contents':
-                        //           openTableOfContents();
-                        //           break;
-                        //         case 'settings':
-                        //           updateFontSettings();
-                        //           break;
-                        //         case 'brightness':
-                        //           setState(() {
-                        //             showBrightnessWidget = true;
-                        //           });
-
-                        //           Future.delayed(const Duration(seconds: 7),
-                        //               () {
-                        //             if (mounted) {
-                        //               setState(() {
-                        //                 showBrightnessWidget = false;
-                        //               });
-                        //             }
-                        //           });
-                        //           break;
-                        //       }
-                        //     },
-
-                        //     itemBuilder: (BuildContext context) => [
-
-                        //       PopupMenuItem<String>(
-                        //         value: 'contents',
-                        //         child: Row(
-                        //           children: [
-                        //             Icon(Icons.menu,
-                        //                 color: fontColor, size: 20.sp),
-                        //             SizedBox(width: 12.w),
-                        //             Text(
-                        //               'Table of Contents',
-                        //               style: TextStyle(
-                        //                   color: fontColor, fontSize: 14.sp),
-                        //             ),
-                        //           ],
-                        //         ),
-                        //       ),
-
-                        //       PopupMenuItem<String>(
-                        //         value: 'settings',
-                        //         child: Row(
-                        //           children: [
-                        //             Icon(Icons.text_fields,
-                        //                 color: fontColor, size: 20.sp),
-                        //             SizedBox(width: 12.w),
-                        //             Text(
-                        //               'Font Settings',
-                        //               style: TextStyle(
-                        //                   color: fontColor, fontSize: 14.sp),
-                        //             ),
-                        //           ],
-                        //         ),
-                        //       ),
-
-                        //       PopupMenuItem<String>(
-                        //         value: 'brightness',
-                        //         child: Row(
-                        //           children: [
-                        //             Icon(Icons.brightness_6,
-                        //                 color: fontColor, size: 20.sp),
-                        //             SizedBox(width: 12.w),
-                        //             Text(
-                        //               'Brightness',
-                        //               style: TextStyle(
-                        //                   color: fontColor, fontSize: 14.sp),
-                        //             ),
-                        //           ],
-                        //         ),
-                        //       ),
-                        //     ],
-                        //   ),
-                        // )
                       ],
                     ),
                   ),
@@ -1414,23 +858,4 @@ class ShowEpubState extends State<ShowEpub> {
           ),
         ));
   }
-
-//   openTableOfContents() async {
-//     bool? shouldUpdate = await Navigator.of(context).push(MaterialPageRoute(
-//             builder: (context) => ChaptersList(
-//                   bookId: bookId,
-//                   chapters: chaptersList,
-//                   leadingIcon: null,
-//                   accentColor: widget.accentColor,
-//                   chapterListTitle: widget.chapterListTitle,
-//                 ))) ??
-//         false;
-//     if (shouldUpdate) {
-//       var index = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-//       await bookProgress.setCurrentPageIndex(bookId, 0);
-//       reLoadChapter(index: index);
-//     }
-//   }
 }
-
-// ignore: must_be_immutable
