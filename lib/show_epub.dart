@@ -945,7 +945,8 @@ class ShowEpubState extends State<ShowEpub> {
     ScreenUtil.init(context,
         designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
 
-    var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    var currentChapterIndex =
+        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
     var chapterStart = chapterStartPages[currentChapterIndex] ?? 1;
 
     return WillPopScope(
@@ -1009,7 +1010,8 @@ class ShowEpubState extends State<ShowEpub> {
                                           showHeader = !showHeader;
                                         });
                                       },
-                                      onPageFlip: (currentPage, totalPages) async {
+                                      onPageFlip:
+                                          (currentPage, totalPages) async {
                                         onPageFlipUpdate(
                                             currentPage, totalPages);
                                         if (widget.onPageFlip != null) {
@@ -1037,12 +1039,25 @@ class ShowEpubState extends State<ShowEpub> {
                                         if (currentPage == 0) {
                                           prevSwipe++;
                                           if (prevSwipe > 1) {
-                                            var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+                                            var currentChapterIndex =
+                                                bookProgress
+                                                        .getBookProgress(bookId)
+                                                        .currentChapterIndex ??
+                                                    0;
                                             if (currentChapterIndex > 0) {
-                                              var previousChapterIndex = currentChapterIndex - 1;
-                                              var pageCountOfPreviousChapter = chapterPageCounts[previousChapterIndex] ?? 0;
-                                              await bookProgress.setCurrentPageIndex(bookId, pageCountOfPreviousChapter - 1); // Go to last page of previous chapter
-                                              reLoadChapter(index: previousChapterIndex); // Load the previous chapter
+                                              var previousChapterIndex =
+                                                  currentChapterIndex - 1;
+                                              var pageCountOfPreviousChapter =
+                                                  chapterPageCounts[
+                                                          previousChapterIndex] ??
+                                                      0;
+                                              await bookProgress.setCurrentPageIndex(
+                                                  bookId,
+                                                  pageCountOfPreviousChapter -
+                                                      1); // Go to last page of previous chapter
+                                              reLoadChapter(
+                                                  index:
+                                                      previousChapterIndex); // Load the previous chapter
                                             } else {
                                               // Already at the first chapter, cannot go to previous page/chapter
                                               // Optionally, show a toast or disable further backward swipe
@@ -1164,7 +1179,7 @@ class ShowEpubState extends State<ShowEpub> {
                                               children: [
                                                 TextSpan(
                                                   text:
-                                                      'Chapter: $chapterStart | Page: ${(controllerPaging.globalPage) + 1}',
+                                                      '${(controllerPaging.globalPage) + 1}',
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 20.sp,

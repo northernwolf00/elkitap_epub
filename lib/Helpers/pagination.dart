@@ -348,10 +348,10 @@ import 'package:html/parser.dart';
 /// 📘 Handler class shared with parent widget
 class PagingTextHandler {
   final Function paginate;
-  int currentPage = 0; // local chapter page
-  int totalPages = 0; // local chapter pages
-  int globalPage = 0; // overall book page index
-  int globalTotalPages = 0; // TOTAL pages in full book
+  int currentPage = 0; 
+  int totalPages = 0; 
+  int globalPage = 0; 
+  int globalTotalPages = 0; 
 
   PagingTextHandler({required this.paginate});
 }
