@@ -388,6 +388,7 @@ class PagingWidget extends StatefulWidget {
   final Function(int, int) onPageFlip;
   final Function(int, int) onLastPage;
   final Widget? lastWidget;
+  final String bookId;
 
   const PagingWidget(
     this.textContent,
@@ -409,6 +410,7 @@ class PagingWidget extends StatefulWidget {
     this.allChapterTexts = const [],
     this.onAllChaptersPaginated,
     this.lastWidget,
+    required this.bookId,
   });
 
   @override
@@ -429,7 +431,6 @@ class _PagingWidgetState extends State<PagingWidget> {
 
   // NEW: For global page calculation
   int _globalTotalPages = 0;
- 
 
   @override
   void initState() {
@@ -672,6 +673,7 @@ class _PagingWidgetState extends State<PagingWidget> {
                           text: text,
                           textDirection: pageTextDirection,
                           style: widget.style,
+                          bookId: widget.bookId,
                         ),
                 ),
               ),

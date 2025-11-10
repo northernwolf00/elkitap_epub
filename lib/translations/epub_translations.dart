@@ -1,8 +1,6 @@
 // lib/translations/epub_translations.dart
 
 import 'package:cosmos_epub/cosmos_epub.dart';
-import 'package:get/get.dart';
-
 
 class CosmosEpubLocalization {
   static const _texts = {
@@ -13,12 +11,17 @@ class CosmosEpubLocalization {
       'paper': 'Kagyz',
       'calm': 'Asuda',
       'focus': 'Üns',
-        'page': 'Sahypa',
-    'of': 'dan',
+      'page': 'Sahypa',
+      'of': 'dan',
       'book_description': 'Kitap beýany',
-    'contents': 'Mazmuny',
-    'add_to_shelf': 'Tekjä goş',
-    'save_to_my_books': 'Kitaplaryma goş',
+      'contents': 'Mazmuny',
+      'add_to_shelf': 'Tekjä goş',
+      'save_to_my_books': 'Kitaplaryma goş',
+      'add_note': 'Bellik goş',
+      'share': 'Paýlaş',
+      'note_added': 'Bellik goşuldy',
+      'sharing': 'Paýlaşylýar',
+      'copy': 'Nusga',
     },
     'en': {
       'themes': 'Themes',
@@ -27,12 +30,17 @@ class CosmosEpubLocalization {
       'paper': 'Paper',
       'calm': 'Calm',
       'focus': 'Focus',
-       'page': 'Page',
-    'of': 'of',
-    'book_description': 'Book description',
-    'contents': 'Contents',
-    'add_to_shelf': 'Add to shelf',
-    'save_to_my_books': 'Save to My Books',
+      'page': 'Page',
+      'of': 'of',
+      'book_description': 'Book description',
+      'contents': 'Contents',
+      'add_to_shelf': 'Add to shelf',
+      'save_to_my_books': 'Save to My Books',
+      'add_note': 'Add Note',
+      'share': 'Share',
+      'note_added': 'Note added',
+      'sharing': 'Sharing',
+      'copy': 'Copy',
     },
     'ru': {
       'themes': 'Темы',
@@ -41,12 +49,17 @@ class CosmosEpubLocalization {
       'paper': 'Бумага',
       'calm': 'Спокойный',
       'focus': 'Фокус',
-       'page': 'Страница',
-    'of': 'из',
-    'book_description': 'Описание книги',
-    'contents': 'Содержание',
-    'add_to_shelf': 'Добавить на полку',
-    'save_to_my_books': 'Сохранить в Мои книги',
+      'page': 'Страница',
+      'of': 'из',
+      'book_description': 'Описание книги',
+      'contents': 'Содержание',
+      'add_to_shelf': 'Добавить на полку',
+      'save_to_my_books': 'Сохранить в Мои книги',
+      'add_note': 'Добавить заметку',
+      'share': 'Поделиться',
+      'note_added': 'Заметка добавлена',
+      'sharing': 'Поделиться',
+      'copy': 'Копировать',
     },
   };
 
