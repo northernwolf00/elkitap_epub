@@ -34,7 +34,6 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
   @override
   void didUpdateWidget(covariant BrightnessSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If parent changed brightness, keep the local value in sync.
     if (oldWidget.brightnessLevel != widget.brightnessLevel) {
       _localValue = widget.brightnessLevel;
     }
@@ -68,11 +67,9 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
                 trackHeight: 24.0,
                 activeTrackColor: Colors.grey.shade600,
                 inactiveTrackColor: Colors.grey.shade300,
-                // Give the thumb a non-zero radius so it is draggable,
-                // but keep it visually transparent.
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
-                thumbColor: Colors.transparent, // visually invisible
+                thumbColor: Colors.transparent, 
                 overlayColor: Colors.transparent,
               ),
               child: Slider(
@@ -80,15 +77,15 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
                 min: 0.0,
                 max: 1.0,
                 onChanged: (value) {
-                  // update local state so slider moves immediately
+                 
                   setState(() {
                     _localValue = value;
                   });
-                  // notify parent immediately (so parent can reflect change in UI)
+                
                   widget.onBrightnessChanged(value);
                 },
                 onChangeEnd: (value) {
-                  // parent can perform async brightness setting here
+                  
                   if (widget.onChangeEnd != null) {
                     widget.onChangeEnd!(value);
                   }

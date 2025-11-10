@@ -101,10 +101,6 @@ class ShowEpubState extends State<ShowEpub> {
   String bookTitle = '';
   String chapterTitle = '';
   double brightnessLevel = 0.5;
-
-  // late Map<String, String> allFonts;
-
-  // Initialize with the first font in the list
   late String selectedTextStyle;
 
   bool showHeader = true;
@@ -187,8 +183,6 @@ class ShowEpubState extends State<ShowEpub> {
 
       fullBookText = fullText.toString();
 
-      // This will be called after PagingWidget is initialized
-      // Store chapter texts for later calculation
       if (mounted) {
         setState(() {
           // Trigger update after calculation
@@ -828,22 +822,6 @@ class ShowEpubState extends State<ShowEpub> {
                             padding: EdgeInsets.zero,
                           ),
                         ),
-
-                        // Center - Book title
-                        // Expanded(
-                        //   child: Center(
-                        //     child: Text(
-                        //       bookTitle,
-                        //       style: TextStyle(
-                        //         fontWeight: FontWeight.w500,
-                        //         fontSize: 16.sp,
-                        //         color: fontColor,
-                        //       ),
-                        //       overflow: TextOverflow.ellipsis,
-                        //       maxLines: 1,
-                        //     ),
-                        //   ),
-                        // ),
 
                         BookOptionsMenu(
                           fontColor: fontColor,

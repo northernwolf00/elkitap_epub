@@ -1,5 +1,9 @@
+import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+
+import 'package:cosmos_epub/cosmos_epub.dart';
 
 class ThemeGrid extends StatelessWidget {
   final int staticThemeId;
@@ -13,78 +17,82 @@ class ThemeGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Themes',
-          style: TextStyle(
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
+    // Using Obx to reactively rebuild when language changes
+    return Obx(() {
+      CosmosEpub.currentLocale; // ensures rebuild when locale changes
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            CosmosEpubLocalization.t('themes'),
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
           ),
-        ),
-        SizedBox(height: 12.h),
-        GridView.count(
-          shrinkWrap: true,
-          crossAxisCount: 3,
-          crossAxisSpacing: 16.w,
-          mainAxisSpacing: 16.h,
-          childAspectRatio: 1.0,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            ThemeCard(
-              id: 1,
-              title: 'Bold',
-              isSelected: staticThemeId == 1,
-              backgroundColor: cLightGrayColor,
-              textColor: Colors.black,
-              updateTheme: updateTheme,
-            ),
-            ThemeCard(
-              id: 4,
-              title: 'Quite',
-              isSelected: staticThemeId == 4,
-              backgroundColor: cDarkGrayColor,
-              textColor: Colors.white,
-              updateTheme: updateTheme,
-            ),
-            ThemeCard(
-              id: 3,
-              title: 'Paper',
-              isSelected: staticThemeId == 3,
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
-              updateTheme: updateTheme,
-            ),
-            ThemeCard(
-              id: 2,
-              title: 'Bold',
-              isSelected: staticThemeId == 2,
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
-              updateTheme: updateTheme,
-            ),
-            ThemeCard(
-              id: 5,
-              title: 'Calm',
-              isSelected: staticThemeId == 5,
-              backgroundColor: cCreamColor,
-              textColor: Colors.black,
-              updateTheme: updateTheme,
-            ),
-            ThemeCard(
-              id: 6,
-              title: 'Focus',
-              isSelected: staticThemeId == 6,
-              backgroundColor: cOffWhiteColor,
-              textColor: Colors.black,
-              updateTheme: updateTheme,
-            ),
-          ],
-        ),
-      ],
-    );
+          SizedBox(height: 12.h),
+          GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: 3,
+            crossAxisSpacing: 16.w,
+            mainAxisSpacing: 16.h,
+            childAspectRatio: 1.0,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              ThemeCard(
+                id: 1,
+                title: CosmosEpubLocalization.t('bold'),
+                isSelected: staticThemeId == 1,
+                backgroundColor: cLightGrayColor,
+                textColor: Colors.black,
+                updateTheme: updateTheme,
+              ),
+              ThemeCard(
+                id: 4,
+                title: CosmosEpubLocalization.t('quiet'),
+                isSelected: staticThemeId == 4,
+                backgroundColor: cDarkGrayColor,
+                textColor: Colors.white,
+                updateTheme: updateTheme,
+              ),
+              ThemeCard(
+                id: 3,
+                title: CosmosEpubLocalization.t('paper'),
+                isSelected: staticThemeId == 3,
+                backgroundColor: Colors.white,
+                textColor: Colors.black,
+                updateTheme: updateTheme,
+              ),
+              ThemeCard(
+                id: 2,
+                title: CosmosEpubLocalization.t('bold'),
+                isSelected: staticThemeId == 2,
+                backgroundColor: Colors.white,
+                textColor: Colors.black,
+                updateTheme: updateTheme,
+              ),
+              ThemeCard(
+                id: 5,
+                title: CosmosEpubLocalization.t('calm'),
+                isSelected: staticThemeId == 5,
+                backgroundColor: cCreamColor,
+                textColor: Colors.black,
+                updateTheme: updateTheme,
+              ),
+              ThemeCard(
+                id: 6,
+                title: CosmosEpubLocalization.t('focus'),
+                isSelected: staticThemeId == 6,
+                backgroundColor: cOffWhiteColor,
+                textColor: Colors.black,
+                updateTheme: updateTheme,
+              ),
+            ],
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -148,8 +156,7 @@ class ThemeCard extends StatelessWidget {
   }
 }
 
-// Make sure you have these color constants defined in your project
-// Example:
+// Color constants
 const Color cLightGrayColor = Color(0xFFF5F5F5);
 const Color cDarkGrayColor = Color(0xFF3D3D3D);
 const Color cCreamColor = Color(0xFFFAF4E8);
