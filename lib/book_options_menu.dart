@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -36,42 +36,42 @@ class BookOptionsMenu extends StatelessWidget {
         offset: Offset(0, 50.h),
         onSelected: (value) {
           switch (value) {
-            case 'description':
+            case 'book_description':
               openBookDescription();
               break;
             case 'contents':
               openTableOfContents();
               break;
-            case 'shelf':
+            case 'add_to_shelf':
               addToShelf();
               break;
-            case 'save':
+            case 'save_to_my_books':
               saveToMyBooks();
               break;
           }
         },
         itemBuilder: (BuildContext context) => [
           _buildMenuItem(
-            label: 'Book description',
-            // icon: Icons.book,
+            label: CosmosEpubLocalization.t('book_description'),
+            value: 'book_description',
             fontColor: fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
-            label: 'Contents',
-            // icon: CupertinoIcons.list_bullet,
+            label: CosmosEpubLocalization.t('contents'),
+            value: 'contents',
             fontColor: fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
-            label: 'Add to shelf',
-            // icon: CupertinoIcons.add_circled,
+            label: CosmosEpubLocalization.t('add_to_shelf'),
+            value: 'add_to_shelf',
             fontColor: fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
-            label: 'Save to My Books',
-            // icon: CupertinoIcons.square_arrow_down,
+            label: CosmosEpubLocalization.t('save_to_my_books'),
+            value: 'save_to_my_books',
             fontColor: fontColor,
             showDivider: false,
           ),
@@ -80,15 +80,15 @@ class BookOptionsMenu extends StatelessWidget {
     );
   }
 
-  /// Custom reusable menu item with optional divider
+  /// Custom reusable menu item
   PopupMenuEntry<String> _buildMenuItem({
     required String label,
-    // required IconData icon,
+    required String value,
     required Color fontColor,
     bool showDivider = false,
   }) {
     return PopupMenuItem<String>(
-      value: label.toLowerCase().replaceAll(' ', '_'),
+      value: value,
       child: Column(
         children: [
           Padding(
@@ -106,21 +106,14 @@ class BookOptionsMenu extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Icon(
-                //   icon,
-                //   color: fontColor,
-                //   size: 20.sp,
-                // ),
               ],
             ),
           ),
-          if (showDivider) ...[
-            SizedBox(height: 10.h),
+          if (showDivider)
             Container(
               height: 0.7,
               color: fontColor.withOpacity(0.2),
             ),
-          ],
         ],
       ),
     );

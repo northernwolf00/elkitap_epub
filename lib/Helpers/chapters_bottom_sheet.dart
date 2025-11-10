@@ -1,6 +1,7 @@
 import 'package:cosmos_epub/Helpers/functions.dart';
 import 'package:cosmos_epub/Model/chapter_model.dart';
 import 'package:cosmos_epub/show_epub.dart';
+import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -95,14 +96,14 @@ class ChaptersBottomSheet extends StatelessWidget {
                                   Row(
                                     children: [
                                       Text(
-                                        'Page ',
+                                        '${CosmosEpubLocalization.t('page')} ',
                                         style: TextStyle(
                                           color: Colors.black.withOpacity(0.6),
                                           fontSize: 13.sp,
                                         ),
                                       ),
                                       Text(
-                                        '$currentPage of $totalPages',
+                                        '${currentPage + 1} ${CosmosEpubLocalization.t('of')} $totalPages',
                                         style: TextStyle(
                                           color: Colors.black,
                                           fontSize: 13.sp,

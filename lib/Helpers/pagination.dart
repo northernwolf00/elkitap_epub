@@ -333,8 +333,7 @@
 //         });
 //   }
 // }
-import 'dart:developer';
-import 'dart:ui';
+
 import 'package:cosmos_epub/Helpers/selectable_text_with_addnote.dart';
 import 'package:cosmos_epub/PageFlip/page_flip_widget.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
@@ -343,17 +342,32 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html_reborn/flutter_html_reborn.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:html/parser.dart';
 
 /// 📘 Handler class shared with parent widget
-class PagingTextHandler {
+class PagingTextHandler extends GetxController {
   final Function paginate;
-  int currentPage = 0; 
-  int totalPages = 0; 
-  int globalPage = 0; 
-  int globalTotalPages = 0; 
+  final _box = GetStorage();
 
-  PagingTextHandler({required this.paginate});
+  late final RxInt currentPage;
+  late final RxInt totalPages;
+  late final RxInt globalPage;
+  late final RxInt globalTotalPages;
+
+  PagingTextHandler({required this.paginate}) {
+    currentPage = (_box.read<int>('currentPage') ?? 0).obs;
+    totalPages = (_box.read<int>('totalPages') ?? 0).obs;
+    globalPage = (_box.read<int>('globalPage') ?? 0).obs;
+    globalTotalPages = (_box.read<int>('globalTotalPages') ?? 0).obs;
+
+    ever(currentPage, (_) => _box.write('currentPage', currentPage.value));
+    ever(totalPages, (_) => _box.write('totalPages', totalPages.value));
+    ever(globalPage, (_) => _box.write('globalPage', globalPage.value));
+    ever(globalTotalPages,
+        (_) => _box.write('globalTotalPages', globalTotalPages.value));
+  }
 }
 
 /// 📘 Main Pagination Widget
@@ -535,7 +549,7 @@ class _PagingWidgetState extends State<PagingWidget> {
       String fullBookTextParsed =
           parse(widget.fullBookText).documentElement?.text ?? '';
       _globalTotalPages = await _calculateGlobalPageCount(fullBookTextParsed);
-      _handler.globalTotalPages = _globalTotalPages;
+      _handler.globalTotalPages.value = _globalTotalPages;
 
       // Notify parent widget of total pages
       if (widget.onGlobalPaginationComplete != null) {
@@ -668,7 +682,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     }).toList();
 
     pages = await Future.wait(futures);
-    _handler.totalPages = pages.length;
+    _handler.totalPages.value = pages.length;
   }
 
   @override
@@ -702,8 +716,8 @@ class _PagingWidgetState extends State<PagingWidget> {
                           : widget.starterPageIndex,
                       onPageFlip: (pageIndex) {
                         _currentPageIndex = pageIndex;
-                        _handler.currentPage = pageIndex + 1;
-                        _handler.totalPages = pages.length;
+                        _handler.currentPage.value = pageIndex + 1;
+                        _handler.totalPages.value = pages.length;
 
                         // Calculate approximate global page position
                         // This is approximate since we're paginating chapter by chapter

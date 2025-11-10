@@ -25,6 +25,7 @@ dependencies:
   fading_edge_scrollview: ^4.1.1
   path_provider: ^2.1.3
   selectable: ^0.3.1
+  get: ^4.7.2
 
   #Experiment
   #hyphenatorx: ^1.5.11
