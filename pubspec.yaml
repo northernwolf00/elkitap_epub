@@ -48,6 +48,13 @@ flutter:
 
   fonts:
     #book fonts
+    - family: NewYork
+      fonts:
+        - asset: assets/fonts/NewYork.ttf 
+
+    - family: SFPro
+      fonts:
+        - asset: assets/fonts/SF-Pro.ttf
     - family: Alegreya
       fonts:
         - asset: assets/fonts/Alegreya.ttf
