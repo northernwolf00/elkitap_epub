@@ -31,9 +31,16 @@ class CosmosEpub {
   // Getter for current locale
   static Locale get currentLocale => _locale.value;
 
+  static Future<void> Function(String bookId, String text)? _onAddNoteHandler;
+
   // Method to update locale
   static void updateLocale(Locale locale) {
     _locale.value = locale;
+  }
+
+  static void registerAddNoteHandler(
+      Future<void> Function(String bookId, String text) handler) {
+    _onAddNoteHandler = handler;
   }
 
   static Future<void> openLocalBook(
@@ -188,6 +195,43 @@ class CosmosEpub {
     });
   }
 
+// Inside CosmosEpub class
+  static Future<void> addNote({
+    required String bookId,
+    required String selectedText,
+    BuildContext? context,
+  }) async {
+    _checkInitialization();
+
+    if (_onAddNoteHandler != null) {
+      // ✅ Use the registered custom handler
+      await _onAddNoteHandler!(bookId, selectedText);
+    } else {
+      // ⚙️ Default fallback if no handler is registered
+      debugPrint('Note added for $bookId: $selectedText');
+
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Note added: "${_truncate(selectedText)}"'),
+            backgroundColor: Colors.indigoAccent,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  static String _truncate(String text, [int maxLength = 50]) {
+    return text.length <= maxLength
+        ? text
+        : '${text.substring(0, maxLength)}...';
+  }
+
   static Future<bool> initialize() async {
     await ScreenUtil.ensureScreenSize();
     await GetStorage.init();
@@ -195,7 +239,7 @@ class CosmosEpub {
     bookProgress = BookProgressSingleton(isar: isar);
 
     // Initialize with app's current locale
-    _locale.value = Get.locale ?? Locale('en', 'US');
+    _locale.value = Get.locale ?? Locale('tr', 'TR');
 
     _initialized = true;
     return true;

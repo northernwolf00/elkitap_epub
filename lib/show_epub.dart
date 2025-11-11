@@ -703,6 +703,7 @@ class ShowEpubState extends State<ShowEpub> {
                                       allChapterTexts: allChapterTexts,
                                       onAllChaptersPaginated:
                                           onAllChaptersPaginated,
+                                          bookId: bookId,
                                     );
                                   }
                               }

@@ -57,12 +57,12 @@ class BookOptionsMenu extends StatelessWidget {
             fontColor: fontColor,
             showDivider: true,
           ),
-          _buildMenuItem(
-            label: CosmosEpubLocalization.t('contents'),
-            value: 'contents',
-            fontColor: fontColor,
-            showDivider: true,
-          ),
+          // _buildMenuItem(
+          //   label: CosmosEpubLocalization.t('contents'),
+          //   value: 'contents',
+          //   fontColor: fontColor,
+          //   showDivider: true,
+          // ),
           _buildMenuItem(
             label: CosmosEpubLocalization.t('add_to_shelf'),
             value: 'add_to_shelf',
@@ -120,15 +120,15 @@ class BookOptionsMenu extends StatelessWidget {
   }
 
   void openBookDescription() {
-    // TODO: Implement book description action
+   
   }
 
   void openTableOfContents() {
-    // TODO: Implement table of contents action
+   
   }
 
   void addToShelf() {
-    // TODO: Implement add to shelf action
+    
   }
 
   void saveToMyBooks() {

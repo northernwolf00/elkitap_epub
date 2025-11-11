@@ -1,8 +1,7 @@
+import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
 import 'package:screen_brightness/screen_brightness.dart';
-import 'package:cosmos_epub/cosmos_epub.dart'; // make sure to import your library
 import 'font_size_controls.dart';
 import 'brightness_slider.dart';
 import 'theme_grid.dart';
@@ -32,91 +31,73 @@ Future updateFontSettings({
       ),
     ),
     builder: (context) {
-      // Localized text map
-      const Map<String, Map<String, String>> localizedTexts = {
-        'tr': {'themes_settings': 'Tema sazlamalary'},
-        'en': {'themes_settings': 'Theme Settings'},
-        'ru': {'themes_settings': 'Настройки темы'},
-      };
-
-      // Helper function to get text based on CosmosEpub.locale
-      String getText(String key) {
-        final lang = CosmosEpub.currentLocale.languageCode;
-        return localizedTexts[lang]?[key] ?? key;
-      }
-
-      return Obx(() {
-        // Rebuild when locale changes
-        final locale = CosmosEpub.localeStream.value;
-
-        return StatefulBuilder(
-          builder: (BuildContext context, setState) {
-            return Container(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        getText('themes_settings'),
-                        style: TextStyle(
-                          fontSize: 20.sp,
-                          fontWeight: FontWeight.bold,
-                          color: fontColor,
-                        ),
+      return StatefulBuilder(
+        builder: (BuildContext context, setState) {
+          return Container(
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      CosmosEpubLocalization.t('themes'),
+                      style: TextStyle(
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold,
+                        color: fontColor,
                       ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: fontColor),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20.h),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: fontColor),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20.h),
 
-                  // Font Size Controls
-                  FontSizeControls(
-                    fontColor: fontColor,
-                    fontSizeProgress: fontSizeProgress,
-                    onFontSizeChange: (val) {
-                      setState(() => onFontSizeChange(val));
-                    },
-                    staticThemeId: staticThemeId,
-                    updateTheme: updateTheme,
-                  ),
+                // Font Size Controls
+                FontSizeControls(
+                  fontColor: fontColor,
+                  fontSizeProgress: fontSizeProgress,
+                  onFontSizeChange: (val) {
+                    setState(() => onFontSizeChange(val));
+                  },
+                  staticThemeId: staticThemeId,
+                  updateTheme: updateTheme,
+                ),
 
-                  SizedBox(height: 12.h),
+                SizedBox(height: 12.h),
 
-                  // Brightness slider
-                  BrightnessSlider(
-                    fontColor: fontColor,
-                    backColor: backColor,
-                    brightnessLevel: brightnessLevel,
-                    onBrightnessChanged: (value) {
-                      setState(() {
-                        brightnessLevel = value;
-                      });
-                    },
-                    onChangeEnd: (value) async {
-                      await ScreenBrightness().setScreenBrightness(value);
-                    },
-                  ),
+                // Brightness slider
+                BrightnessSlider(
+                  fontColor: fontColor,
+                  backColor: backColor,
+                  brightnessLevel: brightnessLevel,
+                  onBrightnessChanged: (value) {
+                    setState(() {
+                      brightnessLevel = value;
+                    });
+                  },
+                  onChangeEnd: (value) async {
+                    await ScreenBrightness().setScreenBrightness(value);
+                  },
+                ),
 
-                  SizedBox(height: 20.h),
+                SizedBox(height: 20.h),
 
-                  ThemeGrid(
-                    staticThemeId: staticThemeId,
-                    updateTheme: updateTheme,
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      });
+                ThemeGrid(
+                  staticThemeId: staticThemeId,
+                  updateTheme: updateTheme,
+                ),
+              ],
+            ),
+          );
+        },
+      );
     },
   );
 }
