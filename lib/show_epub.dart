@@ -116,10 +116,10 @@ class ShowEpubState extends State<ShowEpub> {
   PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {});
 
   Map<int, int> chapterPageCounts = {}; // chapterIndex -> pageCount
-  int previousChaptersPagesCount = 0; // Pages from chapters before current
+  int previousChaptersPagesCount = 0; 
   int totalBookPages = 0;
   String fullBookText = '';
-  Map<int, int> chapterStartPages = {}; // chapterIndex -> startPage
+  Map<int, int> chapterStartPages = {}; 
   List<String> allChapterTexts = [];
 
   bool isCalculatingPages = false;
@@ -436,7 +436,7 @@ class ShowEpubState extends State<ShowEpub> {
 
   void setBrightness(double brightness) async {
     await ScreenBrightness().setScreenBrightness(brightness);
-    await Future.delayed(const Duration(seconds: 5));
+    await Future.delayed(const Duration(seconds: 2));
     showBrightnessWidget = false;
     updateUI();
   }

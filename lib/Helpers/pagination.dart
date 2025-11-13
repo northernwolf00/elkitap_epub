@@ -347,6 +347,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:html/parser.dart';
 
 /// 📘 Handler class shared with parent widget
+
 class PagingTextHandler extends GetxController {
   final Function paginate;
   final _box = GetStorage();
@@ -377,9 +378,8 @@ class PagingWidget extends StatefulWidget {
   final String chapterTitle;
   final int totalChapters;
   final int starterPageIndex;
-  final String fullBookText; // NEW: Full book text for global calculation
-  final Function(int)?
-      onGlobalPaginationComplete; // NEW: Callback for total pages
+  final String fullBookText;
+  final Function(int)? onGlobalPaginationComplete;
   final List<String> allChapterTexts;
   final Function(Map<int, int>)? onAllChaptersPaginated;
   final TextStyle style;
@@ -389,6 +389,7 @@ class PagingWidget extends StatefulWidget {
   final Function(int, int) onLastPage;
   final Widget? lastWidget;
   final String bookId;
+  final double pageHeightReduction; // NEW: Adjustable page height
 
   const PagingWidget(
     this.textContent,
@@ -405,12 +406,13 @@ class PagingWidget extends StatefulWidget {
     this.starterPageIndex = 0,
     required this.chapterTitle,
     required this.totalChapters,
-    this.fullBookText = '', // NEW
-    this.onGlobalPaginationComplete, // NEW
+    this.fullBookText = '',
+    this.onGlobalPaginationComplete,
     this.allChapterTexts = const [],
     this.onAllChaptersPaginated,
     this.lastWidget,
     required this.bookId,
+    this.pageHeightReduction = 320, // Default: less text per page
   });
 
   @override
@@ -429,7 +431,6 @@ class _PagingWidgetState extends State<PagingWidget> {
 
   late PagingTextHandler _handler;
 
-  // NEW: For global page calculation
   int _globalTotalPages = 0;
 
   @override
@@ -477,7 +478,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     textPainter.layout(minWidth: 0, maxWidth: pageSize.width);
 
     List<LineMetrics> lines = textPainter.computeLineMetrics();
-    double currentPageBottom = pageSize.height;
+    double currentPageBottom =
+        pageSize.height - 150.h; // Reduced initial height
     int pageCount = 0;
     int currentPageStartIndex = 0;
 
@@ -488,9 +490,11 @@ class _PagingWidgetState extends State<PagingWidget> {
       if (currentPageBottom < bottom) {
         pageCount++;
         currentPageStartIndex = textPainter
-            .getPositionForOffset(Offset(line.left, top - 100.h))
+            .getPositionForOffset(Offset(line.left, top - 150.h))
             .offset;
-        currentPageBottom = top + pageSize.height - 150.h;
+        currentPageBottom = top +
+            pageSize.height -
+            widget.pageHeightReduction.h; // Use configurable value
       }
     }
 
@@ -516,7 +520,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     textPainter.layout(minWidth: 0, maxWidth: pageSize.width);
 
     List<LineMetrics> lines = textPainter.computeLineMetrics();
-    double currentPageBottom = pageSize.height;
+    double currentPageBottom =
+        pageSize.height - 150.h; // Reduced initial height
     int pageCount = 0;
     int currentPageStartIndex = 0;
 
@@ -527,9 +532,11 @@ class _PagingWidgetState extends State<PagingWidget> {
       if (currentPageBottom < bottom) {
         pageCount++;
         currentPageStartIndex = textPainter
-            .getPositionForOffset(Offset(line.left, top - 100.h))
+            .getPositionForOffset(Offset(line.left, top - 150.h))
             .offset;
-        currentPageBottom = top + pageSize.height - 150.h;
+        currentPageBottom = top +
+            pageSize.height -
+            widget.pageHeightReduction.h; // Use configurable value
       }
     }
 
@@ -557,6 +564,7 @@ class _PagingWidgetState extends State<PagingWidget> {
         widget.onGlobalPaginationComplete!(_globalTotalPages);
       }
     }
+
     if (widget.allChapterTexts.isNotEmpty) {
       final Map<int, int> chapterPageCounts = {};
       for (int i = 0; i < widget.allChapterTexts.length; i++) {
@@ -586,7 +594,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     );
 
     List<LineMetrics> lines = textPainter.computeLineMetrics();
-    double currentPageBottom = pageSize.height;
+    double currentPageBottom =
+        pageSize.height - 150.h; // Reduced initial height
     int currentPageStartIndex = 0;
     int currentPageEndIndex = 0;
 
@@ -600,7 +609,7 @@ class _PagingWidgetState extends State<PagingWidget> {
       if (currentPageBottom < bottom) {
         currentPageEndIndex = textPainter
             .getPositionForOffset(
-                Offset(left, top - (innerHtml != null ? 0 : 100.h)))
+                Offset(left, top - (innerHtml != null ? 0 : 150.h)))
             .offset;
 
         var pageText = widget.textContent
@@ -620,8 +629,9 @@ class _PagingWidgetState extends State<PagingWidget> {
 
         _pageTexts.add(pageText);
         currentPageStartIndex = currentPageEndIndex;
-        currentPageBottom =
-            top + pageSize.height - (innerHtml != null ? 120.h : 150.h);
+        currentPageBottom = top +
+            pageSize.height -
+            widget.pageHeightReduction.h; // Use configurable value
       }
     }));
 
@@ -633,48 +643,42 @@ class _PagingWidgetState extends State<PagingWidget> {
       final _scrollController = ScrollController();
       final pageTextDirection = RTLHelper.getTextDirection(text);
 
-      // log('pageTextDirection: $pageTextDirection');
-      // log('text: $text');
-
-      return InkWell(
-        onTap: widget.onTextTap,
-        child: Container(
-          color: widget.style.backgroundColor,
-          child: FadingEdgeScrollView.fromSingleChildScrollView(
-            gradientFractionOnEnd: 0,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: EdgeInsets.only(
-                    bottom: 10.h, top: 10.h, left: 10.w, right: 10.w),
-                child: Directionality(
-                  textDirection: pageTextDirection,
-                  child: widget.innerHtmlContent != null
-                      ? Html(
-                          data: text,
-                          style: {
-                            "*": Style(
-                                textAlign: TextAlign.justify,
-                                fontSize: FontSize(widget.style.fontSize ?? 0),
-                                fontFamily: widget.style.fontFamily,
-                                color: widget.style.color),
-                          },
-                        )
-                      :
-                      //  Text(
-                      //     text,
-                      //     textAlign: TextAlign.justify,
-                      // textDirection: pageTextDirection,
-                      // style: widget.style,
-                      // overflow: TextOverflow.visible,
-                      //   ),
-                      SelectableTextWithCustomToolbar(
-                          text: text,
-                          textDirection: pageTextDirection,
-                          style: widget.style,
-                          bookId: widget.bookId,
-                        ),
+      return SizedBox(
+        height: MediaQuery.of(context).size.height - 50,
+        child: InkWell(
+          onTap: widget.onTextTap,
+          child: Container(
+            color: widget.style.backgroundColor,
+            child: FadingEdgeScrollView.fromSingleChildScrollView(
+              gradientFractionOnEnd: 0,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics:
+                    const NeverScrollableScrollPhysics(), 
+                child: Padding(
+                  padding: EdgeInsets.only(
+                      bottom: 10.h, top: 20.h, left: 10.w, right: 10.w),
+                  child: Directionality(
+                    textDirection: pageTextDirection,
+                    child: widget.innerHtmlContent != null
+                        ? Html(
+                            data: text,
+                            style: {
+                              "*": Style(
+                                  textAlign: TextAlign.justify,
+                                  fontSize:
+                                      FontSize(widget.style.fontSize ?? 0),
+                                  fontFamily: widget.style.fontFamily,
+                                  color: widget.style.color),
+                            },
+                          )
+                        : SelectableTextWithCustomToolbar(
+                            text: text,
+                            textDirection: pageTextDirection,
+                            style: widget.style,
+                            bookId: widget.bookId,
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -720,9 +724,6 @@ class _PagingWidgetState extends State<PagingWidget> {
                         _currentPageIndex = pageIndex;
                         _handler.currentPage.value = pageIndex + 1;
                         _handler.totalPages.value = pages.length;
-
-                        // Calculate approximate global page position
-                        // This is approximate since we're paginating chapter by chapter
 
                         widget.onPageFlip(pageIndex, pages.length);
                         if (_currentPageIndex == pages.length - 1) {
