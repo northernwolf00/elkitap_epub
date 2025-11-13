@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 
 import 'package:cosmos_epub/cosmos_epub.dart';
 
-class ThemeGrid extends StatelessWidget {
+class ThemeGrid extends StatefulWidget {
   final int staticThemeId;
   final Function(int) updateTheme;
 
@@ -16,85 +16,124 @@ class ThemeGrid extends StatelessWidget {
   });
 
   @override
+  State<ThemeGrid> createState() => _ThemeGridState();
+}
+
+class _ThemeGridState extends State<ThemeGrid> {
+  bool _isLoading = false;
+
+  @override
   Widget build(BuildContext context) {
     // Using Obx to reactively rebuild when language changes
     return Obx(() {
       CosmosEpub.currentLocale; // ensures rebuild when locale changes
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      return Stack(
         children: [
-          Text(
-            CosmosEpubLocalization.t('themes'),
-            style: TextStyle(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(height: 12.h),
-          GridView.count(
-            shrinkWrap: true,
-            crossAxisCount: 3,
-            crossAxisSpacing: 16.w,
-            mainAxisSpacing: 16.h,
-            childAspectRatio: 1.0,
-            physics: const NeverScrollableScrollPhysics(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ThemeCard(
-                id: 1,
-                title: CosmosEpubLocalization.t('bold'),
-                isSelected: staticThemeId == 1,
-                backgroundColor: cLightGrayColor,
-                textColor: Colors.black,
-                updateTheme: updateTheme,
+              Text(
+                CosmosEpubLocalization.t('themes'),
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
-              ThemeCard(
-                id: 4,
-                title: CosmosEpubLocalization.t('quiet'),
-                isSelected: staticThemeId == 4,
-                backgroundColor: cDarkGrayColor,
-                textColor: Colors.white,
-                updateTheme: updateTheme,
-              ),
-              ThemeCard(
-                id: 3,
-                title: CosmosEpubLocalization.t('paper'),
-                isSelected: staticThemeId == 3,
-                backgroundColor: Colors.white,
-                textColor: Colors.black,
-                updateTheme: updateTheme,
-              ),
-              ThemeCard(
-                id: 2,
-                title: CosmosEpubLocalization.t('bold'),
-                isSelected: staticThemeId == 2,
-                backgroundColor: Colors.white,
-                textColor: Colors.black,
-                updateTheme: updateTheme,
-              ),
-              ThemeCard(
-                id: 5,
-                title: CosmosEpubLocalization.t('calm'),
-                isSelected: staticThemeId == 5,
-                backgroundColor: cCreamColor,
-                textColor: Colors.black,
-                updateTheme: updateTheme,
-              ),
-              ThemeCard(
-                id: 6,
-                title: CosmosEpubLocalization.t('focus'),
-                isSelected: staticThemeId == 6,
-                backgroundColor: cOffWhiteColor,
-                textColor: Colors.black,
-                updateTheme: updateTheme,
+              SizedBox(height: 12.h),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 3,
+                crossAxisSpacing: 16.w,
+                mainAxisSpacing: 16.h,
+                childAspectRatio: 1.0,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  ThemeCard(
+                    id: 1,
+                    title: 'Bold',
+                    isSelected: widget.staticThemeId == 1,
+                    backgroundColor: cLightGrayColor,
+                    textColor: Colors.black,
+                    updateTheme: _handleThemeChange,
+                  ),
+                  ThemeCard(
+                    id: 4,
+                    title: 'Quiet',
+                    isSelected: widget.staticThemeId == 4,
+                    backgroundColor: cDarkGrayColor,
+                    textColor: Colors.white,
+                    updateTheme: _handleThemeChange,
+                  ),
+                  ThemeCard(
+                    id: 3,
+                    title: 'Paper',
+                    isSelected: widget.staticThemeId == 3,
+                    backgroundColor: Colors.white,
+                    textColor: Colors.black,
+                    updateTheme: _handleThemeChange,
+                  ),
+                  ThemeCard(
+                    id: 2,
+                    title: 'Bold',
+                    isSelected: widget.staticThemeId == 2,
+                    backgroundColor: Colors.white,
+                    textColor: Colors.black,
+                    updateTheme: _handleThemeChange,
+                  ),
+                  ThemeCard(
+                    id: 5,
+                    title: 'Calm',
+                    isSelected: widget.staticThemeId == 5,
+                    backgroundColor: cCreamColor,
+                    textColor: Colors.black,
+                    updateTheme: _handleThemeChange,
+                  ),
+                  ThemeCard(
+                    id: 6,
+                    title: 'Focus',
+                    isSelected: widget.staticThemeId == 6,
+                    backgroundColor: cOffWhiteColor,
+                    textColor: Colors.black,
+                    updateTheme: _handleThemeChange,
+                  ),
+                ],
               ),
             ],
           ),
+          if (_isLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ),
+            ),
         ],
       );
     });
   }
+
+  Future<void> _handleThemeChange(int id) async {
+    if (_isLoading) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    await widget.updateTheme(id);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 }
+
 
 class ThemeCard extends StatelessWidget {
   final int id;
@@ -117,7 +156,26 @@ class ThemeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => updateTheme(id),
+      onTap: () async {
+        // Show loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          },
+        );
+
+        // Update theme
+        await updateTheme(id);
+
+        // Close loading dialog if still mounted
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
       child: Container(
         decoration: BoxDecoration(
           color: backgroundColor,
