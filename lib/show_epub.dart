@@ -118,10 +118,10 @@ class ShowEpubState extends State<ShowEpub> {
   PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {});
 
   Map<int, int> chapterPageCounts = {}; // chapterIndex -> pageCount
-  int previousChaptersPagesCount = 0; 
+  int previousChaptersPagesCount = 0;
   int totalBookPages = 0;
   String fullBookText = '';
-  Map<int, int> chapterStartPages = {}; 
+  Map<int, int> chapterStartPages = {};
   List<String> allChapterTexts = [];
 
   bool isCalculatingPages = false;
@@ -612,6 +612,7 @@ class ShowEpubState extends State<ShowEpub> {
                                           backgroundColor: backColor,
                                           fontSize: _fontSize.sp,
                                           fontFamily: selectedTextStyle,
+                                          fontWeight: FontWeight.w400,
                                           package: 'cosmos_epub',
                                           color: fontColor),
                                       handlerCallback: (ctrl) {
@@ -706,7 +707,7 @@ class ShowEpubState extends State<ShowEpub> {
                                       allChapterTexts: allChapterTexts,
                                       onAllChaptersPaginated:
                                           onAllChaptersPaginated,
-                                          bookId: bookId,
+                                      bookId: bookId,
                                     );
                                   }
                               }
