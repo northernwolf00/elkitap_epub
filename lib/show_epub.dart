@@ -62,6 +62,7 @@ class ShowEpub extends StatefulWidget {
   EpubBook epubBook;
   bool shouldOpenDrawer;
   int starterChapter;
+  final String imageUrl;
   final String bookId;
   final String chapterListTitle;
   final Function(int currentPage, int totalPages)? onPageFlip;
@@ -72,6 +73,7 @@ class ShowEpub extends StatefulWidget {
     super.key,
     required this.epubBook,
     required this.accentColor,
+    required this.imageUrl,
     this.starterChapter = 0,
     this.shouldOpenDrawer = false,
     required this.bookId,
@@ -92,7 +94,7 @@ class ShowEpubState extends State<ShowEpub> {
   final controller = ScrollController();
   Future<void> loadChapterFuture = Future.value(true);
   List<LocalChapterModel> chaptersList = [];
-  double _fontSizeProgress = 17.0;
+  double fontSizeProgress = 17.0;
   double _fontSize = 17.0;
   TextDirection currentTextDirection = TextDirection.ltr;
 
@@ -116,10 +118,10 @@ class ShowEpubState extends State<ShowEpub> {
   PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {});
 
   Map<int, int> chapterPageCounts = {}; // chapterIndex -> pageCount
-  int previousChaptersPagesCount = 0; 
+  int previousChaptersPagesCount = 0;
   int totalBookPages = 0;
   String fullBookText = '';
-  Map<int, int> chapterStartPages = {}; 
+  Map<int, int> chapterStartPages = {};
   List<String> allChapterTexts = [];
 
   bool isCalculatingPages = false;
@@ -220,7 +222,7 @@ class ShowEpubState extends State<ShowEpub> {
     var themeId = gs.read(libTheme) ?? staticThemeId;
     updateTheme(themeId, isInit: true);
     _fontSize = gs.read(libFontSize) ?? _fontSize;
-    _fontSizeProgress = _fontSize;
+    fontSizeProgress = _fontSize;
   }
 
   getTitleFromXhtml() {
@@ -382,7 +384,7 @@ class ShowEpubState extends State<ShowEpub> {
 
   void changeFontSize(double newSize) {
     setState(() {
-      _fontSizeProgress = newSize;
+      fontSizeProgress = newSize;
       _fontSize = newSize;
       gs.write(libFontSize, _fontSize);
       updateUI();
@@ -418,6 +420,7 @@ class ShowEpubState extends State<ShowEpub> {
           builder: (context) => ChaptersBottomSheet(
             title: bookTitle,
             bookId: bookId,
+            imageUrl: widget.imageUrl,
             chapters: chaptersList,
             accentColor: widget.accentColor,
             chapterListTitle: widget.chapterListTitle,
@@ -441,7 +444,7 @@ class ShowEpubState extends State<ShowEpub> {
     updateUI();
   }
 
-  Widget _buildThemeCard({
+  Widget buildThemeCard({
     required BuildContext context,
     required int id,
     required String title,
@@ -554,9 +557,9 @@ class ShowEpubState extends State<ShowEpub> {
     ScreenUtil.init(context,
         designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
 
-    var currentChapterIndex =
-        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    var chapterStart = chapterStartPages[currentChapterIndex] ?? 1;
+    // var currentChapterIndex =
+    //     bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    // var chapterStart = chapterStartPages[currentChapterIndex] ?? 1;
 
     return WillPopScope(
         onWillPop: backPress,
@@ -609,6 +612,7 @@ class ShowEpubState extends State<ShowEpub> {
                                           backgroundColor: backColor,
                                           fontSize: _fontSize.sp,
                                           fontFamily: selectedTextStyle,
+                                          fontWeight: FontWeight.w400,
                                           package: 'cosmos_epub',
                                           color: fontColor),
                                       handlerCallback: (ctrl) {
@@ -703,7 +707,7 @@ class ShowEpubState extends State<ShowEpub> {
                                       allChapterTexts: allChapterTexts,
                                       onAllChaptersPaginated:
                                           onAllChaptersPaginated,
-                                          bookId: bookId,
+                                      bookId: bookId,
                                     );
                                   }
                               }
