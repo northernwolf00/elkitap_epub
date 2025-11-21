@@ -62,6 +62,7 @@ class ShowEpub extends StatefulWidget {
   EpubBook epubBook;
   bool shouldOpenDrawer;
   int starterChapter;
+  final String imageUrl;
   final String bookId;
   final String chapterListTitle;
   final Function(int currentPage, int totalPages)? onPageFlip;
@@ -72,6 +73,7 @@ class ShowEpub extends StatefulWidget {
     super.key,
     required this.epubBook,
     required this.accentColor,
+    required this.imageUrl,
     this.starterChapter = 0,
     this.shouldOpenDrawer = false,
     required this.bookId,
@@ -418,6 +420,7 @@ class ShowEpubState extends State<ShowEpub> {
           builder: (context) => ChaptersBottomSheet(
             title: bookTitle,
             bookId: bookId,
+            imageUrl: widget.imageUrl,
             chapters: chaptersList,
             accentColor: widget.accentColor,
             chapterListTitle: widget.chapterListTitle,
