@@ -32,14 +32,7 @@ class _ThemeGridState extends State<ThemeGrid> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                CosmosEpubLocalization.t('themes'),
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
+             
               SizedBox(height: 12.h),
               GridView.count(
                 shrinkWrap: true,

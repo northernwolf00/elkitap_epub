@@ -92,7 +92,7 @@ class ShowEpubState extends State<ShowEpub> {
   final controller = ScrollController();
   Future<void> loadChapterFuture = Future.value(true);
   List<LocalChapterModel> chaptersList = [];
-  double _fontSizeProgress = 17.0;
+  double fontSizeProgress = 17.0;
   double _fontSize = 17.0;
   TextDirection currentTextDirection = TextDirection.ltr;
 
@@ -220,7 +220,7 @@ class ShowEpubState extends State<ShowEpub> {
     var themeId = gs.read(libTheme) ?? staticThemeId;
     updateTheme(themeId, isInit: true);
     _fontSize = gs.read(libFontSize) ?? _fontSize;
-    _fontSizeProgress = _fontSize;
+    fontSizeProgress = _fontSize;
   }
 
   getTitleFromXhtml() {
@@ -382,7 +382,7 @@ class ShowEpubState extends State<ShowEpub> {
 
   void changeFontSize(double newSize) {
     setState(() {
-      _fontSizeProgress = newSize;
+      fontSizeProgress = newSize;
       _fontSize = newSize;
       gs.write(libFontSize, _fontSize);
       updateUI();
@@ -441,7 +441,7 @@ class ShowEpubState extends State<ShowEpub> {
     updateUI();
   }
 
-  Widget _buildThemeCard({
+  Widget buildThemeCard({
     required BuildContext context,
     required int id,
     required String title,
@@ -554,9 +554,9 @@ class ShowEpubState extends State<ShowEpub> {
     ScreenUtil.init(context,
         designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
 
-    var currentChapterIndex =
-        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    var chapterStart = chapterStartPages[currentChapterIndex] ?? 1;
+    // var currentChapterIndex =
+    //     bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    // var chapterStart = chapterStartPages[currentChapterIndex] ?? 1;
 
     return WillPopScope(
         onWillPop: backPress,

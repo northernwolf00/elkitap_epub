@@ -412,7 +412,7 @@ class PagingWidget extends StatefulWidget {
     this.onAllChaptersPaginated,
     this.lastWidget,
     required this.bookId,
-    this.pageHeightReduction = 320, // Default: less text per page
+    this.pageHeightReduction = 300, // Default: less text per page
   });
 
   @override
@@ -653,8 +653,7 @@ class _PagingWidgetState extends State<PagingWidget> {
               gradientFractionOnEnd: 0,
               child: SingleChildScrollView(
                 controller: _scrollController,
-                physics:
-                    const NeverScrollableScrollPhysics(), 
+                physics: const NeverScrollableScrollPhysics(),
                 child: Padding(
                   padding: EdgeInsets.only(
                       bottom: 10.h, top: 20.h, left: 10.w, right: 10.w),
