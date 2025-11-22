@@ -52,8 +52,21 @@ Future updateFontSettings({
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close, color: fontColor),
                       onPressed: () => Navigator.pop(context),
+                      icon: Container(
+                        decoration: BoxDecoration(
+                          color:
+                              Colors.grey.withOpacity(0.2), // background color
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(
+                            6), // adjust size of the circle
+                        child: Icon(
+                          Icons.close,
+                          color: fontColor,
+                          size: 20,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -70,7 +83,7 @@ Future updateFontSettings({
                   updateTheme: updateTheme,
                 ),
 
-                SizedBox(height: 12.h),
+                SizedBox(height: 16.h),
 
                 // Brightness slider
                 BrightnessSlider(
@@ -86,8 +99,6 @@ Future updateFontSettings({
                     await ScreenBrightness().setScreenBrightness(value);
                   },
                 ),
-
-                SizedBox(height: 20.h),
 
                 ThemeGrid(
                   staticThemeId: staticThemeId,

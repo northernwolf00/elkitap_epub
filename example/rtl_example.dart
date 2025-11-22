@@ -35,6 +35,7 @@ class RTLEpubExample extends StatelessWidget {
                   assetPath:
                       'assets/persian_book.epub', // Your Persian EPUB file
                   context: context,
+                  imageUrl: 'https://picsum.photos/200/300',
                   bookId: 'persian_book_1',
                   onPageFlip: (currentPage, totalPages) {
                     print('Page: $currentPage of $totalPages');
@@ -52,6 +53,7 @@ class RTLEpubExample extends StatelessWidget {
                 await CosmosEpub.openAssetBook(
                   assetPath: 'assets/arabic_book.epub', // Your Arabic EPUB file
                   context: context,
+                  imageUrl: 'https://picsum.photos/200/300',
                   bookId: 'arabic_book_1',
                   onPageFlip: (currentPage, totalPages) {
                     print('Page: $currentPage of $totalPages');
@@ -70,6 +72,7 @@ class RTLEpubExample extends StatelessWidget {
                   assetPath:
                       'assets/mixed_content.epub', // Mixed LTR/RTL content
                   context: context,
+                  imageUrl: '',
                   bookId: 'mixed_book_1',
                   onPageFlip: (currentPage, totalPages) {
                     print('Page: $currentPage of $totalPages');

@@ -62,6 +62,7 @@ class ShowEpub extends StatefulWidget {
   EpubBook epubBook;
   bool shouldOpenDrawer;
   int starterChapter;
+  final String imageUrl;
   final String bookId;
   final String chapterListTitle;
   final Function(int currentPage, int totalPages)? onPageFlip;
@@ -72,6 +73,7 @@ class ShowEpub extends StatefulWidget {
     super.key,
     required this.epubBook,
     required this.accentColor,
+    required this.imageUrl,
     this.starterChapter = 0,
     this.shouldOpenDrawer = false,
     required this.bookId,
@@ -116,10 +118,10 @@ class ShowEpubState extends State<ShowEpub> {
   PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {});
 
   Map<int, int> chapterPageCounts = {}; // chapterIndex -> pageCount
-  int previousChaptersPagesCount = 0; 
+  int previousChaptersPagesCount = 0;
   int totalBookPages = 0;
   String fullBookText = '';
-  Map<int, int> chapterStartPages = {}; 
+  Map<int, int> chapterStartPages = {};
   List<String> allChapterTexts = [];
 
   bool isCalculatingPages = false;
@@ -418,6 +420,7 @@ class ShowEpubState extends State<ShowEpub> {
           builder: (context) => ChaptersBottomSheet(
             title: bookTitle,
             bookId: bookId,
+            imageUrl: widget.imageUrl,
             chapters: chaptersList,
             accentColor: widget.accentColor,
             chapterListTitle: widget.chapterListTitle,
@@ -609,6 +612,7 @@ class ShowEpubState extends State<ShowEpub> {
                                           backgroundColor: backColor,
                                           fontSize: _fontSize.sp,
                                           fontFamily: selectedTextStyle,
+                                          fontWeight: FontWeight.w400,
                                           package: 'cosmos_epub',
                                           color: fontColor),
                                       handlerCallback: (ctrl) {
@@ -703,7 +707,7 @@ class ShowEpubState extends State<ShowEpub> {
                                       allChapterTexts: allChapterTexts,
                                       onAllChaptersPaginated:
                                           onAllChaptersPaginated,
-                                          bookId: bookId,
+                                      bookId: bookId,
                                     );
                                   }
                               }

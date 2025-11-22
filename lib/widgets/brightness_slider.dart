@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-
 class BrightnessSlider extends StatefulWidget {
   final Color fontColor;
   final Color backColor;
   final double brightnessLevel;
   final ValueChanged<double> onBrightnessChanged;
-  final ValueChanged<double>? onChangeEnd; 
+  final ValueChanged<double>? onChangeEnd;
 
   const BrightnessSlider({
     super.key,
@@ -50,42 +49,55 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
       ),
       child: Row(
         children: [
-          Padding(
-            padding: EdgeInsets.only(right: 15.w),
-            child: Container(
-              height: 18,
-              width: 18,
-              decoration: BoxDecoration(
-                border: Border.all(color: widget.fontColor, width: 2),
-                shape: BoxShape.circle,
+          GestureDetector(
+            onTap: () {
+              // decrease step-by-step (0.1 per tap)
+              double newValue = _localValue - 0.1;
+
+              // clamp so it doesn't go below 0
+              if (newValue < 0.0) newValue = 0.0;
+
+              setState(() => _localValue = newValue);
+
+              widget.onBrightnessChanged(newValue);
+              widget.onChangeEnd?.call(newValue);
+            },
+            child: Padding(
+              padding: EdgeInsets.only(right: 15.w),
+              child: Container(
+                height: 18,
+                width: 18,
+                decoration: BoxDecoration(
+                  border: Border.all(color: widget.fontColor, width: 2),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ),
           Expanded(
             child: SliderTheme(
               data: SliderThemeData(
-                trackHeight: 24.0,
+                trackHeight: 10.0,
                 activeTrackColor: Colors.grey.shade600,
                 inactiveTrackColor: Colors.grey.shade300,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
-                thumbColor: Colors.transparent, 
-                overlayColor: Colors.transparent,
+                thumbShape: RoundSliderThumbShape(
+                  enabledThumbRadius: 0, // Hidden thumb
+                ),
+                overlayShape: RoundSliderOverlayShape(overlayRadius: 0),
+                trackShape: const RoundedRectSliderTrackShape(),
               ),
               child: Slider(
                 value: _localValue.clamp(0.0, 1.0),
                 min: 0.0,
                 max: 1.0,
                 onChanged: (value) {
-                 
                   setState(() {
                     _localValue = value;
                   });
-                
+
                   widget.onBrightnessChanged(value);
                 },
                 onChangeEnd: (value) {
-                  
                   if (widget.onChangeEnd != null) {
                     widget.onChangeEnd!(value);
                   }
@@ -93,13 +105,30 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.only(left: 15.w),
-            child: Icon(Icons.wb_sunny_outlined, size: 25.sp, color: widget.fontColor),
+          GestureDetector(
+            onTap: () {
+              // increase step-by-step (0.1 per tap)
+              double newValue = _localValue + 0.1;
+
+              // clamp so it doesn't go above 1.0
+              if (newValue > 1.0) newValue = 1.0;
+
+              setState(() => _localValue = newValue);
+
+              widget.onBrightnessChanged(newValue);
+              widget.onChangeEnd?.call(newValue);
+            },
+            child: Padding(
+              padding: EdgeInsets.only(left: 15.w),
+              child: Icon(
+                Icons.wb_sunny_outlined,
+                size: 25.sp,
+                color: widget.fontColor,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 }
-

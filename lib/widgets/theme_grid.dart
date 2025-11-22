@@ -1,4 +1,4 @@
-import 'package:cosmos_epub/translations/epub_translations.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -39,7 +39,7 @@ class _ThemeGridState extends State<ThemeGrid> {
                 crossAxisCount: 3,
                 crossAxisSpacing: 16.w,
                 mainAxisSpacing: 16.h,
-                childAspectRatio: 1.0,
+                childAspectRatio: 107.w / 90.h,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   ThemeCard(
@@ -112,7 +112,7 @@ class _ThemeGridState extends State<ThemeGrid> {
 
   Future<void> _handleThemeChange(int id) async {
     if (_isLoading) return;
-    
+
     setState(() {
       _isLoading = true;
     });
@@ -126,7 +126,6 @@ class _ThemeGridState extends State<ThemeGrid> {
     }
   }
 }
-
 
 class ThemeCard extends StatelessWidget {
   final int id;
@@ -170,6 +169,8 @@ class ThemeCard extends StatelessWidget {
         }
       },
       child: Container(
+        height: 80.h,
+        width: 107.w,
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(16.r),

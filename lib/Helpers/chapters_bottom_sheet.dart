@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
 import 'package:cosmos_epub/Model/chapter_model.dart';
 import 'package:cosmos_epub/show_epub.dart';
@@ -9,6 +10,7 @@ class ChaptersBottomSheet extends StatelessWidget {
   final String title;
   final List<LocalChapterModel> chapters;
   final String bookId;
+  final String imageUrl;
   final Color accentColor;
   final String chapterListTitle;
   final int currentPage;
@@ -19,6 +21,7 @@ class ChaptersBottomSheet extends StatelessWidget {
     required this.title,
     required this.chapters,
     required this.bookId,
+    required this.imageUrl,
     required this.accentColor,
     required this.chapterListTitle,
     required this.currentPage,
@@ -39,10 +42,10 @@ class ChaptersBottomSheet extends StatelessWidget {
           textDirection: textDirection,
           child: Container(
             decoration: BoxDecoration(
-              color: backColor,
+              color: Colors.grey[200],
               borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
               ),
             ),
             child: Column(
@@ -54,18 +57,19 @@ class ChaptersBottomSheet extends StatelessWidget {
                   child: Column(
                     children: [
                       // Drag handle
-                      Center(
-                        child: Container(
-                          width: 40.w,
-                          height: 4.h,
-                          margin: EdgeInsets.only(bottom: 16.h),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
+                      // Center(
+                      //   child: Container(
+                      //     width: 40.w,
+                      //     height: 4.h,
+                      //     margin: EdgeInsets.only(bottom: 16.h),
+                      //     decoration: BoxDecoration(
+                      //       color: Colors.grey.withOpacity(0.3),
+                      //       borderRadius: BorderRadius.circular(2),
+                      //     ),
+                      //   ),
+                      // ),
                       // Title row
+                      SizedBox(height: 4.h),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,7 +77,25 @@ class ChaptersBottomSheet extends StatelessWidget {
                           Container(
                             height: 80,
                             width: 60,
-                            decoration: BoxDecoration(color: Colors.red),
+                            decoration: BoxDecoration(
+                              color: Colors
+                                  .red, // fallback background while loading
+                              borderRadius:
+                                  BorderRadius.circular(8), // optional
+                            ),
+                            clipBehavior: Clip.hardEdge,
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl, // << put your URL here
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Center(
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              errorWidget: (context, url, error) => Center(
+                                child: Icon(Icons.broken_image,
+                                    color: Colors.white),
+                              ),
+                            ),
                           ),
                           SizedBox(
                             width: 10,
@@ -118,7 +140,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                           InkWell(
                             onTap: () => Navigator.of(context).pop(false),
                             child: CircleAvatar(
-                              backgroundColor: Colors.grey[200],
+                              backgroundColor: Colors.grey[300],
                               child: Icon(
                                 Icons.close,
                                 color: fontColor,
@@ -144,7 +166,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                     separatorBuilder: (context, index) => Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: Colors.grey.withOpacity(0.2),
+                      color: Colors.grey,
                       indent: 16.w,
                       endIndent: 16.w,
                     ),
@@ -160,8 +182,9 @@ class ChaptersBottomSheet extends StatelessWidget {
                           Navigator.of(context).pop(true);
                         },
                         child: Container(
-                          color:
-                              isCurrentChapter ? Colors.grey[400] : backColor,
+                          color: isCurrentChapter
+                              ? Colors.grey[400]
+                              : Colors.grey[200],
                           padding: EdgeInsets.symmetric(
                             horizontal: 16.w,
                             vertical: 20.h,
