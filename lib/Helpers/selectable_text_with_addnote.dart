@@ -2,6 +2,7 @@ import 'package:cosmos_epub/cosmos_epub.dart';
 import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:selectable/selectable.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SelectableTextWithCustomToolbar extends StatelessWidget {
   final String text;
@@ -50,13 +51,18 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         textDirection: textDirection,
         child: Text(
           text,
-          textAlign: TextAlign.justify,
-          style: style,
+          textAlign: textDirection == TextDirection.rtl
+              ? TextAlign.right
+              : TextAlign.left,
+          style: style.copyWith(fontFamily: 'SFPro'),
         ),
       ),
     );
   }
 
+// textAlign: textDirection == TextDirection.rtl
+//               ? TextAlign.right
+//               : TextAlign.left,
   // 🧩 SnackBar feedback
   // void _handleAddNote(BuildContext context, String selectedText) {
   //   _showColoredSnackBar(
@@ -74,26 +80,6 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
   }
 
   void _handleShare(BuildContext context, String selectedText) {
-    _showColoredSnackBar(
-      context,
-      '${CosmosEpubLocalization.t('sharing')}: "${_truncateText(selectedText)}"',
-      Colors.white,
-    );
-  }
-
-  void _showColoredSnackBar(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  String _truncateText(String text, {int maxLength = 50}) {
-    if (text.length <= maxLength) return text;
-    return '${text.substring(0, maxLength)}...';
+    SharePlus.instance.share(ShareParams(text: selectedText));
   }
 }
