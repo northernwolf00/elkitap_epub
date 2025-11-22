@@ -59,7 +59,6 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
       ),
     );
   }
-
 // textAlign: textDirection == TextDirection.rtl
 //               ? TextAlign.right
 //               : TextAlign.left,
@@ -82,4 +81,6 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
   void _handleShare(BuildContext context, String selectedText) {
     SharePlus.instance.share(ShareParams(text: selectedText));
   }
+
+
 }
