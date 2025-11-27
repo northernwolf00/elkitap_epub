@@ -831,6 +831,9 @@ class ShowEpubState extends State<ShowEpub> {
                         BookOptionsMenu(
                           fontColor: fontColor,
                           backColor: backColor,
+                          bookTitle: bookTitle,
+                          bookImage: widget.imageUrl,
+                          bookId: bookId,
                         )
                       ],
                     ),

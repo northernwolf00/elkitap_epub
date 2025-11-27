@@ -1,3 +1,4 @@
+import 'package:cosmos_epub/cosmos_epub.dart';
 import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,11 +6,17 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 class BookOptionsMenu extends StatelessWidget {
   final Color fontColor;
   final Color backColor;
+  final String bookTitle;
+  final String bookImage;
+  final String bookId;
 
   const BookOptionsMenu({
     Key? key,
     required this.fontColor,
     required this.backColor,
+    required this.bookTitle,
+    required this.bookImage,
+    required this.bookId,
   }) : super(key: key);
 
   @override
@@ -37,7 +44,7 @@ class BookOptionsMenu extends StatelessWidget {
         onSelected: (value) {
           switch (value) {
             case 'book_description':
-              openBookDescription();
+              openBookDescription(context);
               break;
             case 'contents':
               openTableOfContents();
@@ -119,8 +126,109 @@ class BookOptionsMenu extends StatelessWidget {
     );
   }
 
-  void openBookDescription() {
-   
+  void openBookDescription(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: backColor,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: EdgeInsets.all(20.w),
+              decoration: BoxDecoration(
+                color: backColor,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40.w,
+                      height: 4.h,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2.r),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8.r),
+                        child: Image.network(
+                          bookImage,
+                          width: 80.w,
+                          height: 120.h,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 80.w,
+                              height: 120.h,
+                              color: Colors.grey,
+                              child: Icon(Icons.book, color: Colors.white),
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(width: 16.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              bookTitle,
+                              style: TextStyle(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.bold,
+                                color: fontColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20.h),
+                  Text(
+                    CosmosEpubLocalization.t('book_description'),
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: fontColor,
+                    ),
+                  ),
+                  SizedBox(height: 10.h),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      child: Text(
+                        CosmosEpub.bookDescription,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: fontColor.withOpacity(0.8),
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void openTableOfContents() {
@@ -128,11 +236,11 @@ class BookOptionsMenu extends StatelessWidget {
   }
 
   void addToShelf() {
-    
+    CosmosEpub.onAddToShelf(bookId);
   }
 
   void saveToMyBooks() {
-    // TODO: Implement save to My Books action
+    CosmosEpub.onSaveToMyBooks(bookId);
   }
 }
 
