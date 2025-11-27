@@ -35,6 +35,10 @@ class CosmosEpub {
   static Future<void> Function(String bookId)? _onAddToShelfHandler;
 
   static String bookDescription = '';
+  
+  // Global state for shelf and my books
+  static bool isInShelf = false;
+  static bool isInMyBooks = false;
 
   // Method to update locale
   static void updateLocale(Locale locale) {
@@ -55,6 +59,8 @@ class CosmosEpub {
     if (_onAddToShelfHandler != null) {
       await _onAddToShelfHandler!(bookId);
     }
+    // Toggle the state
+    isInShelf = !isInShelf;
   }
 
   static Future<void> Function(String bookId)? _onSaveToMyBooksHandler;
@@ -68,6 +74,8 @@ class CosmosEpub {
     if (_onSaveToMyBooksHandler != null) {
       await _onSaveToMyBooksHandler!(bookId);
     }
+    // Toggle the state
+    isInMyBooks = !isInMyBooks;
   }
 
   static Future<void> openLocalBook(
@@ -81,8 +89,10 @@ class CosmosEpub {
       String chapterListTitle = 'Table of Contents',
       bool shouldOpenDrawer = false,
       String bookDescription = '',
+      bool isInShelf = false,
+      bool isInMyBooks = false,
       int starterChapter = -1}) async {
-    var bytes = File(localPath).readAsBytesSync();
+    var bytes = await File(localPath).readAsBytes();
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
@@ -95,6 +105,8 @@ class CosmosEpub {
         starterChapter: starterChapter,
         chapterListTitle: chapterListTitle,
         bookDescription: bookDescription,
+        isInShelf: isInShelf,
+        isInMyBooks: isInMyBooks,
         onPageFlip: onPageFlip,
         onLastPage: onLastPage,
         accentColor: accentColor);
@@ -111,6 +123,8 @@ class CosmosEpub {
       String chapterListTitle = 'Table of Contents',
       bool shouldOpenDrawer = false,
       String bookDescription = '',
+      bool isInShelf = false,
+      bool isInMyBooks = false,
       int starterChapter = -1}) async {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
@@ -124,6 +138,8 @@ class CosmosEpub {
         starterChapter: starterChapter,
         chapterListTitle: chapterListTitle,
         bookDescription: bookDescription,
+        isInShelf: isInShelf,
+        isInMyBooks: isInMyBooks,
         onPageFlip: onPageFlip,
         onLastPage: onLastPage,
         accentColor: accentColor);
@@ -140,6 +156,8 @@ class CosmosEpub {
       String chapterListTitle = 'Table of Contents',
       bool shouldOpenDrawer = false,
       String bookDescription = '',
+      bool isInShelf = false,
+      bool isInMyBooks = false,
       int starterChapter = -1}) async {
     final result = await http.get(Uri.parse(urlPath));
     final bytes = result.bodyBytes;
@@ -155,6 +173,8 @@ class CosmosEpub {
         starterChapter: starterChapter,
         chapterListTitle: chapterListTitle,
         bookDescription: bookDescription,
+        isInShelf: isInShelf,
+        isInMyBooks: isInMyBooks,
         onPageFlip: onPageFlip,
         onLastPage: onLastPage,
         accentColor: accentColor);
@@ -171,6 +191,8 @@ class CosmosEpub {
       String chapterListTitle = 'Table of Contents',
       bool shouldOpenDrawer = false,
       String bookDescription = '',
+      bool isInShelf = false,
+      bool isInMyBooks = false,
       int starterChapter = -1}) async {
     var bytes = await rootBundle.load(assetPath);
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
@@ -185,6 +207,8 @@ class CosmosEpub {
         starterChapter: starterChapter,
         chapterListTitle: chapterListTitle,
         bookDescription: bookDescription,
+        isInShelf: isInShelf,
+        isInMyBooks: isInMyBooks,
         onPageFlip: onPageFlip,
         onLastPage: onLastPage,
         accentColor: accentColor);
@@ -200,9 +224,13 @@ class CosmosEpub {
       required int starterChapter,
       required String chapterListTitle,
       String bookDescription = '',
+      bool isInShelf = false,
+      bool isInMyBooks = false,
       Function(int currentPage, int totalPages)? onPageFlip,
       Function(int lastPageIndex)? onLastPage}) async {
     CosmosEpub.bookDescription = bookDescription;
+    CosmosEpub.isInShelf = isInShelf;
+    CosmosEpub.isInMyBooks = isInMyBooks;
     _checkInitialization();
 
     ///Set starter chapter as current

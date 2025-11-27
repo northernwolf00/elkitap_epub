@@ -138,7 +138,12 @@ class ShowEpubState extends State<ShowEpub> {
         fontNames.where((element) => element == selectedFont).first;
 
     getTitleFromXhtml();
-    calculateFullBookText();
+    
+    // Defer heavy calculation to after initial render
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      calculateFullBookText();
+    });
+    
     reLoadChapter(init: true);
 
     super.initState();
@@ -249,7 +254,8 @@ class ShowEpubState extends State<ShowEpub> {
   loadChapter({int index = -1}) async {
     chaptersList = [];
 
-    await Future.wait(epubBook.Chapters!.map((EpubChapter chapter) async {
+    // Use simple for-loop instead of Future.wait
+    for (var chapter in epubBook.Chapters!) {
       String? chapterTitle = chapter.Title;
       List<LocalChapterModel> subChapters = [];
       for (var element in chapter.SubChapters!) {
@@ -261,7 +267,7 @@ class ShowEpubState extends State<ShowEpub> {
           chapter: chapterTitle ?? '...', isSubChapter: false));
 
       chaptersList += subChapters;
-    }));
+    }
 
     if (chapterStartPages.isEmpty) {
       await calculateChapterStartPages();
@@ -298,7 +304,8 @@ class ShowEpubState extends State<ShowEpub> {
     StringBuffer fullText = StringBuffer();
     allChapterTexts.clear();
 
-    await Future.wait(epubBook.Chapters!.map((EpubChapter chapter) async {
+    // Use simple for-loop instead of Future.wait for better performance
+    for (var chapter in epubBook.Chapters!) {
       String content = chapter.HtmlContent ?? '';
 
       List<EpubChapter>? subChapters = chapter.SubChapters;
@@ -309,7 +316,7 @@ class ShowEpubState extends State<ShowEpub> {
       }
       allChapterTexts.add(content);
       fullText.write(content);
-    }));
+    }
 
     fullBookText = fullText.toString();
   }
@@ -318,24 +325,16 @@ class ShowEpubState extends State<ShowEpub> {
     ///Set current chapter index
     await bookProgress.setCurrentChapterIndex(bookId, chapterIndex);
 
-    String content = '';
+    // Directly access the chapter by index instead of iterating all chapters
+    String content = epubBook.Chapters![chapterIndex].HtmlContent ?? '';
 
-    await Future.wait(epubBook.Chapters!.map((EpubChapter chapter) async {
-      content = epubBook.Chapters![chapterIndex].HtmlContent!;
-
-      List<EpubChapter>? subChapters = chapter.SubChapters;
-      if (subChapters != null && subChapters.isNotEmpty) {
-        for (int i = 0; i < subChapters.length; i++) {
-          content = content + subChapters[i].HtmlContent!;
-        }
-      } else {
-        subChapters?.forEach((element) {
-          if (element.Title == epubBook.Chapters![chapterIndex].Title) {
-            content = element.HtmlContent!;
-          }
-        });
+    // Add subchapters content if they exist
+    List<EpubChapter>? subChapters = epubBook.Chapters![chapterIndex].SubChapters;
+    if (subChapters != null && subChapters.isNotEmpty) {
+      for (var subChapter in subChapters) {
+        content += subChapter.HtmlContent ?? '';
       }
-    }));
+    }
 
     htmlContent = content;
     textContent = parse(htmlContent).documentElement!.text;

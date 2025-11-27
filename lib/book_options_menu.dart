@@ -3,7 +3,7 @@ import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class BookOptionsMenu extends StatelessWidget {
+class BookOptionsMenu extends StatefulWidget {
   final Color fontColor;
   final Color backColor;
   final String bookTitle;
@@ -20,6 +20,11 @@ class BookOptionsMenu extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<BookOptionsMenu> createState() => _BookOptionsMenuState();
+}
+
+class _BookOptionsMenuState extends State<BookOptionsMenu> {
+  @override
   Widget build(BuildContext context) {
     return Container(
       width: 34.w,
@@ -31,10 +36,10 @@ class BookOptionsMenu extends StatelessWidget {
       child: PopupMenuButton<String>(
         icon: Icon(
           Icons.more_horiz,
-          color: fontColor,
+          color: widget.fontColor,
           size: 16.sp,
         ),
-        color: backColor,
+        color: widget.backColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14.r),
         ),
@@ -50,10 +55,12 @@ class BookOptionsMenu extends StatelessWidget {
               openTableOfContents();
               break;
             case 'add_to_shelf':
-              addToShelf();
+            case 'remove_from_shelf':
+              toggleShelf();
               break;
             case 'save_to_my_books':
-              saveToMyBooks();
+            case 'remove_from_my_books':
+              toggleMyBooks();
               break;
           }
         },
@@ -61,25 +68,23 @@ class BookOptionsMenu extends StatelessWidget {
           _buildMenuItem(
             label: CosmosEpubLocalization.t('book_description'),
             value: 'book_description',
-            fontColor: fontColor,
-            showDivider: true,
-          ),
-          // _buildMenuItem(
-          //   label: CosmosEpubLocalization.t('contents'),
-          //   value: 'contents',
-          //   fontColor: fontColor,
-          //   showDivider: true,
-          // ),
-          _buildMenuItem(
-            label: CosmosEpubLocalization.t('add_to_shelf'),
-            value: 'add_to_shelf',
-            fontColor: fontColor,
+            fontColor: widget.fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
-            label: CosmosEpubLocalization.t('save_to_my_books'),
-            value: 'save_to_my_books',
-            fontColor: fontColor,
+            label: CosmosEpub.isInShelf
+                ? CosmosEpubLocalization.t('remove_from_shelf')
+                : CosmosEpubLocalization.t('add_to_shelf'),
+            value: CosmosEpub.isInShelf ? 'remove_from_shelf' : 'add_to_shelf',
+            fontColor: widget.fontColor,
+            showDivider: true,
+          ),
+          _buildMenuItem(
+            label: CosmosEpub.isInMyBooks
+                ? CosmosEpubLocalization.t('remove_from_my_books')
+                : CosmosEpubLocalization.t('save_to_my_books'),
+            value: CosmosEpub.isInMyBooks ? 'remove_from_my_books' : 'save_to_my_books',
+            fontColor: widget.fontColor,
             showDivider: false,
           ),
         ],
@@ -110,6 +115,8 @@ class BookOptionsMenu extends StatelessWidget {
                       color: fontColor,
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w500,
+                      fontFamily: 'Gilroy',
+                      package: 'cosmos_epub',
                     ),
                   ),
                 ),
@@ -129,7 +136,7 @@ class BookOptionsMenu extends StatelessWidget {
   void openBookDescription(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: backColor,
+      backgroundColor: widget.backColor,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
@@ -144,7 +151,7 @@ class BookOptionsMenu extends StatelessWidget {
             return Container(
               padding: EdgeInsets.all(20.w),
               decoration: BoxDecoration(
-                color: backColor,
+                color: widget.backColor,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
               ),
               child: Column(
@@ -167,7 +174,7 @@ class BookOptionsMenu extends StatelessWidget {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8.r),
                         child: Image.network(
-                          bookImage,
+                          widget.bookImage,
                           width: 80.w,
                           height: 120.h,
                           fit: BoxFit.cover,
@@ -187,11 +194,11 @@ class BookOptionsMenu extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              bookTitle,
+                              widget.bookTitle,
                               style: TextStyle(
                                 fontSize: 18.sp,
                                 fontWeight: FontWeight.bold,
-                                color: fontColor,
+                                color: widget.fontColor,
                               ),
                             ),
                           ],
@@ -205,7 +212,7 @@ class BookOptionsMenu extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w600,
-                      color: fontColor,
+                      color: widget.fontColor,
                     ),
                   ),
                   SizedBox(height: 10.h),
@@ -216,7 +223,7 @@ class BookOptionsMenu extends StatelessWidget {
                         CosmosEpub.bookDescription,
                         style: TextStyle(
                           fontSize: 14.sp,
-                          color: fontColor.withOpacity(0.8),
+                          color: widget.fontColor.withOpacity(0.8),
                           height: 1.5,
                         ),
                       ),
@@ -235,156 +242,15 @@ class BookOptionsMenu extends StatelessWidget {
    
   }
 
-  void addToShelf() {
-    CosmosEpub.onAddToShelf(bookId);
+  void toggleShelf() async {
+    await CosmosEpub.onAddToShelf(widget.bookId);
+    // Trigger rebuild to update menu
+    setState(() {});
   }
 
-  void saveToMyBooks() {
-    CosmosEpub.onSaveToMyBooks(bookId);
+  void toggleMyBooks() async {
+    await CosmosEpub.onSaveToMyBooks(widget.bookId);
+    // Trigger rebuild to update menu
+    setState(() {});
   }
 }
-
-// import 'package:flutter/material.dart';
-// import 'package:flutter_svg/flutter_svg.dart';
-// import 'package:flutter_screenutil/flutter_screenutil.dart';
-
-// class BookOptionsMenu extends StatelessWidget {
-//   final Color fontColor;
-//   final Color backColor;
-
-//   const BookOptionsMenu({
-//     Key? key,
-//     required this.fontColor,
-//     required this.backColor,
-//   }) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: 34.w,
-//       height: 34.h,
-//       decoration: BoxDecoration(
-//         color: Colors.grey.withOpacity(0.2),
-//         shape: BoxShape.circle,
-//       ),
-//       child: PopupMenuButton<String>(
-//         icon: Icon(
-//           Icons.more_horiz,
-//           color: fontColor,
-//           size: 16.sp,
-//         ),
-//         color: backColor,
-//         shape: RoundedRectangleBorder(
-//           borderRadius: BorderRadius.circular(14.r),
-//         ),
-//         elevation: 6,
-//         padding: EdgeInsets.zero,
-//         offset: Offset(0, 50.h),
-//         onSelected: (value) {
-//           switch (value) {
-//             case 'description':
-//               openBookDescription();
-//               break;
-//             case 'contents':
-//               openTableOfContents();
-//               break;
-//             case 'shelf':
-//               addToShelf();
-//               break;
-//             case 'save':
-//               saveToMyBooks();
-//               break;
-//           }
-//         },
-//         itemBuilder: (BuildContext context) => [
-//           _buildMenuItem(
-//             label: 'Book description',
-//             iconPath: 'packages/cosmos_epub/assets/icons/rider.svg',
-//             fontColor: fontColor,
-//             showDivider: true,
-//           ),
-//           _buildMenuItem(
-//             label: 'Contents',
-//             iconPath: 'packages/cosmos_epub/assets/icons/r2.svg',
-//             fontColor: fontColor,
-//             showDivider: true,
-//           ),
-//           _buildMenuItem(
-//             label: 'Add to shelf',
-//             iconPath: 'packages/cosmos_epub/assets/icons/r3.svg',
-//             fontColor: fontColor,
-//             showDivider: true,
-//           ),
-//           _buildMenuItem(
-//             label: 'Save to My Books',
-//             iconPath: 'packages/cosmos_epub/assets/icons/r4.svg',
-//             fontColor: fontColor,
-//             showDivider: false,
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   /// Custom reusable menu item with optional divider
-//   PopupMenuEntry<String> _buildMenuItem({
-//     required String label,
-//     required String iconPath,
-//     required Color fontColor,
-//     bool showDivider = false,
-//   }) {
-//     return PopupMenuItem<String>(
-//       value: label.toLowerCase().replaceAll(' ', '_'),
-//       child: Column(
-//         children: [
-//           Padding(
-//             padding: EdgeInsets.symmetric(vertical: 10.h),
-//             child: Row(
-//               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//               children: [
-//                 Expanded(
-//                   child: Text(
-//                     label,
-//                     style: TextStyle(
-//                       color: fontColor,
-//                       fontSize: 14.sp,
-//                       fontWeight: FontWeight.w500,
-//                     ),
-//                   ),
-//                 ),
-//                 SvgPicture.asset(
-//                   iconPath,
-//                   color: fontColor,
-//                   width: 20.w,
-//                 ),
-//               ],
-//             ),
-//           ),
-//           if (showDivider) ...[
-//             SizedBox(height: 10.h),
-//             Container(
-//               height: 0.7,
-//               color: fontColor.withOpacity(0.2),
-//             ),
-//           ],
-//         ],
-//       ),
-//     );
-//   }
-
-//   void openBookDescription() {
-//     // TODO: Implement book description action
-//   }
-
-//   void openTableOfContents() {
-//     // TODO: Implement table of contents action
-//   }
-
-//   void addToShelf() {
-//     // TODO: Implement add to shelf action
-//   }
-
-//   void saveToMyBooks() {
-//     // TODO: Implement save to My Books action
-//   }
-// }
