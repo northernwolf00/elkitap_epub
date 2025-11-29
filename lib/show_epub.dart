@@ -138,12 +138,12 @@ class ShowEpubState extends State<ShowEpub> {
         fontNames.where((element) => element == selectedFont).first;
 
     getTitleFromXhtml();
-    
+
     // Defer heavy calculation to after initial render
     WidgetsBinding.instance.addPostFrameCallback((_) {
       calculateFullBookText();
     });
-    
+
     reLoadChapter(init: true);
 
     super.initState();
@@ -329,7 +329,8 @@ class ShowEpubState extends State<ShowEpub> {
     String content = epubBook.Chapters![chapterIndex].HtmlContent ?? '';
 
     // Add subchapters content if they exist
-    List<EpubChapter>? subChapters = epubBook.Chapters![chapterIndex].SubChapters;
+    List<EpubChapter>? subChapters =
+        epubBook.Chapters![chapterIndex].SubChapters;
     if (subChapters != null && subChapters.isNotEmpty) {
       for (var subChapter in subChapters) {
         content += subChapter.HtmlContent ?? '';
@@ -551,262 +552,216 @@ class ShowEpubState extends State<ShowEpub> {
     }
   }
 
+  /// Helper method to build navigation buttons
+  Widget _buildNavButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    String? tooltip,
+  }) {
+    return Container(
+      width: 44.w,
+      height: 44.h,
+      decoration: BoxDecoration(
+        color: fontColor.withOpacity(0.08),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(22.r),
+          splashColor: fontColor.withOpacity(0.1),
+          highlightColor: fontColor.withOpacity(0.05),
+          child: Center(
+            child: Icon(
+              icon,
+              color: fontColor,
+              size: 20.sp,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ScreenUtil.init(context,
         designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
 
-    // var currentChapterIndex =
-    //     bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    // var chapterStart = chapterStartPages[currentChapterIndex] ?? 1;
-
     return WillPopScope(
-        onWillPop: backPress,
-        child: Scaffold(
-          backgroundColor: backColor,
-          body: SafeArea(
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    Expanded(
-                        child: Stack(
+      onWillPop: backPress,
+      child: Scaffold(
+        backgroundColor: backColor,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // Main Content Area - Full Screen
+              Column(
+                children: [
+                  Expanded(
+                    child: Stack(
                       children: [
                         FutureBuilder<void>(
-                            future: loadChapterFuture,
-                            builder: (context, snapshot) {
-                              switch (snapshot.connectionState) {
-                                case ConnectionState.waiting:
-                                  {
-                                    return Center(
-                                        child: CupertinoActivityIndicator(
-                                      color: Theme.of(context).primaryColor,
-                                      radius: 20.r,
-                                    ));
-                                  }
-                                default:
-                                  {
-                                    if (widget.shouldOpenDrawer) {
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                        openTableOfContents();
-                                      });
-                                      widget.shouldOpenDrawer = false;
-                                    }
+                          future: loadChapterFuture,
+                          builder: (context, snapshot) {
+                            switch (snapshot.connectionState) {
+                              case ConnectionState.waiting:
+                                return Center(
+                                  child: CupertinoActivityIndicator(
+                                    color: Theme.of(context).primaryColor,
+                                    radius: 20.r,
+                                  ),
+                                );
+                              default:
+                                if (widget.shouldOpenDrawer) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    openTableOfContents();
+                                  });
+                                  widget.shouldOpenDrawer = false;
+                                }
 
-                                    var currentChapterIndex = bookProgress
-                                            .getBookProgress(bookId)
-                                            .currentChapterIndex ??
-                                        0;
+                                var currentChapterIndex = bookProgress
+                                        .getBookProgress(bookId)
+                                        .currentChapterIndex ??
+                                    0;
 
-                                    return PagingWidget(
-                                      textContent,
-                                      innerHtmlContent,
-                                      lastWidget: null,
-                                      starterPageIndex: bookProgress
-                                              .getBookProgress(bookId)
-                                              .currentPageIndex ??
-                                          0,
-                                      style: TextStyle(
-                                          backgroundColor: backColor,
-                                          fontSize: _fontSize.sp,
-                                          fontFamily: selectedTextStyle,
-                                          fontWeight: FontWeight.w400,
-                                          package: 'cosmos_epub',
-                                          color: fontColor),
-                                      handlerCallback: (ctrl) {
-                                        controllerPaging = ctrl;
-                                      },
-                                      onTextTap: () {
-                                        setState(() {
-                                          showHeader = !showHeader;
-                                        });
-                                      },
-                                      onPageFlip:
-                                          (currentPage, totalPages) async {
-                                        onPageFlipUpdate(
-                                            currentPage, totalPages);
-                                        if (widget.onPageFlip != null) {
-                                          widget.onPageFlip!(
-                                              currentPage, totalPages);
-                                        }
-
-                                        if (currentPage == totalPages - 1) {
-                                          bookProgress.setCurrentPageIndex(
-                                              bookId, 0);
-                                        } else {
-                                          bookProgress.setCurrentPageIndex(
-                                              bookId, currentPage);
-                                        }
-
-                                        if (isLastPage) {
-                                          showHeader = true;
-                                        } else {
-                                          lastSwipe = 0;
-                                        }
-
-                                        isLastPage = false;
-                                        updateUI();
-
-                                        if (currentPage == 0) {
-                                          prevSwipe++;
-                                          if (prevSwipe > 1) {
-                                            var currentChapterIndex =
-                                                bookProgress
-                                                        .getBookProgress(bookId)
-                                                        .currentChapterIndex ??
-                                                    0;
-                                            if (currentChapterIndex > 0) {
-                                              var previousChapterIndex =
-                                                  currentChapterIndex - 1;
-                                              var pageCountOfPreviousChapter =
-                                                  chapterPageCounts[
-                                                          previousChapterIndex] ??
-                                                      0;
-                                              await bookProgress.setCurrentPageIndex(
-                                                  bookId,
-                                                  pageCountOfPreviousChapter -
-                                                      1); // Go to last page of previous chapter
-                                              reLoadChapter(
-                                                  index:
-                                                      previousChapterIndex); // Load the previous chapter
-                                            } else {
-                                              // Already at the first chapter, cannot go to previous page/chapter
-                                              // Optionally, show a toast or disable further backward swipe
-                                            }
-                                          }
-                                        } else {
-                                          prevSwipe = 0;
-                                        }
-                                      },
-                                      onLastPage: (index, totalPages) async {
-                                        if (widget.onLastPage != null) {
-                                          widget.onLastPage!(index);
-                                        }
-
-                                        if (totalPages > 1) {
-                                          lastSwipe++;
-                                        } else {
-                                          lastSwipe = 2;
-                                        }
-
-                                        if (lastSwipe > 1) {
-                                          nextChapter();
-                                          setState(() {});
-                                        }
-
-                                        isLastPage = true;
-                                        updateUI();
-                                      },
-                                      chapterTitle:
-                                          chaptersList[currentChapterIndex]
-                                              .chapter,
-                                      totalChapters: chaptersList.length,
-                                      fullBookText: fullBookText,
-                                      allChapterTexts: allChapterTexts,
-                                      onAllChaptersPaginated:
-                                          onAllChaptersPaginated,
-                                      bookId: bookId,
-                                    );
-                                  }
-                              }
-                            }),
-                      ],
-                    )),
-
-                    // Bottom Navigation Bar (Image 1 style)
-                    AnimatedContainer(
-                      height: showHeader ? 60.h : 0,
-                      duration: const Duration(milliseconds: 100),
-                      color: backColor,
-                      child: Container(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16.w,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Left - Menu/Contents button
-                              Container(
-                                width: 34.w,
-                                height: 34.h,
-                                decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.2),
-                                    shape: BoxShape.circle),
-                                child: IconButton(
-                                  onPressed: openTableOfContents,
-                                  icon: Icon(
-                                    size: 18,
-                                    Icons.menu,
+                                return PagingWidget(
+                                  textContent,
+                                  innerHtmlContent,
+                                  lastWidget: null,
+                                  starterPageIndex: bookProgress
+                                          .getBookProgress(bookId)
+                                          .currentPageIndex ??
+                                      0,
+                                  style: TextStyle(
+                                    backgroundColor: backColor,
+                                    fontSize: _fontSize.sp,
+                                    fontFamily: selectedTextStyle,
+                                    fontWeight: FontWeight.w400,
+                                    package: 'cosmos_epub',
                                     color: fontColor,
                                   ),
-                                  // SvgPicture.asset(
-                                  //     'packages/cosmos_epub/assets/icons/r2.svg'),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ),
-
-                              // Center - Page progress indicator
-                              Obx(() => ProgressBarWidget(
-                                    currentPage:
-                                        controllerPaging.globalPage.value + 1,
-                                    totalPages:
-                                        controllerPaging.globalTotalPages.value,
-                                  )),
-
-                              // Right - Font Settings button
-                              Container(
-                                width: 34.w,
-                                height: 34.h,
-                                decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.2),
-                                    shape: BoxShape.circle),
-                                child: IconButton(
-                                  onPressed: () {
-                                    updateFontSettings(
-                                      context: context,
-                                      backColor: backColor,
-                                      fontColor: fontColor,
-                                      brightnessLevel: brightnessLevel,
-                                      staticThemeId: staticThemeId,
-                                      setBrightness: setBrightness,
-                                      updateTheme: updateTheme,
-                                      fontSizeProgress: _fontSize,
-                                      onFontSizeChange: changeFontSize,
-                                    );
+                                  handlerCallback: (ctrl) {
+                                    controllerPaging = ctrl;
                                   },
-                                  icon: Text(
-                                    "Aa",
-                                    style: TextStyle(
-                                      fontSize: 12.sp,
-                                      color: fontColor,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                                  onTextTap: () {
+                                    setState(() {
+                                      showHeader = !showHeader;
+                                    });
+                                  },
+                                  onPageFlip: (currentPage, totalPages) async {
+                                    onPageFlipUpdate(currentPage, totalPages);
+                                    if (widget.onPageFlip != null) {
+                                      widget.onPageFlip!(
+                                          currentPage, totalPages);
+                                    }
 
-                // Top Header Bar (Image 2 style)
-                AnimatedContainer(
+                                    if (currentPage == totalPages - 1) {
+                                      bookProgress.setCurrentPageIndex(
+                                          bookId, 0);
+                                    } else {
+                                      bookProgress.setCurrentPageIndex(
+                                          bookId, currentPage);
+                                    }
+
+                                    if (isLastPage) {
+                                      showHeader = true;
+                                    } else {
+                                      lastSwipe = 0;
+                                    }
+
+                                    isLastPage = false;
+                                    updateUI();
+
+                                    if (currentPage == 0) {
+                                      prevSwipe++;
+                                      if (prevSwipe > 1) {
+                                        var currentChapterIndex = bookProgress
+                                                .getBookProgress(bookId)
+                                                .currentChapterIndex ??
+                                            0;
+                                        if (currentChapterIndex > 0) {
+                                          var previousChapterIndex =
+                                              currentChapterIndex - 1;
+                                          var pageCountOfPreviousChapter =
+                                              chapterPageCounts[
+                                                      previousChapterIndex] ??
+                                                  0;
+                                          await bookProgress
+                                              .setCurrentPageIndex(
+                                                  bookId,
+                                                  pageCountOfPreviousChapter -
+                                                      1);
+                                          reLoadChapter(
+                                              index: previousChapterIndex);
+                                        }
+                                      }
+                                    } else {
+                                      prevSwipe = 0;
+                                    }
+                                  },
+                                  onLastPage: (index, totalPages) async {
+                                    if (widget.onLastPage != null) {
+                                      widget.onLastPage!(index);
+                                    }
+
+                                    if (totalPages > 1) {
+                                      lastSwipe++;
+                                    } else {
+                                      lastSwipe = 2;
+                                    }
+
+                                    if (lastSwipe > 1) {
+                                      nextChapter();
+                                      setState(() {});
+                                    }
+
+                                    isLastPage = true;
+                                    updateUI();
+                                  },
+                                  chapterTitle:
+                                      chaptersList[currentChapterIndex].chapter,
+                                  totalChapters: chaptersList.length,
+                                  fullBookText: fullBookText,
+                                  allChapterTexts: allChapterTexts,
+                                  onAllChaptersPaginated:
+                                      onAllChaptersPaginated,
+                                  bookId: bookId,
+                                  showNavBar: showHeader, // PASS THIS
+                                );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // Top Header Bar - OVERLAY
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedContainer(
                   height: showHeader ? 60.h : 0,
-                  duration: const Duration(milliseconds: 100),
-                  // color: backColor,
-                  child: Padding(
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    // color: backColor,
                     padding:
                         EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Left - Close button
                         Container(
                           width: 34.w,
                           height: 34.h,
@@ -826,21 +781,100 @@ class ShowEpubState extends State<ShowEpub> {
                             padding: EdgeInsets.zero,
                           ),
                         ),
-
                         BookOptionsMenu(
                           fontColor: fontColor,
                           backColor: backColor,
                           bookTitle: bookTitle,
                           bookImage: widget.imageUrl,
                           bookId: bookId,
-                        )
+                        ),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              // Bottom Navigation Bar - OVERLAY (FIXED POSITIONING)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AnimatedContainer(
+                  height: showHeader ? 70.h : 0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: Container(
+                    decoration: BoxDecoration(
+                        // color: backColor,
+                        // boxShadow: [
+                        //   BoxShadow(
+                        //     color: Colors.black.withOpacity(0.08),
+                        //     blurRadius: 12,
+                        //     offset: Offset(0, -2),
+                        //   ),
+                        // ],
+                        // border: Border(
+                        //   top: BorderSide(
+                        //     color: fontColor.withOpacity(0.08),
+                        //     width: 0.5,
+                        //   ),
+                        // ),
+                        ),
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 20.w,
+                          vertical: 8.h,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _buildNavButton(
+                              icon: Icons.menu,
+                              onPressed: openTableOfContents,
+                              tooltip: 'Table of Contents',
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                                child: Obx(() => ProgressBarWidget(
+                                      currentPage:
+                                          controllerPaging.globalPage.value,
+                                      totalPages: controllerPaging
+                                          .globalTotalPages.value,
+                                    )),
+                              ),
+                            ),
+                            _buildNavButton(
+                              icon: Icons.text_fields_rounded,
+                              onPressed: () {
+                                updateFontSettings(
+                                  context: context,
+                                  backColor: backColor,
+                                  fontColor: fontColor,
+                                  brightnessLevel: brightnessLevel,
+                                  staticThemeId: staticThemeId,
+                                  setBrightness: setBrightness,
+                                  updateTheme: updateTheme,
+                                  fontSizeProgress: _fontSize,
+                                  onFontSizeChange: changeFontSize,
+                                );
+                              },
+                              tooltip: 'Font Settings',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 }
