@@ -94,8 +94,8 @@ class ShowEpubState extends State<ShowEpub> {
   final controller = ScrollController();
   Future<void> loadChapterFuture = Future.value(true);
   List<LocalChapterModel> chaptersList = [];
-  double fontSizeProgress = 17.0;
-  double _fontSize = 17.0;
+  double fontSizeProgress = 12.0;
+  double _fontSize = 12.0;
   TextDirection currentTextDirection = TextDirection.ltr;
 
   late EpubBook epubBook;
