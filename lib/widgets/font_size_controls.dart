@@ -32,7 +32,8 @@ class FontSizeControls extends StatelessWidget {
           child: Row(
             children: [
               _fontButton("A", 16.sp, -1),
-              Container(width: 1, height: 30.h, color: Colors.grey.withOpacity(0.3)),
+              Container(
+                  width: 1, height: 30.h, color: Colors.grey.withOpacity(0.3)),
               _fontButton("A", 22.sp, 1),
             ],
           ),
@@ -69,7 +70,7 @@ class FontSizeControls extends StatelessWidget {
         highlightColor: Colors.grey.withOpacity(0.1),
         onTap: () {
           double newSize = fontSizeProgress + direction;
-          newSize = newSize.clamp(15.0, 30.0);
+          newSize = newSize.clamp(10.0, 24.0);
           onFontSizeChange(newSize);
         },
         child: Container(

@@ -32,6 +32,8 @@ class _ThemeGridState extends State<ThemeGrid> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+             
+              SizedBox(height: 12.h),
               GridView.count(
                 shrinkWrap: true,
                 crossAxisCount: 3,
