@@ -1,7 +1,7 @@
 import 'package:cosmos_epub/Helpers/selectable_text_with_addnote.dart';
 import 'package:cosmos_epub/PageFlip/page_flip_widget.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -143,7 +143,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     textPainter.layout(minWidth: 0, maxWidth: pageSize.width - 64.w);
 
     List<LineMetrics> lines = textPainter.computeLineMetrics();
-    
+
     // Simple calculation: divide total lines by lines per page
     final int LINES_PER_PAGE = widget.linesPerPage;
     int pageCount = (lines.length / LINES_PER_PAGE).ceil();
@@ -173,7 +173,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     textPainter.layout(minWidth: 0, maxWidth: pageSize.width - 64.w);
 
     List<LineMetrics> lines = textPainter.computeLineMetrics();
-    
+
     // Simple calculation: divide total lines by lines per page
     final int LINES_PER_PAGE = widget.linesPerPage;
     int pageCount = (lines.length / LINES_PER_PAGE).ceil();
@@ -234,25 +234,26 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     // SIMPLE APPROACH: Split by LINES (configurable lines per page)
     List<LineMetrics> lines = textPainter.computeLineMetrics();
-    
+
     final int LINES_PER_PAGE = widget.linesPerPage; // Use widget parameter
     int lineCount = 0;
     int pageStartIndex = 0;
     bool isFirstPage = true;
-    
+
     // For first page, reduce lines if there's a chapter title
     int effectiveLinesPerPage = LINES_PER_PAGE;
     if (isFirstPage && widget.chapterTitle.isNotEmpty) {
-      effectiveLinesPerPage = (LINES_PER_PAGE * 0.7).round(); // 70% of normal lines on first page
+      effectiveLinesPerPage =
+          (LINES_PER_PAGE * 0.7).round(); // 70% of normal lines on first page
     }
 
     for (int i = 0; i < lines.length; i++) {
       lineCount++;
-      
+
       // Create new page after reaching line limit
       if (lineCount >= effectiveLinesPerPage) {
         final line = lines[i];
-        
+
         // Get text position at end of this line
         final breakOffset = textPainter.getPositionForOffset(
           Offset(0, line.baseline + line.descent),
@@ -322,9 +323,10 @@ class _PagingWidgetState extends State<PagingWidget> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
-            child: CupertinoActivityIndicator(
-              color: Theme.of(context).primaryColor,
-              radius: 20.r,
+            child: LoadingWidget(
+              height: 100,
+              animationWidth: 50,
+              animationHeight: 50,
             ),
           );
         }
