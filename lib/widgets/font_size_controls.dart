@@ -1,3 +1,4 @@
+import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -31,10 +32,10 @@ class FontSizeControls extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _fontButton("A", 16.sp, -1),
+              _fontButton(context, "A", 16.sp, -1),
               Container(
                   width: 1, height: 30.h, color: Colors.grey.withOpacity(0.3)),
-              _fontButton("A", 22.sp, 1),
+              _fontButton(context, "A", 22.sp, 1),
             ],
           ),
         ),
@@ -62,16 +63,37 @@ class FontSizeControls extends StatelessWidget {
     );
   }
 
-  Widget _fontButton(String label, double size, int direction) {
+  Widget _fontButton(
+      BuildContext context, String label, double size, int direction) {
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(12.r),
         splashColor: Colors.grey.withOpacity(0.3),
         highlightColor: Colors.grey.withOpacity(0.1),
-        onTap: () {
+        onTap: () async {
+          // Show loading dialog
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return const LoadingWidget(
+                height: 150,
+                animationWidth: 80,
+                animationHeight: 80,
+              );
+            },
+          );
+
           double newSize = fontSizeProgress + direction;
           newSize = newSize.clamp(10.0, 24.0);
           onFontSizeChange(newSize);
+
+          // Small delay to ensure loading is visible and UI has time to process
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
         },
         child: Container(
           height: 40.h,

@@ -5,8 +5,8 @@ import 'package:cosmos_epub/Helpers/functions.dart';
 import 'package:cosmos_epub/Helpers/progress_bar_widget.dart';
 import 'package:cosmos_epub/book_options_menu.dart';
 import 'package:cosmos_epub/widgets/font_settings_modal.dart';
+import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:epubx/epubx.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -615,9 +615,10 @@ class ShowEpubState extends State<ShowEpub> {
                             switch (snapshot.connectionState) {
                               case ConnectionState.waiting:
                                 return Center(
-                                  child: CupertinoActivityIndicator(
-                                    color: Theme.of(context).primaryColor,
-                                    radius: 20.r,
+                                  child: LoadingWidget(
+                                    height: 100,
+                                    animationWidth: 50,
+                                    animationHeight: 50,
                                   ),
                                 );
                               default:

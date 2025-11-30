@@ -3,6 +3,7 @@ import 'package:cosmos_epub/Helpers/functions.dart';
 import 'package:cosmos_epub/Model/chapter_model.dart';
 import 'package:cosmos_epub/show_epub.dart';
 import 'package:cosmos_epub/translations/epub_translations.dart';
+import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -87,9 +88,11 @@ class ChaptersBottomSheet extends StatelessWidget {
                             child: CachedNetworkImage(
                               imageUrl: imageUrl, // << put your URL here
                               fit: BoxFit.cover,
-                              placeholder: (context, url) => Center(
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                              placeholder: (context, url) =>
+                                  const LoadingWidget(
+                                height: 80,
+                                animationWidth: 40,
+                                animationHeight: 40,
                               ),
                               errorWidget: (context, url, error) => Center(
                                 child: Icon(Icons.broken_image,

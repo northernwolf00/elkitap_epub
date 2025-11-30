@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 
 import 'package:cosmos_epub/cosmos_epub.dart';
+import 'package:cosmos_epub/widgets/loading_widget.dart';
 
 class ThemeGrid extends StatefulWidget {
   final int staticThemeId;
@@ -32,7 +32,6 @@ class _ThemeGridState extends State<ThemeGrid> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-             
               SizedBox(height: 12.h),
               GridView.count(
                 shrinkWrap: true,
@@ -98,10 +97,10 @@ class _ThemeGridState extends State<ThemeGrid> {
             Positioned.fill(
               child: Container(
                 color: Colors.black.withOpacity(0.3),
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
+                child: const LoadingWidget(
+                  height: 150,
+                  animationWidth: 80,
+                  animationHeight: 80,
                 ),
               ),
             ),
@@ -154,8 +153,10 @@ class ThemeCard extends StatelessWidget {
           context: context,
           barrierDismissible: false,
           builder: (BuildContext context) {
-            return const Center(
-              child: CircularProgressIndicator(),
+            return const LoadingWidget(
+              height: 150,
+              animationWidth: 80,
+              animationHeight: 80,
             );
           },
         );
