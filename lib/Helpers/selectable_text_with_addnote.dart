@@ -95,18 +95,8 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
               SizedBox(height: 30.h),
             ],
 
-            // Main text - NO EXPANDED!
-            Text(
-              _formatText(text),
-              textAlign: TextAlign.justify,
-              style: style.copyWith(
-                fontFamily: 'SFPro',
-                height: 1.65,
-                letterSpacing: 0.3,
-                wordSpacing: 1.5,
-                fontSize: style.fontSize,
-              ),
-            ),
+            // Main text with paragraph indentation
+            _buildFormattedText(text, style),
           ],
         ),
       ),
@@ -117,18 +107,28 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     if (rawText.isEmpty) return rawText;
 
     String formatted = rawText;
-    formatted = formatted.replaceAll(RegExp(r' {3,}'), ' ');
+
+    // Remove excessive spaces (2 or more spaces become 1)
+    formatted = formatted.replaceAll(RegExp(r' {2,}'), ' ');
+
+    // Normalize line breaks (3+ newlines become 2)
     formatted = formatted.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+
+    // Add space after punctuation if missing
     formatted = formatted.replaceAll(RegExp(r'\.(\S)'), '. \$1');
     formatted = formatted.replaceAll(RegExp(r',(\S)'), ', \$1');
     formatted = formatted.replaceAll(RegExp(r';(\S)'), '; \$1');
     formatted = formatted.replaceAll(RegExp(r':(\S)'), ': \$1');
-    formatted = formatted.replaceAllMapped(
-      RegExp(r'(^|\n)([А-ЯA-Z])'),
-      (match) => '${match.group(1)}    ${match.group(2)}',
-    );
+    formatted = formatted.replaceAll(RegExp(r'!(\S)'), '! \$1');
+    formatted = formatted.replaceAll(RegExp(r'\?(\S)'), '? \$1');
+
+    // Remove spaces before punctuation
     formatted = formatted.replaceAll(RegExp(r'\s+([.,;:!?])'), '\$1');
-    formatted = formatted.replaceAll(RegExp(r'\s*-\s*'), ' — ');
+
+    // Replace hyphens with em dash
+    formatted = formatted.replaceAll(RegExp(r'\s+-\s+'), ' — ');
+
+    // Clean up each line
     formatted = formatted
         .split('\n')
         .map((line) => line.trim())
@@ -136,6 +136,48 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         .join('\n');
 
     return formatted.trim();
+  }
+
+  Widget _buildFormattedText(String text, TextStyle style) {
+    final formattedText = _formatText(text);
+    final paragraphs = formattedText.split('\n\n');
+
+    List<InlineSpan> spans = [];
+
+    for (int i = 0; i < paragraphs.length; i++) {
+      final paragraph = paragraphs[i].trim();
+      if (paragraph.isEmpty) continue;
+
+      // Add paragraph indent (using em spaces for first line)
+      spans.add(TextSpan(
+        text: '    $paragraph',
+        style: style.copyWith(
+          fontFamily: 'SFPro',
+          height: 1.7,
+          letterSpacing: 0.2,
+          wordSpacing: 0.5,
+          fontSize: style.fontSize,
+        ),
+      ));
+
+      // Add paragraph break (except for last paragraph)
+      if (i < paragraphs.length - 1) {
+        spans.add(TextSpan(text: '\n\n'));
+      }
+    }
+
+    return RichText(
+      textAlign: TextAlign.justify,
+      text: TextSpan(
+        children: spans,
+        style: style.copyWith(
+          fontFamily: 'SFPro',
+          height: 1.7,
+          letterSpacing: 0.2,
+          wordSpacing: 0.5,
+        ),
+      ),
+    );
   }
 
   void _handleAddNote(BuildContext context, String selectedText) async {
