@@ -49,7 +49,7 @@ class PagingWidget extends StatefulWidget {
   final Widget? lastWidget;
   final String bookId;
   final bool showNavBar;
-  final int linesPerPage; // NEW: Customizable lines per page
+  final int linesPerPage; // NEW: Customizable lines per page (default: 23)
 
   const PagingWidget(
     this.textContent,
@@ -73,7 +73,8 @@ class PagingWidget extends StatefulWidget {
     this.lastWidget,
     required this.bookId,
     this.showNavBar = true,
-    this.linesPerPage = 25, // DEFAULT: 25 lines per page
+    this.linesPerPage =
+        23, // DEFAULT: 23 lines per page (adjusted for height 1.7)
   });
 
   @override
@@ -130,9 +131,9 @@ class _PagingWidgetState extends State<PagingWidget> {
       text: fullText,
       style: widget.style.copyWith(
         fontFamily: 'SFPro',
-        height: 1.65,
-        letterSpacing: 0.3,
-        wordSpacing: 1.5,
+        height: 1.7,
+        letterSpacing: 0.2,
+        wordSpacing: 0.5,
       ),
     );
 
@@ -160,9 +161,9 @@ class _PagingWidgetState extends State<PagingWidget> {
       text: text,
       style: widget.style.copyWith(
         fontFamily: 'SFPro',
-        height: 1.65,
-        letterSpacing: 0.3,
-        wordSpacing: 1.5,
+        height: 1.7,
+        letterSpacing: 0.2,
+        wordSpacing: 0.5,
       ),
     );
 
@@ -217,9 +218,9 @@ class _PagingWidgetState extends State<PagingWidget> {
       text: widget.textContent,
       style: widget.style.copyWith(
         fontFamily: 'SFPro',
-        height: 1.65,
-        letterSpacing: 0.3,
-        wordSpacing: 1.5,
+        height: 1.7,
+        letterSpacing: 0.2,
+        wordSpacing: 0.5,
       ),
     );
 
