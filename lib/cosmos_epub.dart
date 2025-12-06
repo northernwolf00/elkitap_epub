@@ -15,8 +15,12 @@ import 'package:get_storage/get_storage.dart';
 import 'package:get/get.dart';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
-///TODO: Optimize with isolates
+Future<EpubBook> _parseEpub(String path) async {
+  var bytes = await File(path).readAsBytes();
+  return EpubReader.readBook(bytes);
+}
 
 class CosmosEpub {
   static final GlobalKey<NavigatorState> navigatorKey =
@@ -35,7 +39,7 @@ class CosmosEpub {
   static Future<void> Function(String bookId)? _onAddToShelfHandler;
 
   static String bookDescription = '';
-  
+
   // Global state for shelf and my books
   static bool isInShelf = false;
   static bool isInMyBooks = false;
@@ -92,24 +96,57 @@ class CosmosEpub {
       bool isInShelf = false,
       bool isInMyBooks = false,
       int starterChapter = -1}) async {
-    var bytes = await File(localPath).readAsBytes();
-    EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: SizedBox(
+          width: 60,
+          height: 60,
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        ),
+      ),
+    );
 
-    if (!context.mounted) return;
-    _openBook(
-        context: context,
-        epubBook: epubBook,
-        bookId: bookId,
-        imageUrl: imageUrl,
-        shouldOpenDrawer: shouldOpenDrawer,
-        starterChapter: starterChapter,
-        chapterListTitle: chapterListTitle,
-        bookDescription: bookDescription,
-        isInShelf: isInShelf,
-        isInMyBooks: isInMyBooks,
-        onPageFlip: onPageFlip,
-        onLastPage: onLastPage,
-        accentColor: accentColor);
+    try {
+      // Use compute to parse in background isolate
+      EpubBook epubBook = await compute(_parseEpub, localPath);
+
+      if (!context.mounted) return;
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      await _openBook(
+          context: context,
+          epubBook: epubBook,
+          bookId: bookId,
+          imageUrl: imageUrl,
+          shouldOpenDrawer: shouldOpenDrawer,
+          starterChapter: starterChapter,
+          chapterListTitle: chapterListTitle,
+          bookDescription: bookDescription,
+          isInShelf: isInShelf,
+          isInMyBooks: isInMyBooks,
+          onPageFlip: onPageFlip,
+          onLastPage: onLastPage,
+          accentColor: accentColor);
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Ensure dialog is closed on error
+      }
+      rethrow;
+    }
   }
 
   static Future<void> openFileBook(
@@ -129,7 +166,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    _openBook(
+    await _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -164,7 +201,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    _openBook(
+    await _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -198,7 +235,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    _openBook(
+    await _openBook(
         context: context,
         epubBook: epubBook,
         imageUrl: imageUrl,
@@ -214,10 +251,10 @@ class CosmosEpub {
         accentColor: accentColor);
   }
 
-  static _openBook(
+  static Future<void> _openBook(
       {required BuildContext context,
       required EpubBook epubBook,
-      required String imageUrl, 
+      required String imageUrl,
       required String bookId,
       required bool shouldOpenDrawer,
       required Color accentColor,
@@ -248,7 +285,7 @@ class CosmosEpub {
               : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
           shouldOpenDrawer: shouldOpenDrawer,
           bookId: bookId,
-          imageUrl: imageUrl,    
+          imageUrl: imageUrl,
           accentColor: accentColor,
           chapterListTitle: chapterListTitle,
           onPageFlip: onPageFlip,
@@ -257,17 +294,17 @@ class CosmosEpub {
       },
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      shouldOpenDrawer != false || starterChapter != -1
-          ? Navigator.pushReplacement(
-              context,
-              route,
-            )
-          : Navigator.push(
-              context,
-              route,
-            );
-    });
+    if (shouldOpenDrawer != false || starterChapter != -1) {
+      await Navigator.pushReplacement(
+        context,
+        route,
+      );
+    } else {
+      await Navigator.push(
+        context,
+        route,
+      );
+    }
   }
 
 // Inside CosmosEpub class

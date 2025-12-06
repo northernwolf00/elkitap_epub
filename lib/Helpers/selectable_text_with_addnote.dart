@@ -61,7 +61,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         textDirection: textDirection,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min, // IMPORTANT: Don't force expand
+          mainAxisSize: MainAxisSize.min,
           children: [
             if (isFirstPage && chapterTitle != null) ...[
               SizedBox(height: 40.h),
@@ -95,7 +95,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
               SizedBox(height: 30.h),
             ],
 
-            // Main text with paragraph indentation
+            // Main text with paragraph indentation - NO SCROLL
             _buildFormattedText(text, style),
           ],
         ),
@@ -189,7 +189,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
   }
 
   void _handleShare(BuildContext context, String selectedText) {
-    SharePlus.instance.share(ShareParams(text: selectedText));
+    Share.share(selectedText);
   }
 }
 
@@ -207,29 +207,27 @@ class BookPageBuilder {
     Color? backgroundColor,
     double bottomNavHeight = 70.0,
   }) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTextTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
         color: backgroundColor ?? Colors.white,
         padding: EdgeInsets.only(
           left: 32.w,
           right: 32.w,
           top: 20.h,
-          bottom: 20.h,
+          bottom: bottomNavHeight + 20.h, // Account for bottom navigation
         ),
-        // Wrap in SingleChildScrollView as safety fallback
-        child: SingleChildScrollView(
-          // physics: NeverScrollableScrollPhysics(), // Prevent manual scrolling
-          child: SelectableTextWithCustomToolbar(
-            text: text,
-            textDirection: textDirection,
-            style: style,
-            bookId: bookId,
-            isFirstPage: isFirstPage,
-            chapterTitle: chapterTitle,
-            pageNumber: pageNumber,
-            totalPages: totalPages,
-          ),
+        // NO SCROLL - Fixed content like a real book page
+        child: SelectableTextWithCustomToolbar(
+          text: text,
+          textDirection: textDirection,
+          style: style,
+          bookId: bookId,
+          isFirstPage: isFirstPage,
+          chapterTitle: chapterTitle,
+          pageNumber: pageNumber,
+          totalPages: totalPages,
         ),
       ),
     );

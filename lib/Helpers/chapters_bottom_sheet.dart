@@ -14,8 +14,8 @@ class ChaptersBottomSheet extends StatelessWidget {
   final String imageUrl;
   final Color accentColor;
   final String chapterListTitle;
-  final int currentPage;
-  final int totalPages;
+  // final int currentPage;
+  // final int totalPages;
 
   const ChaptersBottomSheet({
     super.key,
@@ -25,8 +25,8 @@ class ChaptersBottomSheet extends StatelessWidget {
     required this.imageUrl,
     required this.accentColor,
     required this.chapterListTitle,
-    required this.currentPage,
-    required this.totalPages,
+    // required this.currentPage,
+    // required this.totalPages,
   });
 
   @override
@@ -116,27 +116,27 @@ class ChaptersBottomSheet extends StatelessWidget {
                                     fontSize: 16.sp,
                                   ),
                                 ),
-                                if (totalPages > 0) ...[
-                                  SizedBox(height: 4.h),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '${CosmosEpubLocalization.t('page')} ',
-                                        style: TextStyle(
-                                          color: Colors.black.withOpacity(0.6),
-                                          fontSize: 13.sp,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${currentPage + 1} ${CosmosEpubLocalization.t('of')} $totalPages',
-                                        style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 13.sp,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                // if (totalPages > 0) ...[
+                                //   SizedBox(height: 4.h),
+                                //   Row(
+                                //     children: [
+                                //       Text(
+                                //         '${CosmosEpubLocalization.t('page')} ',
+                                //         style: TextStyle(
+                                //           color: Colors.black.withOpacity(0.6),
+                                //           fontSize: 13.sp,
+                                //         ),
+                                //       ),
+                                //       Text(
+                                //         '${currentPage + 1} ${CosmosEpubLocalization.t('of')} $totalPages',
+                                //         style: TextStyle(
+                                //           color: Colors.black,
+                                //           fontSize: 13.sp,
+                                //         ),
+                                //       ),
+                                //     ],
+                                //   ),
+                                // ],
                               ],
                             ),
                           ),
