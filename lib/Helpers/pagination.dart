@@ -1,18 +1,34 @@
-import 'dart:ui';
-
+import 'package:cosmos_epub/Helpers/selectable_text_with_addnote.dart';
 import 'package:cosmos_epub/PageFlip/page_flip_widget.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
-import 'package:fading_edge_scrollview/fading_edge_scrollview.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html_reborn/flutter_html_reborn.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:html/parser.dart';
 
-class PagingTextHandler {
+class PagingTextHandler extends GetxController {
   final Function paginate;
+  final _box = GetStorage();
 
-  PagingTextHandler(
-      {required this.paginate}); // will point to widget show method
+  late final RxInt currentPage;
+  late final RxInt totalPages;
+  late final RxInt globalPage;
+  late final RxInt globalTotalPages;
+
+  PagingTextHandler({required this.paginate}) {
+    currentPage = (_box.read<int>('currentPage') ?? 0).obs;
+    totalPages = (_box.read<int>('totalPages') ?? 0).obs;
+    globalPage = (_box.read<int>('globalPage') ?? 0).obs;
+    globalTotalPages = (_box.read<int>('globalTotalPages') ?? 0).obs;
+
+    ever(currentPage, (_) => _box.write('currentPage', currentPage.value));
+    ever(totalPages, (_) => _box.write('totalPages', totalPages.value));
+    ever(globalPage, (_) => _box.write('globalPage', globalPage.value));
+    ever(globalTotalPages,
+        (_) => _box.write('globalTotalPages', globalTotalPages.value));
+  }
 }
 
 class PagingWidget extends StatefulWidget {
@@ -21,12 +37,19 @@ class PagingWidget extends StatefulWidget {
   final String chapterTitle;
   final int totalChapters;
   final int starterPageIndex;
+  final String fullBookText;
+  final Function(int)? onGlobalPaginationComplete;
+  final List<String> allChapterTexts;
+  final Function(Map<int, int>)? onAllChaptersPaginated;
   final TextStyle style;
   final Function handlerCallback;
   final VoidCallback onTextTap;
   final Function(int, int) onPageFlip;
   final Function(int, int) onLastPage;
   final Widget? lastWidget;
+  final String bookId;
+  final bool showNavBar;
+  final int linesPerPage; // NEW: Customizable lines per page (default: 23)
 
   const PagingWidget(
     this.textContent,
@@ -34,16 +57,24 @@ class PagingWidget extends StatefulWidget {
     super.key,
     this.style = const TextStyle(
       color: Colors.black,
-      fontSize: 30,
+      fontSize: 12,
     ),
-    required this.handlerCallback(PagingTextHandler handler),
+    required this.handlerCallback,
     required this.onTextTap,
     required this.onPageFlip,
     required this.onLastPage,
     this.starterPageIndex = 0,
     required this.chapterTitle,
     required this.totalChapters,
+    this.fullBookText = '',
+    this.onGlobalPaginationComplete,
+    this.allChapterTexts = const [],
+    this.onAllChaptersPaginated,
     this.lastWidget,
+    required this.bookId,
+    this.showNavBar = true,
+    this.linesPerPage =
+        23, // DEFAULT: 23 lines per page (adjusted for height 1.7)
   });
 
   @override
@@ -56,17 +87,19 @@ class _PagingWidgetState extends State<PagingWidget> {
   int _currentPageIndex = 0;
   Future<void> paginateFuture = Future.value(true);
   late RenderBox _initializedRenderBox;
-  Widget? lastWidget;
 
   final _pageKey = GlobalKey();
   final _pageController = GlobalKey<PageFlipWidgetState>();
 
+  late PagingTextHandler _handler;
+  int _globalTotalPages = 0;
+
   @override
   void initState() {
-    rePaginate();
-    var handler = PagingTextHandler(paginate: rePaginate);
-    widget.handlerCallback(handler); // callback call.
     super.initState();
+    _handler = PagingTextHandler(paginate: rePaginate);
+    widget.handlerCallback(_handler);
+    rePaginate();
   }
 
   rePaginate() {
@@ -80,33 +113,115 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
   int findLastHtmlTagIndex(String input) {
-    // Regular expression pattern to match HTML tags
     RegExp regex = RegExp(r'<[^>]');
-
-    // Find all matches
     Iterable<Match> matches = regex.allMatches(input);
-
-    // If matches are found
     if (matches.isNotEmpty) {
-      // Return the end index of the last match
       return matches.last.end;
     } else {
-      // If no match is found, return -1
       return -1;
     }
   }
 
+  Future<int> _calculateGlobalPageCount(String fullText) async {
+    if (fullText.isEmpty) return 0;
+
+    final pageSize = _initializedRenderBox.size;
+    final textDirection = RTLHelper.getTextDirection(fullText);
+    final textSpan = TextSpan(
+      text: fullText,
+      style: widget.style.copyWith(
+        fontFamily: 'SFPro',
+        height: 1.7,
+        letterSpacing: 0.2,
+        wordSpacing: 0.5,
+      ),
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: textDirection,
+    );
+    textPainter.layout(minWidth: 0, maxWidth: pageSize.width - 64.w);
+
+    List<LineMetrics> lines = textPainter.computeLineMetrics();
+
+    // Simple calculation: divide total lines by lines per page
+    final int LINES_PER_PAGE = widget.linesPerPage;
+    int pageCount = (lines.length / LINES_PER_PAGE).ceil();
+
+    return pageCount > 0 ? pageCount : 1;
+  }
+
+  Future<int> _calculatePageCount(String text) async {
+    if (text.isEmpty) return 0;
+
+    final pageSize = _initializedRenderBox.size;
+    final textDirection = RTLHelper.getTextDirection(text);
+    final textSpan = TextSpan(
+      text: text,
+      style: widget.style.copyWith(
+        fontFamily: 'SFPro',
+        height: 1.7,
+        letterSpacing: 0.2,
+        wordSpacing: 0.5,
+      ),
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: textDirection,
+    );
+    textPainter.layout(minWidth: 0, maxWidth: pageSize.width - 64.w);
+
+    List<LineMetrics> lines = textPainter.computeLineMetrics();
+
+    // Simple calculation: divide total lines by lines per page
+    final int LINES_PER_PAGE = widget.linesPerPage;
+    int pageCount = (lines.length / LINES_PER_PAGE).ceil();
+
+    return pageCount > 0 ? pageCount : 1;
+  }
+
   Future<void> _paginate() async {
     final pageSize = _initializedRenderBox.size;
-
     _pageTexts.clear();
 
-    // Detect text direction based on content
-    final textDirection = RTLHelper.getTextDirection(widget.textContent);
+    // Calculate global pages
+    if (widget.fullBookText.isNotEmpty) {
+      String fullBookTextParsed =
+          parse(widget.fullBookText).documentElement?.text ?? '';
+      _globalTotalPages = await _calculateGlobalPageCount(fullBookTextParsed);
+      _handler.globalTotalPages.value = _globalTotalPages;
 
+      if (widget.onGlobalPaginationComplete != null) {
+        widget.onGlobalPaginationComplete!(_globalTotalPages);
+      }
+    }
+
+    // Calculate chapter pages
+    if (widget.allChapterTexts.isNotEmpty) {
+      final Map<int, int> chapterPageCounts = {};
+      for (int i = 0; i < widget.allChapterTexts.length; i++) {
+        final chapterText =
+            parse(widget.allChapterTexts[i]).documentElement?.text ?? '';
+        final pageCount = await _calculatePageCount(chapterText);
+        chapterPageCounts[i] = pageCount;
+      }
+      if (widget.onAllChaptersPaginated != null) {
+        widget.onAllChaptersPaginated!(chapterPageCounts);
+      }
+    }
+
+    // Create text painter for current chapter
+    final textDirection = RTLHelper.getTextDirection(widget.textContent);
     final textSpan = TextSpan(
       text: widget.textContent,
-      style: widget.style,
+      style: widget.style.copyWith(
+        fontFamily: 'SFPro',
+        height: 1.7,
+        letterSpacing: 0.2,
+        wordSpacing: 0.5,
+      ),
     );
 
     final textPainter = TextPainter(
@@ -115,215 +230,146 @@ class _PagingWidgetState extends State<PagingWidget> {
     );
     textPainter.layout(
       minWidth: 0,
-      maxWidth: pageSize.width,
+      maxWidth: pageSize.width - 64.w,
     );
 
-    // https://medium.com/swlh/flutter-line-metrics-fd98ab180a64
+    // SIMPLE APPROACH: Split by LINES (configurable lines per page)
     List<LineMetrics> lines = textPainter.computeLineMetrics();
-    double currentPageBottom = pageSize.height;
-    int currentPageStartIndex = 0;
-    int currentPageEndIndex = 0;
 
-    await Future.wait(lines.map((line) async {
-      final left = line.left;
-      final top = line.baseline - line.ascent;
-      final bottom = line.baseline + line.descent;
+    final int LINES_PER_PAGE = widget.linesPerPage; // Use widget parameter
+    int lineCount = 0;
+    int pageStartIndex = 0;
+    bool isFirstPage = true;
 
-      var innerHtml = widget.innerHtmlContent;
+    // For first page, reduce lines if there's a chapter title
+    int effectiveLinesPerPage = LINES_PER_PAGE;
+    if (isFirstPage && widget.chapterTitle.isNotEmpty) {
+      effectiveLinesPerPage =
+          (LINES_PER_PAGE * 0.7).round(); // 70% of normal lines on first page
+    }
 
-      // Current line overflow page
-      if (currentPageBottom < bottom) {
-        currentPageEndIndex = textPainter
-            .getPositionForOffset(
-                Offset(left, top - (innerHtml != null ? 0 : 100.h)))
-            .offset;
+    for (int i = 0; i < lines.length; i++) {
+      lineCount++;
 
-        var pageText = widget.textContent
-            .substring(currentPageStartIndex, currentPageEndIndex);
+      // Create new page after reaching line limit
+      if (lineCount >= effectiveLinesPerPage) {
+        final line = lines[i];
 
-        var index = findLastHtmlTagIndex(pageText) + currentPageStartIndex;
+        // Get text position at end of this line
+        final breakOffset = textPainter.getPositionForOffset(
+          Offset(0, line.baseline + line.descent),
+        );
 
-        /// Offset to the left from last HTML tag
-        if (index != -1) {
-          int difference = currentPageEndIndex - index;
-          if (difference < 4) {
-            currentPageEndIndex = index - 2;
-          }
+        // Extract page text
+        String pageText = widget.textContent.substring(
+          pageStartIndex,
+          breakOffset.offset.clamp(0, widget.textContent.length),
+        );
 
-          pageText = widget.textContent
-              .substring(currentPageStartIndex, currentPageEndIndex);
-          // print('start : $currentPageStartIndex');
-          // print('end : $currentPageEndIndex');
-          // print('last html tag : $index');
+        if (pageText.trim().isNotEmpty) {
+          _pageTexts.add(pageText.trim());
         }
 
-        _pageTexts.add(pageText);
-
-        currentPageStartIndex = currentPageEndIndex;
-        currentPageBottom =
-            top + pageSize.height - (innerHtml != null ? 120.h : 150.h);
+        // Reset for next page
+        pageStartIndex = breakOffset.offset;
+        lineCount = 0;
+        isFirstPage = false;
+        effectiveLinesPerPage = LINES_PER_PAGE; // Full lines for other pages
       }
-    }));
+    }
 
-    final lastPageText = widget.textContent.substring(currentPageStartIndex);
-    _pageTexts.add(lastPageText);
+    // Add remaining text as last page
+    if (pageStartIndex < widget.textContent.length) {
+      final lastPageText = widget.textContent.substring(pageStartIndex);
+      if (lastPageText.trim().isNotEmpty) {
+        _pageTexts.add(lastPageText.trim());
+      }
+    }
 
-    // Assuming each operation within the loop is asynchronous and returns a Future
-    List<Future<Widget>> futures = _pageTexts.map((text) async {
-      final _scrollController = ScrollController();
-      // Detect text direction for each page text
-      final pageTextDirection = RTLHelper.getTextDirection(text);
+    // Build page widgets
+    final bottomNavHeight = widget.showNavBar ? 70.0 : 0.0;
 
-      return InkWell(
-        onTap: widget.onTextTap,
-        child: Container(
-          color: widget.style.backgroundColor,
-          child: FadingEdgeScrollView.fromSingleChildScrollView(
-            gradientFractionOnEnd: 0.2,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: EdgeInsets.only(
-                    bottom: 40.h, top: 60.h, left: 10.w, right: 10.w),
-                child: Directionality(
-                  textDirection: pageTextDirection,
-                  child: widget.innerHtmlContent != null
-                      ? Html(
-                          data: text,
-                          style: {
-                            "*": Style(
-                                textAlign: TextAlign.justify,
-                                fontSize: FontSize(widget.style.fontSize ?? 0),
-                                fontFamily: widget.style.fontFamily,
-                                color: widget.style.color),
-                          },
-                        )
-                      : Text(
-                          text,
-                          textAlign: TextAlign.justify,
-                          textDirection: pageTextDirection,
-                          style: widget.style,
-                          overflow: TextOverflow.visible,
-                        ),
-                ),
-              ),
-            ),
-          ),
-        ),
+    List<Future<Widget>> futures =
+        _pageTexts.asMap().entries.map((entry) async {
+      final index = entry.key;
+      final text = entry.value;
+      final isFirstPageOfChapter = index == 0;
+
+      final cleanedText = BookPageBuilder.cleanBookText(text);
+      final pageTextDirection = RTLHelper.getTextDirection(cleanedText);
+
+      return BookPageBuilder.buildBookPage(
+        text: cleanedText,
+        style: widget.style,
+        textDirection: pageTextDirection,
+        bookId: widget.bookId,
+        onTextTap: widget.onTextTap,
+        isFirstPage: isFirstPageOfChapter,
+        chapterTitle: isFirstPageOfChapter ? widget.chapterTitle : null,
+        pageNumber: index + 1,
+        totalPages: _pageTexts.length,
+        backgroundColor: widget.style.backgroundColor,
+        bottomNavHeight: bottomNavHeight,
       );
     }).toList();
 
     pages = await Future.wait(futures);
+    _handler.totalPages.value = pages.length;
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<void>(
-        future: paginateFuture,
-        builder: (context, snapshot) {
-          switch (snapshot.connectionState) {
-            case ConnectionState.waiting:
-              {
-                // Otherwise, display a loading indicator.
-                return Center(
-                    child: CupertinoActivityIndicator(
-                  color: Theme.of(context).primaryColor,
-                  radius: 30.r,
-                ));
-              }
-            default:
-              {
-                return Stack(
-                  children: [
-                    Column(
-                      children: [
-                        Expanded(
-                          child: SizedBox.expand(
-                            key: _pageKey,
-                            child: PageFlipWidget(
-                              key: _pageController,
-                              initialIndex: widget.starterPageIndex != 0
-                                  ? (pages.isNotEmpty &&
-                                          widget.starterPageIndex < pages.length
-                                      ? widget.starterPageIndex
-                                      : 0)
-                                  : widget.starterPageIndex,
-                              onPageFlip: (pageIndex) {
-                                _currentPageIndex = pageIndex;
-                                widget.onPageFlip(pageIndex, pages.length);
-                                if (_currentPageIndex == pages.length - 1) {
-                                  widget.onLastPage(pageIndex, pages.length);
-                                }
-                              },
-                              backgroundColor:
-                                  widget.style.backgroundColor ?? Colors.white,
-                              lastPage: widget.lastWidget,
-                              children: pages,
-                            ),
-                          ),
-                        ),
-                        Visibility(
-                          visible: false,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.first_page),
-                                onPressed: () {
-                                  setState(() {
-                                    _currentPageIndex = 0;
-                                    _pageController.currentState
-                                        ?.goToPage(_currentPageIndex);
-                                  });
-                                },
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.navigate_before),
-                                onPressed: () {
-                                  setState(() {
-                                    if (_currentPageIndex > 0)
-                                      _currentPageIndex--;
-                                    _pageController.currentState
-                                        ?.goToPage(_currentPageIndex);
-                                  });
-                                },
-                              ),
-                              Text(
-                                '${_currentPageIndex + 1}/${_pageTexts.length}',
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.navigate_next),
-                                onPressed: () {
-                                  setState(() {
-                                    if (_currentPageIndex <
-                                        _pageTexts.length - 1)
-                                      _currentPageIndex++;
-                                    _pageController.currentState
-                                        ?.goToPage(_currentPageIndex);
-                                  });
-                                },
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.last_page),
-                                onPressed: () {
-                                  setState(() {
-                                    _currentPageIndex = _pageTexts.length - 1;
-                                    _pageController.currentState
-                                        ?.goToPage(_currentPageIndex);
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+      future: paginateFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: LoadingWidget(
+              height: 100,
+              animationWidth: 50,
+              animationHeight: 50,
+            ),
+          );
+        }
+
+        return Stack(
+          children: [
+            Column(
+              children: [
+                Expanded(
+                  child: SizedBox.expand(
+                    key: _pageKey,
+                    child: PageFlipWidget(
+                      key: _pageController,
+                      initialIndex: widget.starterPageIndex != 0
+                          ? (pages.isNotEmpty &&
+                                  widget.starterPageIndex < pages.length
+                              ? widget.starterPageIndex
+                              : 0)
+                          : widget.starterPageIndex,
+                      onPageFlip: (pageIndex) {
+                        _currentPageIndex = pageIndex;
+                        _handler.currentPage.value = pageIndex + 1;
+                        _handler.totalPages.value = pages.length;
+
+                        widget.onPageFlip(pageIndex, pages.length);
+                        if (_currentPageIndex == pages.length - 1) {
+                          widget.onLastPage(pageIndex, pages.length);
+                        }
+                      },
+                      backgroundColor:
+                          widget.style.backgroundColor ?? Colors.white,
+                      lastPage: widget.lastWidget,
+                      children: pages,
                     ),
-                  ],
-                );
-              }
-          }
-        });
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

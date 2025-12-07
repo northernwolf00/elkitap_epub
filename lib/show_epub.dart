@@ -124,6 +124,8 @@ class ShowEpubState extends State<ShowEpub> {
   Map<int, int> chapterStartPages = {};
   List<String> allChapterTexts = [];
 
+  bool isCalculatingPages = false;
+
   @override
   void initState() {
     loadThemeSettings();
@@ -137,54 +139,66 @@ class ShowEpubState extends State<ShowEpub> {
 
     getTitleFromXhtml();
 
-    // REMOVED: Defer heavy calculation
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   calculateFullBookText();
-    // });
+    // Defer heavy calculation to after initial render
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      calculateFullBookText();
+    });
 
     reLoadChapter(init: true);
 
     super.initState();
   }
 
-  // Future<void> calculateFullBookPagination() async {
-  //   if (isCalculatingPages) return;
-  //   isCalculatingPages = true;
-  //
-  //   try {
-  //     // Wait for render box to be available
-  //     await Future.delayed(Duration(milliseconds: 500));
-  //
-  //     StringBuffer fullText = StringBuffer();
-  //     List<String> chapterTexts = [];
-  //
-  //     // Collect all chapter texts
-  //     for (var chapter in epubBook.Chapters!) {
-  //       String content = chapter.HtmlContent ?? '';
-  //
-  //       List<EpubChapter>? subChapters = chapter.SubChapters;
-  //       if (subChapters != null && subChapters.isNotEmpty) {
-  //         for (var subChapter in subChapters) {
-  //           content += subChapter.HtmlContent ?? '';
-  //         }
-  //       }
-  //
-  //       String chapterText = parse(content).documentElement?.text ?? '';
-  //       chapterTexts.add(chapterText);
-  //       fullText.write(chapterText + ' ');
-  //     }
-  //
-  //     fullBookText = fullText.toString();
-  //
-  //     if (mounted) {
-  //       setState(() {
-  //         // Trigger update after calculation
-  //       });
-  //     }
-  //   } finally {
-  //     isCalculatingPages = false;
-  //   }
-  // }
+  void onAllChaptersPaginated(Map<int, int> pageCounts) {
+    if (mounted) {
+      setState(() {
+        chapterPageCounts = pageCounts;
+        calculateChapterStartPages();
+        totalBookPages =
+            chapterPageCounts.values.fold(0, (sum, count) => sum + count);
+        controllerPaging.globalTotalPages.value = totalBookPages;
+      });
+    }
+  }
+
+  Future<void> calculateFullBookPagination() async {
+    if (isCalculatingPages) return;
+    isCalculatingPages = true;
+
+    try {
+      // Wait for render box to be available
+      await Future.delayed(Duration(milliseconds: 500));
+
+      StringBuffer fullText = StringBuffer();
+      List<String> chapterTexts = [];
+
+      // Collect all chapter texts
+      for (var chapter in epubBook.Chapters!) {
+        String content = chapter.HtmlContent ?? '';
+
+        List<EpubChapter>? subChapters = chapter.SubChapters;
+        if (subChapters != null && subChapters.isNotEmpty) {
+          for (var subChapter in subChapters) {
+            content += subChapter.HtmlContent ?? '';
+          }
+        }
+
+        String chapterText = parse(content).documentElement?.text ?? '';
+        chapterTexts.add(chapterText);
+        fullText.write(chapterText + ' ');
+      }
+
+      fullBookText = fullText.toString();
+
+      if (mounted) {
+        setState(() {
+          // Trigger update after calculation
+        });
+      }
+    } finally {
+      isCalculatingPages = false;
+    }
+  }
 
   // NEW: Calculate chapter start pages using the same logic as PagingWidget
   Future<void> calculateChapterStartPages() async {
@@ -282,8 +296,29 @@ class ShowEpubState extends State<ShowEpub> {
           chapterPageCounts.values.fold(0, (sum, count) => sum + count);
 
       // Update global total in handler
-      // controllerPaging.globalTotalPages = totalBookPages as RxInt;
+      controllerPaging.globalTotalPages = totalBookPages as RxInt;
     });
+  }
+
+  Future<void> calculateFullBookText() async {
+    StringBuffer fullText = StringBuffer();
+    allChapterTexts.clear();
+
+    // Use simple for-loop instead of Future.wait for better performance
+    for (var chapter in epubBook.Chapters!) {
+      String content = chapter.HtmlContent ?? '';
+
+      List<EpubChapter>? subChapters = chapter.SubChapters;
+      if (subChapters != null && subChapters.isNotEmpty) {
+        for (var subChapter in subChapters) {
+          content += subChapter.HtmlContent ?? '';
+        }
+      }
+      allChapterTexts.add(content);
+      fullText.write(content);
+    }
+
+    fullBookText = fullText.toString();
   }
 
   updateContentAccordingChapter(int chapterIndex) async {
@@ -305,13 +340,9 @@ class ShowEpubState extends State<ShowEpub> {
     htmlContent = content;
     textContent = parse(htmlContent).documentElement!.text;
 
-    // Check if the ORIGINAL htmlContent contains HTML tags
-    if (isHTML(htmlContent)) {
-      innerHtmlContent = htmlContent;
-      // If we use HTML content, we still populate textContent for existing logic that might depend on it,
-      // but PagingWidget should prioritize innerHtmlContent.
+    if (isHTML(textContent)) {
+      innerHtmlContent = textContent;
     } else {
-      innerHtmlContent = null;
       textContent = textContent.replaceAll('Unknown', '').trim();
     }
 
@@ -366,9 +397,9 @@ class ShowEpubState extends State<ShowEpub> {
         bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
     int chapterStartPage = chapterStartPages[currentChapterIndex] ?? 1;
 
-    // setState(() {
-    //   controllerPaging.globalPage.value = chapterStartPage + localPageIndex;
-    // });
+    setState(() {
+      controllerPaging.globalPage.value = chapterStartPage + localPageIndex;
+    });
 
     widget.onPageFlip?.call(localPageIndex, totalChapterPages);
   }
@@ -377,7 +408,7 @@ class ShowEpubState extends State<ShowEpub> {
   void onGlobalPaginationComplete(int totalPages) {
     setState(() {
       totalBookPages = totalPages;
-      // controllerPaging.globalTotalPages.value = totalPages;
+      controllerPaging.globalTotalPages.value = totalPages;
     });
   }
 
@@ -393,8 +424,8 @@ class ShowEpubState extends State<ShowEpub> {
             chapters: chaptersList,
             accentColor: widget.accentColor,
             chapterListTitle: widget.chapterListTitle,
-            // currentPage: controllerPaging.globalPage.value,
-            // totalPages: controllerPaging.globalTotalPages.value,
+            currentPage: controllerPaging.globalPage.value,
+            totalPages: controllerPaging.globalTotalPages.value,
           ),
         ) ??
         false;
@@ -701,12 +732,12 @@ class ShowEpubState extends State<ShowEpub> {
                                   chapterTitle:
                                       chaptersList[currentChapterIndex].chapter,
                                   totalChapters: chaptersList.length,
-                                  // fullBookText: fullBookText,
-                                  // allChapterTexts: allChapterTexts,
-                                  // onAllChaptersPaginated:
-                                  //    onAllChaptersPaginated,
-                                  // bookId: bookId,
-                                  // showNavBar: showHeader, // PASS THIS
+                                  fullBookText: fullBookText,
+                                  allChapterTexts: allChapterTexts,
+                                  onAllChaptersPaginated:
+                                      onAllChaptersPaginated,
+                                  bookId: bookId,
+                                  showNavBar: showHeader, // PASS THIS
                                 );
                             }
                           },
@@ -806,17 +837,17 @@ class ShowEpubState extends State<ShowEpub> {
                               onPressed: openTableOfContents,
                               tooltip: 'Table of Contents',
                             ),
-                            // Expanded(
-                            //   child: Padding(
-                            //     padding: EdgeInsets.symmetric(horizontal: 16.w),
-                            //     child: Obx(() => ProgressBarWidget(
-                            //           currentPage:
-                            //               controllerPaging.globalPage.value,
-                            //           totalPages: controllerPaging
-                            //               .globalTotalPages.value,
-                            //         )),
-                            //   ),
-                            // ),
+                            Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                                child: Obx(() => ProgressBarWidget(
+                                      currentPage:
+                                          controllerPaging.globalPage.value,
+                                      totalPages: controllerPaging
+                                          .globalTotalPages.value,
+                                    )),
+                              ),
+                            ),
                             _buildNavButton(
                               icon: Icons.text_fields_rounded,
                               onPressed: () {
