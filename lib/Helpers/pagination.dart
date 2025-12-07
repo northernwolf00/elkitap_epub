@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:html/parser.dart';
 
 class PagingTextHandler extends GetxController {
   final Function paginate;
@@ -14,20 +13,13 @@ class PagingTextHandler extends GetxController {
 
   late final RxInt currentPage;
   late final RxInt totalPages;
-  late final RxInt globalPage;
-  late final RxInt globalTotalPages;
 
   PagingTextHandler({required this.paginate}) {
     currentPage = (_box.read<int>('currentPage') ?? 0).obs;
     totalPages = (_box.read<int>('totalPages') ?? 0).obs;
-    globalPage = (_box.read<int>('globalPage') ?? 0).obs;
-    globalTotalPages = (_box.read<int>('globalTotalPages') ?? 0).obs;
 
     ever(currentPage, (_) => _box.write('currentPage', currentPage.value));
     ever(totalPages, (_) => _box.write('totalPages', totalPages.value));
-    ever(globalPage, (_) => _box.write('globalPage', globalPage.value));
-    ever(globalTotalPages,
-        (_) => _box.write('globalTotalPages', globalTotalPages.value));
   }
 }
 
@@ -37,10 +29,6 @@ class PagingWidget extends StatefulWidget {
   final String chapterTitle;
   final int totalChapters;
   final int starterPageIndex;
-  final String fullBookText;
-  final Function(int)? onGlobalPaginationComplete;
-  final List<String> allChapterTexts;
-  final Function(Map<int, int>)? onAllChaptersPaginated;
   final TextStyle style;
   final Function handlerCallback;
   final VoidCallback onTextTap;
@@ -49,7 +37,7 @@ class PagingWidget extends StatefulWidget {
   final Widget? lastWidget;
   final String bookId;
   final bool showNavBar;
-  final int linesPerPage; // NEW: Customizable lines per page (default: 23)
+  final int linesPerPage; // Customizable lines per page (default: 23)
 
   const PagingWidget(
     this.textContent,
@@ -66,10 +54,6 @@ class PagingWidget extends StatefulWidget {
     this.starterPageIndex = 0,
     required this.chapterTitle,
     required this.totalChapters,
-    this.fullBookText = '',
-    this.onGlobalPaginationComplete,
-    this.allChapterTexts = const [],
-    this.onAllChaptersPaginated,
     this.lastWidget,
     required this.bookId,
     this.showNavBar = true,
@@ -92,7 +76,6 @@ class _PagingWidgetState extends State<PagingWidget> {
   final _pageController = GlobalKey<PageFlipWidgetState>();
 
   late PagingTextHandler _handler;
-  int _globalTotalPages = 0;
 
   @override
   void initState() {
@@ -122,95 +105,9 @@ class _PagingWidgetState extends State<PagingWidget> {
     }
   }
 
-  Future<int> _calculateGlobalPageCount(String fullText) async {
-    if (fullText.isEmpty) return 0;
-
-    final pageSize = _initializedRenderBox.size;
-    final textDirection = RTLHelper.getTextDirection(fullText);
-    final textSpan = TextSpan(
-      text: fullText,
-      style: widget.style.copyWith(
-        fontFamily: 'SFPro',
-        height: 1.7,
-        letterSpacing: 0.2,
-        wordSpacing: 0.5,
-      ),
-    );
-
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: textDirection,
-    );
-    textPainter.layout(minWidth: 0, maxWidth: pageSize.width - 64.w);
-
-    List<LineMetrics> lines = textPainter.computeLineMetrics();
-
-    // Simple calculation: divide total lines by lines per page
-    final int LINES_PER_PAGE = widget.linesPerPage;
-    int pageCount = (lines.length / LINES_PER_PAGE).ceil();
-
-    return pageCount > 0 ? pageCount : 1;
-  }
-
-  Future<int> _calculatePageCount(String text) async {
-    if (text.isEmpty) return 0;
-
-    final pageSize = _initializedRenderBox.size;
-    final textDirection = RTLHelper.getTextDirection(text);
-    final textSpan = TextSpan(
-      text: text,
-      style: widget.style.copyWith(
-        fontFamily: 'SFPro',
-        height: 1.7,
-        letterSpacing: 0.2,
-        wordSpacing: 0.5,
-      ),
-    );
-
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: textDirection,
-    );
-    textPainter.layout(minWidth: 0, maxWidth: pageSize.width - 64.w);
-
-    List<LineMetrics> lines = textPainter.computeLineMetrics();
-
-    // Simple calculation: divide total lines by lines per page
-    final int LINES_PER_PAGE = widget.linesPerPage;
-    int pageCount = (lines.length / LINES_PER_PAGE).ceil();
-
-    return pageCount > 0 ? pageCount : 1;
-  }
-
   Future<void> _paginate() async {
     final pageSize = _initializedRenderBox.size;
     _pageTexts.clear();
-
-    // Calculate global pages
-    if (widget.fullBookText.isNotEmpty) {
-      String fullBookTextParsed =
-          parse(widget.fullBookText).documentElement?.text ?? '';
-      _globalTotalPages = await _calculateGlobalPageCount(fullBookTextParsed);
-      _handler.globalTotalPages.value = _globalTotalPages;
-
-      if (widget.onGlobalPaginationComplete != null) {
-        widget.onGlobalPaginationComplete!(_globalTotalPages);
-      }
-    }
-
-    // Calculate chapter pages
-    if (widget.allChapterTexts.isNotEmpty) {
-      final Map<int, int> chapterPageCounts = {};
-      for (int i = 0; i < widget.allChapterTexts.length; i++) {
-        final chapterText =
-            parse(widget.allChapterTexts[i]).documentElement?.text ?? '';
-        final pageCount = await _calculatePageCount(chapterText);
-        chapterPageCounts[i] = pageCount;
-      }
-      if (widget.onAllChaptersPaginated != null) {
-        widget.onAllChaptersPaginated!(chapterPageCounts);
-      }
-    }
 
     // Create text painter for current chapter
     final textDirection = RTLHelper.getTextDirection(widget.textContent);
