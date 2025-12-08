@@ -194,38 +194,39 @@ class ShowEpubState extends State<ShowEpub> {
     }
   }
 
-  updateContentAccordingChapter(int chapterIndex) async {
-    ///Set current chapter index
-    await bookProgress.setCurrentChapterIndex(bookId, chapterIndex);
+ updateContentAccordingChapter(int chapterIndex) async {
+  ///Set current chapter index
+  await bookProgress.setCurrentChapterIndex(bookId, chapterIndex);
 
-    // Directly access the chapter by index instead of iterating all chapters
-    String content = epubBook.Chapters![chapterIndex].HtmlContent ?? '';
+  // Directly access the chapter by index instead of iterating all chapters
+  String content = epubBook.Chapters![chapterIndex].HtmlContent ?? '';
 
-    // Add subchapters content if they exist
-    List<EpubChapter>? subChapters =
-        epubBook.Chapters![chapterIndex].SubChapters;
-    if (subChapters != null && subChapters.isNotEmpty) {
-      for (var subChapter in subChapters) {
-        content += subChapter.HtmlContent ?? '';
-      }
+  // Add subchapters content if they exist
+  List<EpubChapter>? subChapters =
+      epubBook.Chapters![chapterIndex].SubChapters;
+  if (subChapters != null && subChapters.isNotEmpty) {
+    for (var subChapter in subChapters) {
+      content += subChapter.HtmlContent ?? '';
     }
-
-    htmlContent = content;
-    textContent = parse(htmlContent).documentElement!.text;
-
-    if (isHTML(textContent)) {
-      innerHtmlContent = textContent;
-    } else {
-      textContent = textContent.replaceAll('Unknown', '').trim();
-    }
-
-    // Detect text direction for the current content
-    currentTextDirection = RTLHelper.getTextDirection(textContent);
-
-    controllerPaging.paginate();
-
-    setupNavButtons();
   }
+
+  htmlContent = content;
+  
+  // ✅ IMPORTANT: Keep the full HTML content for images
+  // Pass the raw HTML to innerHtmlContent so images are preserved
+  innerHtmlContent = htmlContent;
+  
+  // Extract text content only for text direction detection
+  textContent = parse(htmlContent).documentElement!.text;
+  textContent = textContent.replaceAll('Unknown', '').trim();
+
+  // Detect text direction for the current content
+  currentTextDirection = RTLHelper.getTextDirection(textContent);
+
+  controllerPaging.paginate();
+
+  setupNavButtons();
+}
 
   bool isHTML(String str) {
     final RegExp htmlRegExp =
@@ -494,6 +495,7 @@ class ShowEpubState extends State<ShowEpub> {
 
                                 return PagingWidget(
                                   textContent,
+                                   epubBook: epubBook, 
                                   innerHtmlContent,
                                   lastWidget: null,
                                   starterPageIndex: bookProgress

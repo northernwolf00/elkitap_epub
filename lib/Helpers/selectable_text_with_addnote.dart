@@ -61,7 +61,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         textDirection: textDirection,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min, // IMPORTANT: Don't force expand
+          mainAxisSize: MainAxisSize.min,
           children: [
             if (isFirstPage && chapterTitle != null) ...[
               SizedBox(height: 40.h),
@@ -217,9 +217,7 @@ class BookPageBuilder {
           top: 20.h,
           bottom: 20.h,
         ),
-        // Wrap in SingleChildScrollView as safety fallback
         child: SingleChildScrollView(
-          // physics: NeverScrollableScrollPhysics(), // Prevent manual scrolling
           child: SelectableTextWithCustomToolbar(
             text: text,
             textDirection: textDirection,
@@ -229,6 +227,81 @@ class BookPageBuilder {
             chapterTitle: chapterTitle,
             pageNumber: pageNumber,
             totalPages: totalPages,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // NEW METHOD: Build page with TextSpan (for mixed text + images)
+  static Widget buildBookPageSpan({
+    required TextSpan contentSpan,
+    required TextStyle style,
+    required TextDirection textDirection,
+    required String bookId,
+    required VoidCallback onTextTap,
+    bool isFirstPage = false,
+    String? chapterTitle,
+    int? pageNumber,
+    int? totalPages,
+    Color? backgroundColor,
+    double bottomNavHeight = 70.0,
+  }) {
+    return InkWell(
+      onTap: onTextTap,
+      child: Container(
+        color: backgroundColor ?? Colors.white,
+        padding: EdgeInsets.only(
+          left: 32.w,
+          right: 32.w,
+          top: 20.h,
+          bottom: bottomNavHeight + 20.h,
+        ),
+        child: Directionality(
+          textDirection: textDirection,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Chapter title for first page
+              if (isFirstPage && chapterTitle != null) ...[
+                SizedBox(height: 40.h),
+                Text(
+                  chapterTitle,
+                  textAlign: TextAlign.center,
+                  style: style.copyWith(
+                    fontSize: (style.fontSize ?? 16) + 6,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'SFPro',
+                    height: 1,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: 30.h),
+                Center(
+                  child: Container(
+                    width: 80.w,
+                    height: 2.h,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          (style.color ?? Colors.black).withOpacity(0.1),
+                          (style.color ?? Colors.black).withOpacity(0.5),
+                          (style.color ?? Colors.black).withOpacity(0.1),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 30.h),
+              ],
+
+              // Main content with TextSpan (includes text and images)
+              RichText(
+                textAlign: TextAlign.justify,
+                text: contentSpan,
+              ),
+            ],
           ),
         ),
       ),
