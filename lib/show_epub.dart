@@ -211,13 +211,14 @@ class ShowEpubState extends State<ShowEpub> {
     }
 
     htmlContent = content;
-    textContent = parse(htmlContent).documentElement!.text;
 
-    if (isHTML(textContent)) {
-      innerHtmlContent = textContent;
-    } else {
-      textContent = textContent.replaceAll('Unknown', '').trim();
-    }
+    // ✅ IMPORTANT: Keep the full HTML content for images
+    // Pass the raw HTML to innerHtmlContent so images are preserved
+    innerHtmlContent = htmlContent;
+
+    // Extract text content only for text direction detection
+    textContent = parse(htmlContent).documentElement!.text;
+    textContent = textContent.replaceAll('Unknown', '').trim();
 
     // Detect text direction for the current content
     currentTextDirection = RTLHelper.getTextDirection(textContent);
@@ -494,6 +495,7 @@ class ShowEpubState extends State<ShowEpub> {
 
                                 return PagingWidget(
                                   textContent,
+                                  epubBook: epubBook,
                                   innerHtmlContent,
                                   lastWidget: null,
                                   starterPageIndex: bookProgress
