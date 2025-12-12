@@ -96,7 +96,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    _openBook(
+    await _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -129,7 +129,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    _openBook(
+    await _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -164,7 +164,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    _openBook(
+    await _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -198,7 +198,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    _openBook(
+    await _openBook(
         context: context,
         epubBook: epubBook,
         imageUrl: imageUrl,
@@ -214,10 +214,10 @@ class CosmosEpub {
         accentColor: accentColor);
   }
 
-  static _openBook(
+  static Future<void> _openBook(
       {required BuildContext context,
       required EpubBook epubBook,
-      required String imageUrl, 
+      required String imageUrl,
       required String bookId,
       required bool shouldOpenDrawer,
       required Color accentColor,
@@ -239,7 +239,7 @@ class CosmosEpub {
       await bookProgress.setCurrentPageIndex(bookId, 0);
     }
 
-    var route = MaterialPageRoute(
+    var route = MaterialPageRoute<void>(
       builder: (context) {
         return ShowEpub(
           epubBook: epubBook,
@@ -248,7 +248,7 @@ class CosmosEpub {
               : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
           shouldOpenDrawer: shouldOpenDrawer,
           bookId: bookId,
-          imageUrl: imageUrl,    
+          imageUrl: imageUrl,
           accentColor: accentColor,
           chapterListTitle: chapterListTitle,
           onPageFlip: onPageFlip,
@@ -257,17 +257,12 @@ class CosmosEpub {
       },
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      shouldOpenDrawer != false || starterChapter != -1
-          ? Navigator.pushReplacement(
-              context,
-              route,
-            )
-          : Navigator.push(
-              context,
-              route,
-            );
-    });
+    // Wait for the route to be pushed and then wait for it to be popped
+    if (shouldOpenDrawer != false || starterChapter != -1) {
+      await Navigator.pushReplacement(context, route);
+    } else {
+      await Navigator.push(context, route);
+    }
   }
 
 // Inside CosmosEpub class

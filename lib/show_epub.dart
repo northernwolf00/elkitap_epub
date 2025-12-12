@@ -116,6 +116,11 @@ class ShowEpubState extends State<ShowEpub> {
 
   PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {});
 
+  // Track page counts per chapter for total book progress
+  List<int> chapterPageCounts = [];
+  int totalBookPages = 0;
+  int currentBookPage = 0;
+
   @override
   void initState() {
     loadThemeSettings();
@@ -180,6 +185,19 @@ class ShowEpubState extends State<ShowEpub> {
       chaptersList += subChapters;
     }
 
+    // Initialize chapter page counts if empty
+    if (chapterPageCounts.isEmpty || chapterPageCounts.length != chaptersList.length) {
+      chapterPageCounts = List.filled(chaptersList.length, 0);
+    }
+
+    // Load saved chapter page counts from book progress
+    var savedProgress = bookProgress.getBookProgress(bookId);
+    if (savedProgress.chapterPageCounts != null &&
+        savedProgress.chapterPageCounts!.length == chaptersList.length) {
+      chapterPageCounts = List.from(savedProgress.chapterPageCounts!);
+      _updateTotalBookPages();
+    }
+
     ///Choose initial chapter
     if (widget.starterChapter >= 0 &&
         widget.starterChapter < chaptersList.length) {
@@ -191,6 +209,50 @@ class ShowEpubState extends State<ShowEpub> {
       await updateContentAccordingChapter(0);
       CustomToast.showToast(
           "Invalid chapter number. Range [0-${chaptersList.length}]");
+    }
+  }
+
+  void _updateTotalBookPages() {
+    totalBookPages = 0;
+    for (var count in chapterPageCounts) {
+      totalBookPages += count;
+    }
+  }
+
+  void _updateCurrentBookPage(int chapterIndex, int pageInChapter) {
+    currentBookPage = 0;
+    for (int i = 0; i < chapterIndex && i < chapterPageCounts.length; i++) {
+      currentBookPage += chapterPageCounts[i];
+    }
+    currentBookPage += pageInChapter + 1; // +1 for 1-based display
+  }
+
+  void onChapterPagesCalculated(int chapterIndex, int pageCount) {
+    if (chapterIndex >= 0 && chapterIndex < chapterPageCounts.length) {
+      chapterPageCounts[chapterIndex] = pageCount;
+
+      // Update chapter model with page info
+      if (chapterIndex < chaptersList.length) {
+        int startPage = 0;
+        for (int i = 0; i < chapterIndex; i++) {
+          startPage += chapterPageCounts[i];
+        }
+        chaptersList[chapterIndex].startPage = startPage + 1;
+        chaptersList[chapterIndex].pageCount = pageCount;
+        chaptersList[chapterIndex].endPage = startPage + pageCount;
+      }
+
+      _updateTotalBookPages();
+      _saveChapterPageCounts();
+      updateUI();
+    }
+  }
+
+  Future<void> _saveChapterPageCounts() async {
+    try {
+      await bookProgress.setChapterPageCounts(bookId, chapterPageCounts);
+    } catch (e) {
+      log('Error saving chapter page counts: $e');
     }
   }
 
@@ -271,6 +333,10 @@ class ShowEpubState extends State<ShowEpub> {
   }
 
   openTableOfContents() async {
+    // Calculate current book page for display
+    int displayCurrentPage = totalBookPages > 0 ? currentBookPage : controllerPaging.currentPage.value;
+    int displayTotalPages = totalBookPages > 0 ? totalBookPages : controllerPaging.totalPages.value;
+
     bool? shouldUpdate = await showModalBottomSheet<bool>(
           context: context,
           isScrollControlled: true,
@@ -282,8 +348,8 @@ class ShowEpubState extends State<ShowEpub> {
             chapters: chaptersList,
             accentColor: widget.accentColor,
             chapterListTitle: widget.chapterListTitle,
-            currentPage: controllerPaging.currentPage.value,
-            totalPages: controllerPaging.totalPages.value,
+            currentPage: displayCurrentPage,
+            totalPages: displayTotalPages,
           ),
         ) ??
         false;
@@ -525,6 +591,9 @@ class ShowEpubState extends State<ShowEpub> {
                                           currentPage, totalPages);
                                     }
 
+                                    // Update current book page for progress display
+                                    _updateCurrentBookPage(currentChapterIndex, currentPage);
+
                                     if (currentPage == totalPages - 1) {
                                       bookProgress.setCurrentPageIndex(
                                           bookId, 0);
@@ -545,17 +614,20 @@ class ShowEpubState extends State<ShowEpub> {
                                     if (currentPage == 0) {
                                       prevSwipe++;
                                       if (prevSwipe > 1) {
-                                        var currentChapterIndex = bookProgress
+                                        var currentChapterIdx = bookProgress
                                                 .getBookProgress(bookId)
                                                 .currentChapterIndex ??
                                             0;
-                                        if (currentChapterIndex > 0) {
+                                        if (currentChapterIdx > 0) {
                                           var previousChapterIndex =
-                                              currentChapterIndex - 1;
+                                              currentChapterIdx - 1;
                                           // Go to last page of previous chapter
+                                          int lastPageOfPrevChapter = chapterPageCounts.isNotEmpty &&
+                                                  previousChapterIndex < chapterPageCounts.length
+                                              ? chapterPageCounts[previousChapterIndex] - 1
+                                              : 999;
                                           await bookProgress.setCurrentPageIndex(
-                                              bookId,
-                                              999); // Will be clamped to last page
+                                              bookId, lastPageOfPrevChapter);
                                           reLoadChapter(
                                               index: previousChapterIndex);
                                         }
@@ -586,9 +658,11 @@ class ShowEpubState extends State<ShowEpub> {
                                   chapterTitle:
                                       chaptersList[currentChapterIndex].chapter,
                                   totalChapters: chaptersList.length,
-
+                                  currentChapterIndex: currentChapterIndex,
+                                  chapterPageCounts: chapterPageCounts,
+                                  onChapterPagesCalculated: onChapterPagesCalculated,
                                   bookId: bookId,
-                                  showNavBar: showHeader, // PASS THIS
+                                  showNavBar: showHeader,
                                 );
                             }
                           },
@@ -690,12 +764,19 @@ class ShowEpubState extends State<ShowEpub> {
                             Expanded(
                               child: Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 16.w),
-                                child: Obx(() => ProgressBarWidget(
-                                      currentPage:
-                                          controllerPaging.currentPage.value,
-                                      totalPages:
-                                          controllerPaging.totalPages.value,
-                                    )),
+                                child: Obx(() {
+                                  // Use total book pages if available, otherwise use chapter pages
+                                  final displayCurrentPage = totalBookPages > 0
+                                      ? currentBookPage
+                                      : controllerPaging.currentPage.value;
+                                  final displayTotalPages = totalBookPages > 0
+                                      ? totalBookPages
+                                      : controllerPaging.totalPages.value;
+                                  return ProgressBarWidget(
+                                    currentPage: displayCurrentPage,
+                                    totalPages: displayTotalPages,
+                                  );
+                                }),
                               ),
                             ),
                             _buildNavButton(

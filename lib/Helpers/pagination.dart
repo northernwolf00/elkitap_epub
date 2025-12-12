@@ -20,12 +20,36 @@ class PagingTextHandler extends GetxController {
   late final RxInt currentPage;
   late final RxInt totalPages;
 
+  // Total pages across all chapters
+  late final RxInt totalBookPages;
+  late final RxInt currentBookPage;
+
   PagingTextHandler({required this.paginate}) {
     currentPage = (_box.read<int>('currentPage') ?? 0).obs;
     totalPages = (_box.read<int>('totalPages') ?? 0).obs;
+    totalBookPages = 0.obs;
+    currentBookPage = 0.obs;
 
     ever(currentPage, (_) => _box.write('currentPage', currentPage.value));
     ever(totalPages, (_) => _box.write('totalPages', totalPages.value));
+  }
+
+  void updateBookProgress(int chapterIndex, List<int> chapterPageCounts) {
+    if (chapterPageCounts.isEmpty) return;
+
+    // Calculate total book pages
+    int total = 0;
+    for (var count in chapterPageCounts) {
+      total += count;
+    }
+    totalBookPages.value = total;
+
+    // Calculate current book page (sum of previous chapters + current page in chapter)
+    int pagesBeforeCurrentChapter = 0;
+    for (int i = 0; i < chapterIndex && i < chapterPageCounts.length; i++) {
+      pagesBeforeCurrentChapter += chapterPageCounts[i];
+    }
+    currentBookPage.value = pagesBeforeCurrentChapter + currentPage.value;
   }
 }
 
@@ -45,6 +69,9 @@ class PagingWidget extends StatefulWidget {
   final bool showNavBar;
   final int linesPerPage;
   final EpubBook? epubBook;
+  final int currentChapterIndex;
+  final List<int> chapterPageCounts;
+  final Function(int chapterIndex, int pageCount)? onChapterPagesCalculated;
 
   const PagingWidget(
     this.textContent,
@@ -66,6 +93,9 @@ class PagingWidget extends StatefulWidget {
     this.showNavBar = true,
     this.linesPerPage = 30,
     this.epubBook,
+    this.currentChapterIndex = 0,
+    this.chapterPageCounts = const [],
+    this.onChapterPagesCalculated,
   });
 
   @override
@@ -103,14 +133,10 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
     Future<void> _paginate() async {
-    print('📖 Starting pagination...');
     final pageSize = _initializedRenderBox.size;
     _pageSpans.clear();
 
     String contentToParse = widget.innerHtmlContent ?? widget.textContent;
-
-    print(
-        '📄 Content to parse (first 200 chars): ${contentToParse.substring(0, contentToParse.length > 200 ? 200 : contentToParse.length)}');
 
     var document = html_parser.parse(contentToParse);
     List<InlineSpan> spans = [];
@@ -120,8 +146,6 @@ class _PagingWidgetState extends State<PagingWidget> {
     for (var node in document.body!.nodes) {
       spans.add(await _parseNode(node, maxWidth));
     }
-
-    print('✅ Parsed ${spans.length} top-level spans');
 
     await _paginateFlattened(spans, pageSize);
   }
@@ -184,9 +208,11 @@ Future<InlineSpan> _parseNode(dom.Node node, double maxWidth) async {
   return const TextSpan(text: "");
 }
 
+// Image cache to avoid re-decoding same images
+static final Map<String, Uint8List> _imageCache = {};
+
 Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
   String? src = node.attributes['src'];
-  print('📷 Found img tag with src: "$src"');
 
   if (src == null || widget.epubBook == null) {
     return const TextSpan(text: "");
@@ -195,22 +221,24 @@ Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
   final imageContent = _findImage(src);
 
   if (imageContent == null) {
-    print('⚠️ Image not found in EPUB: $src');
     return _createNotFoundWidget(src);
   }
 
   try {
-    final bytes = imageContent.Content as List<int>;
-    final uint8list = Uint8List.fromList(bytes);
-
-    print('🖼️ Decoding image, size: ${bytes.length} bytes');
+    // Check cache first
+    Uint8List uint8list;
+    if (_imageCache.containsKey(src)) {
+      uint8list = _imageCache[src]!;
+    } else {
+      final bytes = imageContent.Content as List<int>;
+      uint8list = Uint8List.fromList(bytes);
+      _imageCache[src] = uint8list;
+    }
 
     final codec = await ui.instantiateImageCodec(uint8list);
     final frameInfo = await codec.getNextFrame();
     final imageWidth = frameInfo.image.width.toDouble();
     final imageHeight = frameInfo.image.height.toDouble();
-
-    print('📐 Image dimensions: ${imageWidth}x${imageHeight}');
 
     double availableWidth = maxWidth * 0.95;
     double displayWidth = imageWidth;
@@ -227,8 +255,6 @@ Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
       displayWidth = (displayHeight / imageHeight) * imageWidth;
     }
 
-    print('✅ Rendering image at: ${displayWidth}x${displayHeight}');
-
     return WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: Padding(
@@ -241,8 +267,9 @@ Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
               width: displayWidth,
               height: displayHeight,
               fit: BoxFit.contain,
+              cacheWidth: displayWidth.toInt(),
+              cacheHeight: displayHeight.toInt(),
               errorBuilder: (context, error, stackTrace) {
-                print('❌ Error rendering image: $error');
                 return _buildImageError(displayWidth);
               },
             ),
@@ -251,7 +278,6 @@ Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
       ),
     );
   } catch (e) {
-    print('❌ Error decoding image "$src": $e');
     return _createErrorWidget(src, maxWidth);
   }
 }
@@ -352,43 +378,49 @@ InlineSpan _createNotFoundWidget(String src) {
   );
 }
 
+// Image key cache to speed up image lookups
+static final Map<String, String?> _imageKeyCache = {};
+
 EpubByteContentFile? _findImage(String src) {
   if (widget.epubBook?.Content?.Images == null) {
-    print('❌ No images in EPUB');
     return null;
   }
 
   final images = widget.epubBook!.Content!.Images!;
-  print('🔍 Looking for image: "$src"');
+
+  // Check cache first
+  if (_imageKeyCache.containsKey(src)) {
+    final cachedKey = _imageKeyCache[src];
+    return cachedKey != null ? images[cachedKey] : null;
+  }
 
   // Exact match
   if (images.containsKey(src)) {
-    print('✅ Found exact match: $src');
+    _imageKeyCache[src] = src;
     return images[src];
   }
 
-
   String cleanSrc = src.replaceAll('../', '').replaceAll('./', '').replaceAll('\\', '/').trim();
-  
+
   if (images.containsKey(cleanSrc)) {
-    print('✅ Found cleaned match: $cleanSrc');
+    _imageKeyCache[src] = cleanSrc;
     return images[cleanSrc];
   }
 
   final filename = cleanSrc.split('/').last;
-  
+
   for (var key in images.keys) {
     final cleanKey = key.replaceAll('\\', '/');
-    
-    if (cleanKey == cleanSrc || 
+
+    if (cleanKey == cleanSrc ||
         cleanKey.endsWith(filename) ||
         cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
-      print('✅ Found via matching: $key');
+      _imageKeyCache[src] = key;
       return images[key];
     }
   }
 
-  print('❌ Image not found');
+  _imageKeyCache[src] = null;
   return null;
 }
 
@@ -409,8 +441,6 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
 
   for (var s in allSpans) flatten(s);
 
-  print('📚 Flattened to ${flatSpans.length} spans');
-
   List<InlineSpan> currentPageSpans = [];
   double currentHeight = 0;
   double maxWidth = pageSize.width - 64.w;
@@ -421,7 +451,7 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
 
     if (span is WidgetSpan) {
       double spanHeight = 0;
-      
+
       try {
         TextPainter painter = TextPainter(
           text: TextSpan(children: [span]),
@@ -433,15 +463,11 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
         painter.dispose();
       } catch (e) {
         spanHeight = 300; // Default image height estimate
-        print('⚠️ Could not measure WidgetSpan, using estimate: $spanHeight');
       }
-
-      print('🖼️ Widget span height: $spanHeight, current: $currentHeight/$maxHeight');
 
       // Check if we need a new page
       if (currentHeight + spanHeight > maxHeight && currentPageSpans.isNotEmpty) {
         _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-        print('📄 Created page ${_pageSpans.length} (widget overflow)');
         currentPageSpans.clear();
         currentHeight = 0;
       }
@@ -475,10 +501,9 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
                 TextSpan(text: currentChunk.toString(), style: span.style),
               );
             }
-            
+
             // Create new page
             _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-            print('📄 Created page ${_pageSpans.length} (text split)');
             currentPageSpans.clear();
             currentHeight = 0;
             currentChunk.clear();
@@ -486,7 +511,7 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
           }
 
           // Add line to chunk
-          int endOffset = line.width > 0 
+          int endOffset = line.width > 0
               ? painter.getPositionForOffset(Offset(line.width, line.baseline)).offset
               : charIndex + 1;
           endOffset = endOffset.clamp(charIndex, text.length);
@@ -515,7 +540,6 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
 
           if (currentHeight + remainingPainter.height > maxHeight) {
             _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-            print('📄 Created page ${_pageSpans.length} (remaining text)');
             currentPageSpans.clear();
             currentHeight = 0;
           }
@@ -533,10 +557,7 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
   // Add final page
   if (currentPageSpans.isNotEmpty) {
     _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-    print('📄 Created final page ${_pageSpans.length}');
   }
-
-  print('✅ Pagination complete: ${_pageSpans.length} pages');
 
   _finalizePages();
 }
@@ -567,7 +588,14 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
     }).toList();
 
     _handler.totalPages.value = pages.length;
-    print('✅ Finalized ${pages.length} page widgets');
+
+    // Notify about chapter page count
+    widget.onChapterPagesCalculated?.call(widget.currentChapterIndex, pages.length);
+
+    // Update book progress with chapter counts
+    if (widget.chapterPageCounts.isNotEmpty) {
+      _handler.updateBookProgress(widget.currentChapterIndex, widget.chapterPageCounts);
+    }
   }
 
   @override
