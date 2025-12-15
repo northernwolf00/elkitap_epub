@@ -15,41 +15,18 @@ import 'dart:ui' as ui;
 
 class PagingTextHandler extends GetxController {
   final Function paginate;
+  final String bookId;
   final _box = GetStorage();
 
   late final RxInt currentPage;
   late final RxInt totalPages;
 
-  // Total pages across all chapters
-  late final RxInt totalBookPages;
-  late final RxInt currentBookPage;
+  PagingTextHandler({required this.paginate, required this.bookId}) {
+    currentPage = (_box.read<int>('currentPage_$bookId') ?? 0).obs;
+    totalPages = (_box.read<int>('totalPages_$bookId') ?? 0).obs;
 
-  PagingTextHandler({required this.paginate}) {
-    currentPage = (_box.read<int>('currentPage') ?? 0).obs;
-    totalPages = (_box.read<int>('totalPages') ?? 0).obs;
-    totalBookPages = 0.obs;
-    currentBookPage = 0.obs;
-
-    ever(currentPage, (_) => _box.write('currentPage', currentPage.value));
-    ever(totalPages, (_) => _box.write('totalPages', totalPages.value));
-  }
-
-  void updateBookProgress(int chapterIndex, List<int> chapterPageCounts) {
-    if (chapterPageCounts.isEmpty) return;
-
-    // Calculate total book pages
-    int total = 0;
-    for (var count in chapterPageCounts) {
-      total += count;
-    }
-    totalBookPages.value = total;
-
-    // Calculate current book page (sum of previous chapters + current page in chapter)
-    int pagesBeforeCurrentChapter = 0;
-    for (int i = 0; i < chapterIndex && i < chapterPageCounts.length; i++) {
-      pagesBeforeCurrentChapter += chapterPageCounts[i];
-    }
-    currentBookPage.value = pagesBeforeCurrentChapter + currentPage.value;
+    ever(currentPage, (_) => _box.write('currentPage_$bookId', currentPage.value));
+    ever(totalPages, (_) => _box.write('totalPages_$bookId', totalPages.value));
   }
 }
 
@@ -69,9 +46,6 @@ class PagingWidget extends StatefulWidget {
   final bool showNavBar;
   final int linesPerPage;
   final EpubBook? epubBook;
-  final int currentChapterIndex;
-  final List<int> chapterPageCounts;
-  final Function(int chapterIndex, int pageCount)? onChapterPagesCalculated;
 
   const PagingWidget(
     this.textContent,
@@ -93,9 +67,6 @@ class PagingWidget extends StatefulWidget {
     this.showNavBar = true,
     this.linesPerPage = 30,
     this.epubBook,
-    this.currentChapterIndex = 0,
-    this.chapterPageCounts = const [],
-    this.onChapterPagesCalculated,
   });
 
   @override
@@ -117,26 +88,44 @@ class _PagingWidgetState extends State<PagingWidget> {
   @override
   void initState() {
     super.initState();
-    _handler = PagingTextHandler(paginate: rePaginate);
+    _handler = PagingTextHandler(paginate: rePaginate, bookId: widget.bookId);
     widget.handlerCallback(_handler);
     rePaginate();
   }
 
   rePaginate() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted) {
+        print('⚠️ Widget not mounted, skipping pagination');
+        return;
+      }
+
+      final renderObject = context.findRenderObject();
+      if (renderObject == null) {
+        print('⚠️ RenderObject is null, retrying pagination...');
+        // Retry after a short delay
+        Future.delayed(Duration(milliseconds: 100), () {
+          if (mounted) rePaginate();
+        });
+        return;
+      }
+
       setState(() {
-        _initializedRenderBox = context.findRenderObject() as RenderBox;
+        _initializedRenderBox = renderObject as RenderBox;
+        print('✅ RenderBox initialized: ${_initializedRenderBox.size}');
         paginateFuture = _paginate();
       });
     });
   }
 
-    Future<void> _paginate() async {
+  Future<void> _paginate() async {
+    print('📖 Starting pagination...');
     final pageSize = _initializedRenderBox.size;
     _pageSpans.clear();
 
     String contentToParse = widget.innerHtmlContent ?? widget.textContent;
+
+    print('📄 Content to parse (first 200 chars): ${contentToParse.substring(0, contentToParse.length > 200 ? 200 : contentToParse.length)}');
 
     var document = html_parser.parse(contentToParse);
     List<InlineSpan> spans = [];
@@ -147,421 +136,438 @@ class _PagingWidgetState extends State<PagingWidget> {
       spans.add(await _parseNode(node, maxWidth));
     }
 
+    print('✅ Parsed ${spans.length} top-level spans');
+
     await _paginateFlattened(spans, pageSize);
   }
 
+  Future<InlineSpan> _parseNode(dom.Node node, double maxWidth) async {
+    if (node is dom.Text) {
+      String text = node.text;
+      text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
 
-Future<InlineSpan> _parseNode(dom.Node node, double maxWidth) async {
-  if (node is dom.Text) {
-    String text = node.text;
-    text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
-
-    if (text.trim().isEmpty) {
-      return const TextSpan(text: '');
-    }
-
-    return TextSpan(
-      text: text,
-      style: widget.style.copyWith(
-        fontFamily: 'SFPro',
-        height: 1.7,
-        letterSpacing: 0.2,
-        wordSpacing: 0.5,
-      ),
-    );
-  } else if (node is dom.Element) {
-    if (node.localName == 'img') {
-      return await _handleImageNode(node, maxWidth);
-    } else if (node.localName == 'br') {
-      return const TextSpan(text: "\n");
-    } else if (node.localName == 'p' || node.localName == 'div') {
-      List<InlineSpan> children = [];
-      for (var child in node.nodes) {
-        final span = await _parseNode(child, maxWidth);
-        children.add(span);
+      if (text.trim().isEmpty) {
+        return const TextSpan(text: '');
       }
-      children.add(const TextSpan(text: "\n\n"));
-      return TextSpan(children: children);
-    } else if (node.localName == 'h1' ||
-        node.localName == 'h2' ||
-        node.localName == 'h3') {
-      List<InlineSpan> children = [];
-      for (var child in node.nodes) {
-        children.add(await _parseNode(child, maxWidth));
-      }
+
       return TextSpan(
-        children: children,
+        text: text,
         style: widget.style.copyWith(
-          fontSize: (widget.style.fontSize ?? 16) + 4,
-          fontWeight: FontWeight.bold,
-          height: 1.5,
+          fontFamily: 'SFPro',
+          height: 1.7,
+          letterSpacing: 0.2,
+          wordSpacing: 0.5,
         ),
       );
-    } else {
-      List<InlineSpan> children = [];
-      for (var child in node.nodes) {
-        children.add(await _parseNode(child, maxWidth));
+    } else if (node is dom.Element) {
+      if (node.localName == 'img') {
+        return await _handleImageNode(node, maxWidth);
+      } else if (node.localName == 'br') {
+        return const TextSpan(text: "\n");
+      } else if (node.localName == 'p' || node.localName == 'div') {
+        List<InlineSpan> children = [];
+        for (var child in node.nodes) {
+          final span = await _parseNode(child, maxWidth);
+          children.add(span);
+        }
+        children.add(const TextSpan(text: "\n\n"));
+        return TextSpan(children: children);
+      } else if (node.localName == 'h1' || node.localName == 'h2' || node.localName == 'h3') {
+        List<InlineSpan> children = [];
+        for (var child in node.nodes) {
+          children.add(await _parseNode(child, maxWidth));
+        }
+        return TextSpan(
+          children: children,
+          style: widget.style.copyWith(
+            fontSize: (widget.style.fontSize ?? 16) + 4,
+            fontWeight: FontWeight.bold,
+            height: 1.5,
+          ),
+        );
+      } else {
+        List<InlineSpan> children = [];
+        for (var child in node.nodes) {
+          children.add(await _parseNode(child, maxWidth));
+        }
+        return TextSpan(children: children);
       }
-      return TextSpan(children: children);
     }
-  }
-  return const TextSpan(text: "");
-}
-
-// Image cache to avoid re-decoding same images
-static final Map<String, Uint8List> _imageCache = {};
-
-Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
-  String? src = node.attributes['src'];
-
-  if (src == null || widget.epubBook == null) {
     return const TextSpan(text: "");
   }
 
-  final imageContent = _findImage(src);
+  Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
+    String? src = node.attributes['src'];
+    print('📷 Found img tag with src: "$src"');
 
-  if (imageContent == null) {
-    return _createNotFoundWidget(src);
-  }
+    if (src == null || widget.epubBook == null) {
+      return const TextSpan(text: "");
+    }
 
-  try {
-    // Check cache first
-    Uint8List uint8list;
-    if (_imageCache.containsKey(src)) {
-      uint8list = _imageCache[src]!;
-    } else {
+    final imageContent = _findImage(src);
+
+    if (imageContent == null) {
+      print('⚠️ Image not found in EPUB: $src');
+      return _createNotFoundWidget(src);
+    }
+
+    try {
       final bytes = imageContent.Content as List<int>;
-      uint8list = Uint8List.fromList(bytes);
-      _imageCache[src] = uint8list;
-    }
+      final uint8list = Uint8List.fromList(bytes);
 
-    final codec = await ui.instantiateImageCodec(uint8list);
-    final frameInfo = await codec.getNextFrame();
-    final imageWidth = frameInfo.image.width.toDouble();
-    final imageHeight = frameInfo.image.height.toDouble();
+      print('🖼️ Decoding image, size: ${bytes.length} bytes');
 
-    double availableWidth = maxWidth * 0.95;
-    double displayWidth = imageWidth;
-    double displayHeight = imageHeight;
+      final codec = await ui.instantiateImageCodec(uint8list);
+      final frameInfo = await codec.getNextFrame();
+      final imageWidth = frameInfo.image.width.toDouble();
+      final imageHeight = frameInfo.image.height.toDouble();
 
-    if (displayWidth > availableWidth) {
-      displayWidth = availableWidth;
-      displayHeight = (displayWidth / imageWidth) * imageHeight;
-    }
+      print('📐 Image dimensions: ${imageWidth}x${imageHeight}');
 
-    double maxDisplayHeight = _initializedRenderBox.size.height * 0.7;
-    if (displayHeight > maxDisplayHeight) {
-      displayHeight = maxDisplayHeight;
-      displayWidth = (displayHeight / imageHeight) * imageWidth;
-    }
+      double availableWidth = maxWidth * 0.95;
+      double displayWidth = imageWidth;
+      double displayHeight = imageHeight;
 
-    return WidgetSpan(
-      alignment: PlaceholderAlignment.middle,
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 16.h),
-        child: Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.memory(
-              uint8list,
-              width: displayWidth,
-              height: displayHeight,
-              fit: BoxFit.contain,
-              cacheWidth: displayWidth.toInt(),
-              cacheHeight: displayHeight.toInt(),
-              errorBuilder: (context, error, stackTrace) {
-                return _buildImageError(displayWidth);
-              },
+      if (displayWidth > availableWidth) {
+        displayWidth = availableWidth;
+        displayHeight = (displayWidth / imageWidth) * imageHeight;
+      }
+
+      double maxDisplayHeight = _initializedRenderBox.size.height * 0.7;
+      if (displayHeight > maxDisplayHeight) {
+        displayHeight = maxDisplayHeight;
+        displayWidth = (displayHeight / imageHeight) * imageWidth;
+      }
+
+      print('✅ Rendering image at: ${displayWidth}x${displayHeight}');
+
+      return WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16.h),
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.memory(
+                uint8list,
+                width: displayWidth,
+                height: displayHeight,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  print('❌ Error rendering image: $error');
+                  return _buildImageError(displayWidth);
+                },
+              ),
             ),
           ),
+        ),
+      );
+    } catch (e) {
+      print('❌ Error decoding image "$src": $e');
+      return _createErrorWidget(src, maxWidth);
+    }
+  }
+
+  Widget _buildImageError(double width) {
+    return Container(
+      width: width,
+      height: 100,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image, size: 40, color: Colors.grey[600]),
+          SizedBox(height: 8),
+          Text(
+            'Image error',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InlineSpan _createErrorWidget(String src, double maxWidth) {
+    return WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      child: Container(
+        width: maxWidth * 0.9,
+        margin: EdgeInsets.symmetric(vertical: 12.h),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange[100],
+          border: Border.all(color: Colors.orange[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.warning_amber_rounded, size: 24, color: Colors.orange[700]),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Failed to load image',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[900],
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    src.split('/').last,
+                    style: TextStyle(fontSize: 11, color: Colors.orange[700]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
-  } catch (e) {
-    return _createErrorWidget(src, maxWidth);
   }
-}
 
-Widget _buildImageError(double width) {
-  return Container(
-    width: width,
-    height: 100,
-    decoration: BoxDecoration(
-      color: Colors.grey[300],
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.broken_image, size: 40, color: Colors.grey[600]),
-        SizedBox(height: 8),
-        Text(
-          'Image error',
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+  InlineSpan _createNotFoundWidget(String src) {
+    return WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: 8.h),
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
         ),
-      ],
-    ),
-  );
-}
-
-InlineSpan _createErrorWidget(String src, double maxWidth) {
-  return WidgetSpan(
-    alignment: PlaceholderAlignment.middle,
-    child: Container(
-      width: maxWidth * 0.9,
-      margin: EdgeInsets.symmetric(vertical: 12.h),
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange[100],
-        border: Border.all(color: Colors.orange[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.warning_amber_rounded, size: 24, color: Colors.orange[700]),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Failed to load image',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange[900],
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  src.split('/').last,
-                  style: TextStyle(fontSize: 11, color: Colors.orange[700]),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_not_supported, size: 20, color: Colors.grey[600]),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Image not found: ${src.split('/').last}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-InlineSpan _createNotFoundWidget(String src) {
-  return WidgetSpan(
-    alignment: PlaceholderAlignment.middle,
-    child: Container(
-      margin: EdgeInsets.symmetric(vertical: 8.h),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.image_not_supported, size: 20, color: Colors.grey[600]),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Image not found: ${src.split('/').last}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+  EpubByteContentFile? _findImage(String src) {
+    if (widget.epubBook?.Content?.Images == null) {
+      print('❌ No images in EPUB');
+      return null;
+    }
 
-// Image key cache to speed up image lookups
-static final Map<String, String?> _imageKeyCache = {};
+    final images = widget.epubBook!.Content!.Images!;
+    print('🔍 Looking for image: "$src"');
 
-EpubByteContentFile? _findImage(String src) {
-  if (widget.epubBook?.Content?.Images == null) {
+    // Exact match
+    if (images.containsKey(src)) {
+      print('✅ Found exact match: $src');
+      return images[src];
+    }
+
+    // Decode URL-encoded paths
+    try {
+      final decoded = Uri.decodeFull(src);
+      if (images.containsKey(decoded)) {
+        print('✅ Found decoded match: $decoded');
+        return images[decoded];
+      }
+    } catch (_) {}
+
+    // Remove leading slash
+    final noLeading = src.startsWith('/') ? src.substring(1) : src;
+    if (images.containsKey(noLeading)) {
+      print('✅ Found no-leading-slash match: $noLeading');
+      return images[noLeading];
+    }
+
+    String cleanSrc = src.replaceAll('../', '').replaceAll('./', '').replaceAll('\\', '/').trim();
+
+    if (images.containsKey(cleanSrc)) {
+      print('✅ Found cleaned match: $cleanSrc');
+      return images[cleanSrc];
+    }
+
+    final filename = cleanSrc.split('/').last;
+
+    for (var key in images.keys) {
+      final cleanKey = key.replaceAll('\\', '/');
+
+      if (cleanKey == cleanSrc || cleanKey.endsWith(filename) || cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
+        print('✅ Found via matching: $key');
+        return images[key];
+      }
+    }
+
+    // Case-insensitive full-key match
+    final lowerSrc = cleanSrc.toLowerCase();
+    for (var key in images.keys) {
+      if (key.toLowerCase() == lowerSrc) {
+        print('✅ Found via case-insensitive key: $key');
+        return images[key];
+      }
+    }
+
+    print('❌ Image not found');
     return null;
   }
 
-  final images = widget.epubBook!.Content!.Images!;
+  Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async {
+    List<InlineSpan> flatSpans = [];
 
-  // Check cache first
-  if (_imageKeyCache.containsKey(src)) {
-    final cachedKey = _imageKeyCache[src];
-    return cachedKey != null ? images[cachedKey] : null;
-  }
-
-  // Exact match
-  if (images.containsKey(src)) {
-    _imageKeyCache[src] = src;
-    return images[src];
-  }
-
-  String cleanSrc = src.replaceAll('../', '').replaceAll('./', '').replaceAll('\\', '/').trim();
-
-  if (images.containsKey(cleanSrc)) {
-    _imageKeyCache[src] = cleanSrc;
-    return images[cleanSrc];
-  }
-
-  final filename = cleanSrc.split('/').last;
-
-  for (var key in images.keys) {
-    final cleanKey = key.replaceAll('\\', '/');
-
-    if (cleanKey == cleanSrc ||
-        cleanKey.endsWith(filename) ||
-        cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
-      _imageKeyCache[src] = key;
-      return images[key];
-    }
-  }
-
-  _imageKeyCache[src] = null;
-  return null;
-}
-
-Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async {
-  List<InlineSpan> flatSpans = [];
-
-  void flatten(InlineSpan span) {
-    if (span is TextSpan) {
-      if (span.children != null && span.children!.isNotEmpty) {
-        for (var child in span.children!) flatten(child);
-      } else if (span.text != null && span.text!.isNotEmpty) {
+    void flatten(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.children != null && span.children!.isNotEmpty) {
+          for (var child in span.children!) flatten(child);
+        } else if (span.text != null && span.text!.isNotEmpty) {
+          flatSpans.add(span);
+        }
+      } else if (span is WidgetSpan) {
         flatSpans.add(span);
       }
-    } else if (span is WidgetSpan) {
-      flatSpans.add(span);
     }
-  }
 
-  for (var s in allSpans) flatten(s);
+    for (var s in allSpans) flatten(s);
 
-  List<InlineSpan> currentPageSpans = [];
-  double currentHeight = 0;
-  double maxWidth = pageSize.width - 64.w;
-  double maxHeight = pageSize.height - 100.h;
+    print('📚 Flattened to ${flatSpans.length} spans');
 
-  for (int i = 0; i < flatSpans.length; i++) {
-    final span = flatSpans[i];
+    List<InlineSpan> currentPageSpans = [];
+    double currentHeight = 0;
+    double maxWidth = pageSize.width - 64.w;
+    double maxHeight = pageSize.height - 100.h;
 
-    if (span is WidgetSpan) {
-      double spanHeight = 0;
+    for (int i = 0; i < flatSpans.length; i++) {
+      final span = flatSpans[i];
 
-      try {
+      if (span is WidgetSpan) {
+        double spanHeight = 0;
+
+        try {
+          TextPainter painter = TextPainter(
+            text: TextSpan(children: [span]),
+            textDirection: TextDirection.ltr,
+            textScaleFactor: 1.0,
+          );
+          painter.layout(maxWidth: maxWidth);
+          spanHeight = painter.height;
+          painter.dispose();
+        } catch (e) {
+          spanHeight = 300; // Default image height estimate
+          print('⚠️ Could not measure WidgetSpan, using estimate: $spanHeight');
+        }
+
+        print('🖼️ Widget span height: $spanHeight, current: $currentHeight/$maxHeight');
+
+        // Check if we need a new page
+        if (currentHeight + spanHeight > maxHeight && currentPageSpans.isNotEmpty) {
+          _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
+          currentPageSpans.clear();
+          currentHeight = 0;
+        }
+
+        currentPageSpans.add(span);
+        currentHeight += spanHeight;
+      } else if (span is TextSpan && span.text != null) {
+        String text = span.text!;
         TextPainter painter = TextPainter(
-          text: TextSpan(children: [span]),
+          text: TextSpan(text: text, style: span.style),
           textDirection: TextDirection.ltr,
           textScaleFactor: 1.0,
         );
         painter.layout(maxWidth: maxWidth);
-        spanHeight = painter.height;
-        painter.dispose();
-      } catch (e) {
-        spanHeight = 300; // Default image height estimate
-      }
 
-      // Check if we need a new page
-      if (currentHeight + spanHeight > maxHeight && currentPageSpans.isNotEmpty) {
-        _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-        currentPageSpans.clear();
-        currentHeight = 0;
-      }
+        if (currentHeight + painter.height <= maxHeight) {
+          // Fits on current page
+          currentPageSpans.add(span);
+          currentHeight += painter.height;
+        } else {
+          List<LineMetrics> lines = painter.computeLineMetrics();
+          StringBuffer currentChunk = StringBuffer();
+          double chunkHeight = 0;
 
-      currentPageSpans.add(span);
-      currentHeight += spanHeight;
+          int charIndex = 0;
+          for (var line in lines) {
+            if (currentHeight + chunkHeight + line.height > maxHeight) {
+              if (currentChunk.isNotEmpty) {
+                currentPageSpans.add(
+                  TextSpan(text: currentChunk.toString(), style: span.style),
+                );
+              }
 
-    } else if (span is TextSpan && span.text != null) {
-      String text = span.text!;
-      TextPainter painter = TextPainter(
-        text: TextSpan(text: text, style: span.style),
-        textDirection: TextDirection.ltr,
-        textScaleFactor: 1.0,
-      );
-      painter.layout(maxWidth: maxWidth);
-
-      if (currentHeight + painter.height <= maxHeight) {
-        // Fits on current page
-        currentPageSpans.add(span);
-        currentHeight += painter.height;
-      } else {
-        List<LineMetrics> lines = painter.computeLineMetrics();
-        StringBuffer currentChunk = StringBuffer();
-        double chunkHeight = 0;
-
-        int charIndex = 0;
-        for (var line in lines) {
-          if (currentHeight + chunkHeight + line.height > maxHeight) {
-            if (currentChunk.isNotEmpty) {
-              currentPageSpans.add(
-                TextSpan(text: currentChunk.toString(), style: span.style),
-              );
+              // Create new page
+              _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
+              currentPageSpans.clear();
+              currentHeight = 0;
+              currentChunk.clear();
+              chunkHeight = 0;
             }
 
-            // Create new page
-            _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-            currentPageSpans.clear();
-            currentHeight = 0;
-            currentChunk.clear();
-            chunkHeight = 0;
+            // Add line to chunk
+            int endOffset = line.width > 0 ? painter.getPositionForOffset(Offset(line.width, line.baseline)).offset : charIndex + 1;
+            endOffset = endOffset.clamp(charIndex, text.length);
+
+            String lineText = text.substring(charIndex, endOffset);
+            currentChunk.write(lineText);
+            chunkHeight += line.height;
+            charIndex = endOffset;
           }
 
-          // Add line to chunk
-          int endOffset = line.width > 0
-              ? painter.getPositionForOffset(Offset(line.width, line.baseline)).offset
-              : charIndex + 1;
-          endOffset = endOffset.clamp(charIndex, text.length);
-
-          String lineText = text.substring(charIndex, endOffset);
-          currentChunk.write(lineText);
-          chunkHeight += line.height;
-          charIndex = endOffset;
-        }
-
-        // Add remaining chunk
-        if (currentChunk.isNotEmpty) {
-          currentPageSpans.add(
-            TextSpan(text: currentChunk.toString(), style: span.style),
-          );
-          currentHeight += chunkHeight;
-        }
-        if (charIndex < text.length) {
-          String remaining = text.substring(charIndex);
-          TextPainter remainingPainter = TextPainter(
-            text: TextSpan(text: remaining, style: span.style),
-            textDirection: TextDirection.ltr,
-            textScaleFactor: 1.0,
-          );
-          remainingPainter.layout(maxWidth: maxWidth);
-
-          if (currentHeight + remainingPainter.height > maxHeight) {
-            _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-            currentPageSpans.clear();
-            currentHeight = 0;
+          // Add remaining chunk
+          if (currentChunk.isNotEmpty) {
+            currentPageSpans.add(
+              TextSpan(text: currentChunk.toString(), style: span.style),
+            );
+            currentHeight += chunkHeight;
           }
+          if (charIndex < text.length) {
+            String remaining = text.substring(charIndex);
+            TextPainter remainingPainter = TextPainter(
+              text: TextSpan(text: remaining, style: span.style),
+              textDirection: TextDirection.ltr,
+              textScaleFactor: 1.0,
+            );
+            remainingPainter.layout(maxWidth: maxWidth);
 
-          currentPageSpans.add(TextSpan(text: remaining, style: span.style));
-          currentHeight += remainingPainter.height;
-          remainingPainter.dispose();
+            if (currentHeight + remainingPainter.height > maxHeight) {
+              _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
+              currentPageSpans.clear();
+              currentHeight = 0;
+            }
+
+            currentPageSpans.add(TextSpan(text: remaining, style: span.style));
+            currentHeight += remainingPainter.height;
+            remainingPainter.dispose();
+          }
         }
+
+        painter.dispose();
       }
-
-      painter.dispose();
     }
+
+    // Add final page
+    if (currentPageSpans.isNotEmpty) {
+      _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
+      print('📄 Created final page ${_pageSpans.length}');
+    }
+
+    print('✅ Pagination complete: ${_pageSpans.length} pages');
+
+    _finalizePages();
   }
-
-  // Add final page
-  if (currentPageSpans.isNotEmpty) {
-    _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-  }
-
-  _finalizePages();
-}
-
 
   void _finalizePages() {
     final bottomNavHeight = widget.showNavBar ? 70.0 : 0.0;
@@ -587,15 +593,16 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
       );
     }).toList();
 
-    _handler.totalPages.value = pages.length;
+    // Note: totalPages is managed by show_epub.dart to preserve book-level total
+    print('✅ Finalized ${pages.length} page widgets');
 
-    // Notify about chapter page count
-    widget.onChapterPagesCalculated?.call(widget.currentChapterIndex, pages.length);
-
-    // Update book progress with chapter counts
-    if (widget.chapterPageCounts.isNotEmpty) {
-      _handler.updateBookProgress(widget.currentChapterIndex, widget.chapterPageCounts);
-    }
+    // Trigger initial onPageFlip for the starting page so progress bar updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (pages.isNotEmpty) {
+        final startIndex = widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0;
+        widget.onPageFlip(startIndex, pages.length);
+      }
+    });
   }
 
   @override
@@ -656,24 +663,18 @@ Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async 
                     key: _pageKey,
                     child: PageFlipWidget(
                       key: _pageController,
-                      initialIndex: widget.starterPageIndex != 0
-                          ? (pages.isNotEmpty &&
-                                  widget.starterPageIndex < pages.length
-                              ? widget.starterPageIndex
-                              : 0)
-                          : widget.starterPageIndex,
+                      initialIndex: widget.starterPageIndex != 0 ? (pages.isNotEmpty && widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0) : widget.starterPageIndex,
                       onPageFlip: (pageIndex) {
                         _currentPageIndex = pageIndex;
                         _handler.currentPage.value = pageIndex + 1;
-                        _handler.totalPages.value = pages.length;
+                        // Note: totalPages is managed by show_epub.dart to preserve book-level total
 
                         widget.onPageFlip(pageIndex, pages.length);
                         if (_currentPageIndex == pages.length - 1) {
                           widget.onLastPage(pageIndex, pages.length);
                         }
                       },
-                      backgroundColor:
-                          widget.style.backgroundColor ?? Colors.white,
+                      backgroundColor: widget.style.backgroundColor ?? Colors.white,
                       lastPage: widget.lastWidget,
                       children: pages,
                     ),

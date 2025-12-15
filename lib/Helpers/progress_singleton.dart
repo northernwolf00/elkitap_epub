@@ -62,35 +62,6 @@ class BookProgressSingleton {
     }
   }
 
-  Future<bool> setChapterPageCounts(String bookId, List<int> chapterPageCounts) async {
-    try {
-      BookProgressModel? oldBookProgressModel = await isar.bookProgressModels
-          .where()
-          .filter()
-          .bookIdEqualTo(bookId)
-          .findFirst();
-
-      if (oldBookProgressModel != null) {
-        oldBookProgressModel.chapterPageCounts = chapterPageCounts;
-        await isar.writeTxn(() async {
-          isar.bookProgressModels.put(oldBookProgressModel);
-        });
-      } else {
-        var newBookProgressModel = BookProgressModel(
-            currentPageIndex: 0,
-            currentChapterIndex: 0,
-            bookId: bookId,
-            chapterPageCounts: chapterPageCounts);
-        await isar.writeTxn(() async {
-          isar.bookProgressModels.put(newBookProgressModel);
-        });
-      }
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
   BookProgressModel getBookProgress(String bookId) {
     var newBookProgressModel =
         BookProgressModel(currentPageIndex: 0, currentChapterIndex: 0);

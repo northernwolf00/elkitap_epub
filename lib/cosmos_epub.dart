@@ -19,8 +19,7 @@ import 'package:http/http.dart' as http;
 ///TODO: Optimize with isolates
 
 class CosmosEpub {
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   static bool _initialized = false;
 
@@ -35,7 +34,7 @@ class CosmosEpub {
   static Future<void> Function(String bookId)? _onAddToShelfHandler;
 
   static String bookDescription = '';
-  
+
   // Global state for shelf and my books
   static bool isInShelf = false;
   static bool isInMyBooks = false;
@@ -45,13 +44,11 @@ class CosmosEpub {
     _locale.value = locale;
   }
 
-  static void registerAddNoteHandler(
-      Future<void> Function(String bookId, String text) handler) {
+  static void registerAddNoteHandler(Future<void> Function(String bookId, String text) handler) {
     _onAddNoteHandler = handler;
   }
 
-  static void registerAddToShelfHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerAddToShelfHandler(Future<void> Function(String bookId) handler) {
     _onAddToShelfHandler = handler;
   }
 
@@ -65,8 +62,7 @@ class CosmosEpub {
 
   static Future<void> Function(String bookId)? _onSaveToMyBooksHandler;
 
-  static void registerSaveToMyBooksHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerSaveToMyBooksHandler(Future<void> Function(String bookId) handler) {
     _onSaveToMyBooksHandler = handler;
   }
 
@@ -96,7 +92,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    await _openBook(
+    _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -129,7 +125,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    await _openBook(
+    _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -164,7 +160,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    await _openBook(
+    _openBook(
         context: context,
         epubBook: epubBook,
         bookId: bookId,
@@ -198,7 +194,7 @@ class CosmosEpub {
     EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
 
     if (!context.mounted) return;
-    await _openBook(
+    _openBook(
         context: context,
         epubBook: epubBook,
         imageUrl: imageUrl,
@@ -214,7 +210,7 @@ class CosmosEpub {
         accentColor: accentColor);
   }
 
-  static Future<void> _openBook(
+  static _openBook(
       {required BuildContext context,
       required EpubBook epubBook,
       required String imageUrl,
@@ -239,13 +235,11 @@ class CosmosEpub {
       await bookProgress.setCurrentPageIndex(bookId, 0);
     }
 
-    var route = MaterialPageRoute<void>(
+    var route = MaterialPageRoute(
       builder: (context) {
         return ShowEpub(
           epubBook: epubBook,
-          starterChapter: starterChapter >= 0
-              ? starterChapter
-              : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
+          starterChapter: starterChapter >= 0 ? starterChapter : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
           shouldOpenDrawer: shouldOpenDrawer,
           bookId: bookId,
           imageUrl: imageUrl,
@@ -257,12 +251,14 @@ class CosmosEpub {
       },
     );
 
-    // Wait for the route to be pushed and then wait for it to be popped
-    if (shouldOpenDrawer != false || starterChapter != -1) {
-      await Navigator.pushReplacement(context, route);
-    } else {
-      await Navigator.push(context, route);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Always use pushReplacement to ensure old widget is disposed
+      // This prevents state issues when reopening the same book
+      Navigator.pushReplacement(
+        context,
+        route,
+      );
+    });
   }
 
 // Inside CosmosEpub class
@@ -297,9 +293,7 @@ class CosmosEpub {
   }
 
   static String _truncate(String text, [int maxLength = 50]) {
-    return text.length <= maxLength
-        ? text
-        : '${text.substring(0, maxLength)}...';
+    return text.length <= maxLength ? text : '${text.substring(0, maxLength)}...';
   }
 
   static Future<bool> initialize() async {
@@ -317,8 +311,7 @@ class CosmosEpub {
 
   static _checkInitialization() {
     if (!_initialized) {
-      throw Exception(
-          'CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
+      throw Exception('CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
     }
   }
 
