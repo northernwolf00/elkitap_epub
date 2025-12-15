@@ -19,8 +19,7 @@ import 'package:http/http.dart' as http;
 ///TODO: Optimize with isolates
 
 class CosmosEpub {
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   static bool _initialized = false;
 
@@ -35,7 +34,7 @@ class CosmosEpub {
   static Future<void> Function(String bookId)? _onAddToShelfHandler;
 
   static String bookDescription = '';
-  
+
   // Global state for shelf and my books
   static bool isInShelf = false;
   static bool isInMyBooks = false;
@@ -45,13 +44,11 @@ class CosmosEpub {
     _locale.value = locale;
   }
 
-  static void registerAddNoteHandler(
-      Future<void> Function(String bookId, String text) handler) {
+  static void registerAddNoteHandler(Future<void> Function(String bookId, String text) handler) {
     _onAddNoteHandler = handler;
   }
 
-  static void registerAddToShelfHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerAddToShelfHandler(Future<void> Function(String bookId) handler) {
     _onAddToShelfHandler = handler;
   }
 
@@ -65,8 +62,7 @@ class CosmosEpub {
 
   static Future<void> Function(String bookId)? _onSaveToMyBooksHandler;
 
-  static void registerSaveToMyBooksHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerSaveToMyBooksHandler(Future<void> Function(String bookId) handler) {
     _onSaveToMyBooksHandler = handler;
   }
 
@@ -217,7 +213,7 @@ class CosmosEpub {
   static _openBook(
       {required BuildContext context,
       required EpubBook epubBook,
-      required String imageUrl, 
+      required String imageUrl,
       required String bookId,
       required bool shouldOpenDrawer,
       required Color accentColor,
@@ -243,12 +239,10 @@ class CosmosEpub {
       builder: (context) {
         return ShowEpub(
           epubBook: epubBook,
-          starterChapter: starterChapter >= 0
-              ? starterChapter
-              : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
+          starterChapter: starterChapter >= 0 ? starterChapter : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
           shouldOpenDrawer: shouldOpenDrawer,
           bookId: bookId,
-          imageUrl: imageUrl,    
+          imageUrl: imageUrl,
           accentColor: accentColor,
           chapterListTitle: chapterListTitle,
           onPageFlip: onPageFlip,
@@ -258,15 +252,12 @@ class CosmosEpub {
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      shouldOpenDrawer != false || starterChapter != -1
-          ? Navigator.pushReplacement(
-              context,
-              route,
-            )
-          : Navigator.push(
-              context,
-              route,
-            );
+      // Always use pushReplacement to ensure old widget is disposed
+      // This prevents state issues when reopening the same book
+      Navigator.pushReplacement(
+        context,
+        route,
+      );
     });
   }
 
@@ -302,9 +293,7 @@ class CosmosEpub {
   }
 
   static String _truncate(String text, [int maxLength = 50]) {
-    return text.length <= maxLength
-        ? text
-        : '${text.substring(0, maxLength)}...';
+    return text.length <= maxLength ? text : '${text.substring(0, maxLength)}...';
   }
 
   static Future<bool> initialize() async {
@@ -322,8 +311,7 @@ class CosmosEpub {
 
   static _checkInitialization() {
     if (!_initialized) {
-      throw Exception(
-          'CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
+      throw Exception('CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
     }
   }
 

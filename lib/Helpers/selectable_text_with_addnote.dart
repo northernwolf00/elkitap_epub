@@ -129,11 +129,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     formatted = formatted.replaceAll(RegExp(r'\s+-\s+'), ' — ');
 
     // Clean up each line
-    formatted = formatted
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .join('\n');
+    formatted = formatted.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).join('\n');
 
     return formatted.trim();
   }
@@ -259,49 +255,52 @@ class BookPageBuilder {
         ),
         child: Directionality(
           textDirection: textDirection,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Chapter title for first page
-              if (isFirstPage && chapterTitle != null) ...[
-                SizedBox(height: 40.h),
-                Text(
-                  chapterTitle,
-                  textAlign: TextAlign.center,
-                  style: style.copyWith(
-                    fontSize: (style.fontSize ?? 16) + 6,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'SFPro',
-                    height: 1,
-                    letterSpacing: 0.5,
+          child: SingleChildScrollView(
+            physics: NeverScrollableScrollPhysics(), // Prevent scroll interference with page swipe
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Chapter title for first page
+                if (isFirstPage && chapterTitle != null) ...[
+                  SizedBox(height: 40.h),
+                  Text(
+                    chapterTitle,
+                    textAlign: TextAlign.center,
+                    style: style.copyWith(
+                      fontSize: (style.fontSize ?? 16) + 6,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'SFPro',
+                      height: 1,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-                SizedBox(height: 30.h),
-                Center(
-                  child: Container(
-                    width: 80.w,
-                    height: 2.h,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          (style.color ?? Colors.black).withOpacity(0.1),
-                          (style.color ?? Colors.black).withOpacity(0.5),
-                          (style.color ?? Colors.black).withOpacity(0.1),
-                        ],
+                  SizedBox(height: 30.h),
+                  Center(
+                    child: Container(
+                      width: 80.w,
+                      height: 2.h,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            (style.color ?? Colors.black).withOpacity(0.1),
+                            (style.color ?? Colors.black).withOpacity(0.5),
+                            (style.color ?? Colors.black).withOpacity(0.1),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 30.h),
-              ],
+                  SizedBox(height: 30.h),
+                ],
 
-              // Main content with TextSpan (includes text and images)
-              RichText(
-                textAlign: TextAlign.justify,
-                text: contentSpan,
-              ),
-            ],
+                // Main content with TextSpan (includes text and images)
+                RichText(
+                  textAlign: TextAlign.justify,
+                  text: contentSpan,
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -53,8 +53,7 @@ class ChaptersBottomSheet extends StatelessWidget {
               children: [
                 // Header
                 Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                   child: Column(
                     children: [
                       // Drag handle
@@ -79,24 +78,20 @@ class ChaptersBottomSheet extends StatelessWidget {
                             height: 80,
                             width: 60,
                             decoration: BoxDecoration(
-                              color: Colors
-                                  .red, // fallback background while loading
-                              borderRadius:
-                                  BorderRadius.circular(8), // optional
+                              color: Colors.red, // fallback background while loading
+                              borderRadius: BorderRadius.circular(8), // optional
                             ),
                             clipBehavior: Clip.hardEdge,
                             child: CachedNetworkImage(
                               imageUrl: imageUrl, // << put your URL here
                               fit: BoxFit.cover,
-                              placeholder: (context, url) =>
-                                  const LoadingWidget(
+                              placeholder: (context, url) => const LoadingWidget(
                                 height: 80,
                                 animationWidth: 40,
                                 animationHeight: 40,
                               ),
                               errorWidget: (context, url, error) => Center(
-                                child: Icon(Icons.broken_image,
-                                    color: Colors.white),
+                                child: Icon(Icons.broken_image, color: Colors.white),
                               ),
                             ),
                           ),
@@ -156,10 +151,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Colors.grey.withOpacity(0.2)),
+                Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
                 // Chapters list
                 Expanded(
                   child: ListView.separated(
@@ -174,20 +166,25 @@ class ChaptersBottomSheet extends StatelessWidget {
                       endIndent: 16.w,
                     ),
                     itemBuilder: (context, i) {
-                      final isCurrentChapter = bookProgress
-                              .getBookProgress(bookId)
-                              .currentChapterIndex ==
-                          i;
+                      final isCurrentChapter = bookProgress.getBookProgress(bookId).currentChapterIndex == i;
 
                       return InkWell(
                         onTap: () async {
+                          print('📌 Chapter tapped: $i, current: ${bookProgress.getBookProgress(bookId).currentChapterIndex}');
+
+                          // If tapping the current chapter, just close without reload
+                          if (i == bookProgress.getBookProgress(bookId).currentChapterIndex) {
+                            print('⏭️ Same chapter tapped, closing without reload');
+                            Navigator.of(context).pop(false);
+                            return;
+                          }
+
+                          print('✅ Changing to chapter $i');
                           await bookProgress.setCurrentChapterIndex(bookId, i);
                           Navigator.of(context).pop(true);
                         },
                         child: Container(
-                          color: isCurrentChapter
-                              ? Colors.grey[400]
-                              : Colors.grey[200],
+                          color: isCurrentChapter ? Colors.grey[400] : Colors.grey[200],
                           padding: EdgeInsets.symmetric(
                             horizontal: 16.w,
                             vertical: 20.h,
@@ -198,32 +195,18 @@ class ChaptersBottomSheet extends StatelessWidget {
                               Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.only(
-                                    left: chapters[i].isSubChapter &&
-                                            textDirection == TextDirection.ltr
-                                        ? 20.w
-                                        : 0,
-                                    right: chapters[i].isSubChapter &&
-                                            textDirection == TextDirection.rtl
-                                        ? 20.w
-                                        : 0,
+                                    left: chapters[i].isSubChapter && textDirection == TextDirection.ltr ? 20.w : 0,
+                                    right: chapters[i].isSubChapter && textDirection == TextDirection.rtl ? 20.w : 0,
                                   ),
                                   child: Text(
                                     chapters[i].chapter,
-                                    textDirection: RTLHelper.getTextDirection(
-                                        chapters[i].chapter),
+                                    textDirection: RTLHelper.getTextDirection(chapters[i].chapter),
                                     style: TextStyle(
-                                      color: isCurrentChapter
-                                          ? Colors.grey[300]
-                                          : Colors.grey,
-                                      fontFamily: fontNames
-                                          .where((element) =>
-                                              element == selectedFont)
-                                          .first,
+                                      color: isCurrentChapter ? Colors.grey[300] : Colors.grey,
+                                      fontFamily: fontNames.where((element) => element == selectedFont).first,
                                       package: 'cosmos_epub',
                                       fontSize: 14.sp,
-                                      fontWeight: chapters[i].isSubChapter
-                                          ? FontWeight.w400
-                                          : FontWeight.w600,
+                                      fontWeight: chapters[i].isSubChapter ? FontWeight.w400 : FontWeight.w600,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
