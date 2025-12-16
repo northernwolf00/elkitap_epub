@@ -24,6 +24,7 @@ class CosmosEpubLocalization {
       'note_added': 'Bellik goşuldy',
       'sharing': 'Paýlaşylýar',
       'copy': 'Nusga',
+      'end_of_book': 'Kitap gutardy',
     },
     'en': {
       'themes': 'Themes',
@@ -45,6 +46,7 @@ class CosmosEpubLocalization {
       'note_added': 'Note added',
       'sharing': 'Sharing',
       'copy': 'Copy',
+      'end_of_book': 'End of book',
     },
     'ru': {
       'themes': 'Темы',
@@ -66,6 +68,7 @@ class CosmosEpubLocalization {
       'note_added': 'Заметка добавлена',
       'sharing': 'Поделиться',
       'copy': 'Копировать',
+      'end_of_book': 'Конец книги',
     },
   };
 
