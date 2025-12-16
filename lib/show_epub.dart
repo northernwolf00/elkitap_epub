@@ -67,6 +67,7 @@ class ShowEpub extends StatefulWidget {
   final Function(int currentPage, int totalPages)? onPageFlip;
   final Function(int lastPageIndex)? onLastPage;
   final Color accentColor;
+  final int? starterPageInBook;
 
   ShowEpub({
     super.key,
@@ -79,6 +80,7 @@ class ShowEpub extends StatefulWidget {
     required this.chapterListTitle,
     this.onPageFlip,
     this.onLastPage,
+    this.starterPageInBook,
   });
 
   @override
@@ -133,6 +135,11 @@ class ShowEpubState extends State<ShowEpub> {
 
   // Mapping from filtered chapter index to original EPUB chapter index
   Map<int, int> _filteredToOriginalIndex = {};
+
+  // Audio progress synchronization
+  bool _hasAppliedAudioSync = false;
+  int? _targetChapterFromAudioSync;
+  int? _targetPageFromAudioSync;
 
   @override
   void initState() {
@@ -225,6 +232,49 @@ class ShowEpubState extends State<ShowEpub> {
         }
       });
     }
+  }
+
+  // Calculate which chapter and page corresponds to a page in the book
+  Map<String, int>? _calculateChapterAndPageFromBookPage(int targetPageInBook) {
+    print('');
+    print('🎯 ═══════════════════════════════════════════════════════');
+    print('🎯 CALCULATING CHAPTER AND PAGE FROM BOOK PAGE');
+    print('🎯 Target page in book: $targetPageInBook');
+    print('🎯 ═══════════════════════════════════════════════════════');
+
+    if (chapterPageCounts.isEmpty) {
+      print('⚠️ No cached page counts available, cannot calculate chapter/page');
+      return null;
+    }
+
+    int accumulatedPages = 0;
+    for (int chapterIndex = 0; chapterIndex < _chapters.length; chapterIndex++) {
+      if (!chapterPageCounts.containsKey(chapterIndex)) {
+        print('⚠️ Chapter $chapterIndex not yet calculated, cannot determine exact position');
+        return null;
+      }
+
+      int pagesInChapter = chapterPageCounts[chapterIndex]!;
+      int nextAccumulated = accumulatedPages + pagesInChapter;
+
+      print('📖 Chapter $chapterIndex: pages $accumulatedPages-${nextAccumulated - 1} ($pagesInChapter pages)');
+
+      // Check if target page is in this chapter
+      if (targetPageInBook >= accumulatedPages && targetPageInBook < nextAccumulated) {
+        int pageInChapter = targetPageInBook - accumulatedPages;
+        print('✅ Found: Chapter $chapterIndex, Page $pageInChapter');
+        print('🎯 ═══════════════════════════════════════════════════════');
+        print('');
+        return {'chapter': chapterIndex, 'page': pageInChapter};
+      }
+
+      accumulatedPages = nextAccumulated;
+    }
+
+    print('⚠️ Target page $targetPageInBook exceeds total pages $accumulatedPages');
+    print('🎯 ═══════════════════════════════════════════════════════');
+    print('');
+    return null;
   }
 
   // Load cached page counts from storage
@@ -692,11 +742,40 @@ class ShowEpubState extends State<ShowEpub> {
 
     int targetIndex = index;
     if (init) {
-      if (hasProgress) {
+      // Priority 1: Audio sync (starterPageInBook) - only if we have cached page counts
+      if (widget.starterPageInBook != null && chapterPageCounts.isNotEmpty) {
+        print('');
+        print('🎵 ═══════════════════════════════════════════════════════');
+        print('🎵 AUDIO SYNC REQUESTED');
+        print('🎵 Target page in book: ${widget.starterPageInBook}');
+        print('🎵 ═══════════════════════════════════════════════════════');
+        print('');
+
+        final result = _calculateChapterAndPageFromBookPage(widget.starterPageInBook!);
+        if (result != null) {
+          targetIndex = result['chapter']!;
+          _targetChapterFromAudioSync = result['chapter'];
+          _targetPageFromAudioSync = result['page'];
+          print('🎵 Will start at Chapter $targetIndex, Page ${result['page']}');
+        } else {
+          print('⚠️ Could not calculate chapter/page, falling back to saved progress');
+          if (hasProgress) {
+            targetIndex = savedChapter;
+          } else {
+            targetIndex = 0;
+          }
+        }
+      }
+      // Priority 2: Saved progress from last read
+      else if (hasProgress) {
         targetIndex = savedChapter;
-      } else if (widget.starterChapter >= 0 && widget.starterChapter < chaptersList.length) {
+      }
+      // Priority 3: Explicit starter chapter
+      else if (widget.starterChapter >= 0 && widget.starterChapter < chaptersList.length) {
         targetIndex = widget.starterChapter;
-      } else {
+      }
+      // Priority 4: First chapter
+      else {
         targetIndex = 0;
       }
     }
@@ -1132,12 +1211,20 @@ class ShowEpubState extends State<ShowEpub> {
 
                               var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
 
+                              // Determine starting page: use audio sync target if available and matches current chapter
+                              int startPageIndex = bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+                              if (_targetChapterFromAudioSync == currentChapterIndex && _targetPageFromAudioSync != null && !_hasAppliedAudioSync) {
+                                startPageIndex = _targetPageFromAudioSync!;
+                                _hasAppliedAudioSync = true;
+                                print('🎵 Starting at audio sync page: $startPageIndex in chapter $currentChapterIndex');
+                              }
+
                               return PagingWidget(
                                 textContent,
                                 epubBook: epubBook,
                                 innerHtmlContent,
                                 lastWidget: null,
-                                starterPageIndex: bookProgress.getBookProgress(bookId).currentPageIndex ?? 0,
+                                starterPageIndex: startPageIndex,
                                 style: TextStyle(
                                   backgroundColor: backColor,
                                   fontSize: _fontSize.sp,
