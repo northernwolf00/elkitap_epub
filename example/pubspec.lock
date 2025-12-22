@@ -271,22 +271,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.3.0"
-  isar:
+  isar_community:
     dependency: transitive
     description:
-      name: isar
-      sha256: "99165dadb2cf2329d3140198363a7e7bff9bbd441871898a87e26914d25cf1ea"
+      name: isar_community
+      sha256: e917afb945d6efa844a43430224e8317f22c455963bc8bd521752d29000d6fa8
       url: "https://pub.dev"
     source: hosted
-    version: "3.1.0+1"
-  isar_flutter_libs:
+    version: "3.2.0"
+  isar_community_flutter_libs:
     dependency: transitive
     description:
-      name: isar_flutter_libs
-      sha256: bc6768cc4b9c61aabff77152e7f33b4b17d2fc93134f7af1c3dd51500fe8d5e8
+      name: isar_community_flutter_libs
+      sha256: e7445e3c8070a0197148ab961b41071fd16bde2af17b7decd9c3d4587a540c84
       url: "https://pub.dev"
     source: hosted
-    version: "3.1.0+1"
+    version: "3.2.0"
   js:
     dependency: transitive
     description:

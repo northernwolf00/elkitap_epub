@@ -4,11 +4,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 class ProgressBarWidget extends StatelessWidget {
   final int currentPage;
   final int totalPages;
+  final bool isCalculating;
 
   const ProgressBarWidget({
     Key? key,
     required this.currentPage,
     required this.totalPages,
+    this.isCalculating = false,
   }) : super(key: key);
 
   @override
@@ -28,9 +30,7 @@ class ProgressBarWidget extends StatelessWidget {
               // Progress bar
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final progress = totalPages > 0
-                      ? (currentPage / totalPages).clamp(0.0, 1.0)
-                      : 0.0;
+                  final progress = totalPages > 0 ? (currentPage / totalPages).clamp(0.0, 1.0) : 0.0;
 
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
@@ -66,7 +66,7 @@ class ProgressBarWidget extends StatelessWidget {
                         ),
                       ),
                       TextSpan(
-                        text: '$totalPages',
+                        text: ' $totalPages',
                         style: TextStyle(
                           fontWeight: FontWeight.w400,
                           fontSize: 20.sp,
@@ -74,6 +74,17 @@ class ProgressBarWidget extends StatelessWidget {
                           letterSpacing: -0.5,
                         ),
                       ),
+                      if (isCalculating)
+                        TextSpan(
+                          text: ' (hesaplanıyor)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w400,
+                            fontSize: 14.sp,
+                            color: Colors.black.withOpacity(0.4),
+                            letterSpacing: -0.3,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
                     ],
                   ),
                 ),

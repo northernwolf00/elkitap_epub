@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:cosmos_epub/Helpers/chapters_bottom_sheet.dart';
+import 'package:cosmos_epub/Helpers/epub_chapter_fixer.dart';
 import 'package:cosmos_epub/Helpers/functions.dart';
 import 'package:cosmos_epub/Helpers/progress_bar_widget.dart';
 import 'package:cosmos_epub/book_options_menu.dart';
@@ -10,15 +11,13 @@ import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:html/parser.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:screen_brightness/screen_brightness.dart';
 
 import 'Component/constants.dart';
 import 'Component/theme_colors.dart';
-
-import 'Helpers/custom_toast.dart';
 import 'Helpers/pagination.dart';
 import 'Helpers/progress_singleton.dart';
 import 'Model/chapter_model.dart';
@@ -68,6 +67,7 @@ class ShowEpub extends StatefulWidget {
   final Function(int currentPage, int totalPages)? onPageFlip;
   final Function(int lastPageIndex)? onLastPage;
   final Color accentColor;
+  final int? starterPageInBook;
 
   ShowEpub({
     super.key,
@@ -80,6 +80,7 @@ class ShowEpub extends StatefulWidget {
     required this.chapterListTitle,
     this.onPageFlip,
     this.onLastPage,
+    this.starterPageInBook,
   });
 
   @override
@@ -100,6 +101,7 @@ class ShowEpubState extends State<ShowEpub> {
 
   late EpubBook epubBook;
   late String bookId;
+  List<EpubChapter> get _chapters => epubBook.Chapters ?? <EpubChapter>[];
   String bookTitle = '';
   String chapterTitle = '';
   double brightnessLevel = 0.5;
@@ -112,114 +114,501 @@ class ShowEpubState extends State<ShowEpub> {
   bool showPrevious = false;
   bool showNext = false;
   var dropDownFontItems;
+  bool _precalcScheduled = false;
+  int? _pendingCurrentPageInBook;
+  int? _pendingTotalPages;
+  Size? _lastPrecalcSize; // Track the size used for last precalculation
 
   GetStorage gs = GetStorage();
 
-  PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {});
+  PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {}, bookId: '');
 
-  Map<int, int> chapterPageCounts = {}; // chapterIndex -> pageCount
-  int previousChaptersPagesCount = 0;
-  int totalBookPages = 0;
-  String fullBookText = '';
-  Map<int, int> chapterStartPages = {};
-  List<String> allChapterTexts = [];
+  // Track pages per chapter and cumulative totals
+  Map<int, int> chapterPageCounts = {};
+  int accumulatedPagesBeforeCurrentChapter = 0;
+  int totalPagesInBook = 0; // Total pages across all chapters
+  bool isCalculatingTotalPages = false;
+  int _cachedKnownPagesTotal = 0; // Cache to avoid recalculating fold every time
+  bool allChaptersCalculated = false; // Track if we've calculated all chapters
+  bool _isDisposed = false; // Track if widget is disposed to stop background tasks
+  bool _isLoadingChapter = false; // Prevent multiple simultaneous chapter loads
 
-  bool isCalculatingPages = false;
+  // Mapping from filtered chapter index to original EPUB chapter index
+  Map<int, int> _filteredToOriginalIndex = {};
+
+  // Audio progress synchronization
+  bool _hasAppliedAudioSync = false;
+  int? _targetChapterFromAudioSync;
+  int? _targetPageFromAudioSync;
 
   @override
   void initState() {
+    print('🎬 ShowEpub initState called for bookId: ${widget.bookId}');
     loadThemeSettings();
     bookId = widget.bookId;
     epubBook = widget.epubBook;
+    controllerPaging = PagingTextHandler(paginate: () {}, bookId: bookId);
+
+    // Debug EPUB structure
+    print("----------------------------------------------/////////////////////--------------------");
+    log('📚 EPUB Debug Info:');
+    log('   Title: ${epubBook.Title}');
+    log('   Author: ${epubBook.Author}');
+    log('   Total Chapters: ${epubBook.Chapters?.length ?? 0}');
+    log('   Schema: ${epubBook.Schema}');
+    log('   Content: ${epubBook.Content != null ? "Present" : "Null"}');
+    if (epubBook.Content != null) {
+      log('   HTML Files: ${epubBook.Content!.Html?.keys.length ?? 0}');
+      log('   CSS Files: ${epubBook.Content!.Css?.keys.length ?? 0}');
+      log('   Images: ${epubBook.Content!.Images?.keys.length ?? 0}');
+    }
+
+    // Fix chapters for PDF-to-EPUB converted books
+    EpubChapterFixer.fixChaptersIfNeeded(epubBook);
+    log('📚 After fix - Total Chapters: ${epubBook.Chapters?.length ?? 0}');
+
+    // Print all chapter titles to debug
+    print('');
+    print('📖 ═══════════════════════════════════════════════════════');
+    print('📖 CHAPTER LIST (${epubBook.Chapters?.length ?? 0} chapters):');
+    print('📖 ═══════════════════════════════════════════════════════');
+    if (epubBook.Chapters != null) {
+      for (int i = 0; i < epubBook.Chapters!.length; i++) {
+        final chapter = epubBook.Chapters![i];
+        print('📖 Chapter $i: "${chapter.Title}"');
+        if (chapter.ContentFileName != null) {
+          print('   File: ${chapter.ContentFileName}');
+        }
+      }
+    }
+    print('📖 ═══════════════════════════════════════════════════════');
+    print('');
+
     // allFonts = GoogleFonts.asMap().cast<String, String>();
     // fontNames = allFonts.keys.toList();
     // selectedTextStyle = GoogleFonts.getFont(selectedFont).fontFamily!;
-    selectedTextStyle =
-        fontNames.where((element) => element == selectedFont).first;
+    selectedTextStyle = fontNames.firstWhere((element) => element == selectedFont, orElse: () => fontNames.first);
 
     getTitleFromXhtml();
 
-    // Defer heavy calculation to after initial render
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      calculateFullBookText();
-    });
+    // Load cached page counts
+    _loadCachedPageCounts();
 
     reLoadChapter(init: true);
 
     super.initState();
   }
 
-  void onAllChaptersPaginated(Map<int, int> pageCounts) {
-    if (mounted) {
-      setState(() {
-        chapterPageCounts = pageCounts;
-        calculateChapterStartPages();
-        totalBookPages =
-            chapterPageCounts.values.fold(0, (sum, count) => sum + count);
-        controllerPaging.globalTotalPages.value = totalBookPages;
+  @override
+  void dispose() {
+    print('🔚 ShowEpub dispose called for bookId: $bookId');
+    print('🔚 Widget is being destroyed/removed from tree');
+    _isDisposed = true;
+    isCalculatingTotalPages = false;
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_precalcScheduled) {
+      _precalcScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isDisposed) return;
+
+        final size = MediaQuery.of(context).size;
+
+        // Only start precalc if size has changed or this is the first time
+        final sizeChanged = _lastPrecalcSize == null || (_lastPrecalcSize!.width != size.width || _lastPrecalcSize!.height != size.height);
+
+        if (sizeChanged && !allChaptersCalculated) {
+          _lastPrecalcSize = size;
+          // Start precalc immediately but with loading indicator
+          // This prevents page count jumping from 1 to final count
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (!mounted || _isDisposed) return;
+            _precalculateAllChaptersTotal(size);
+          });
+        }
       });
     }
   }
 
-  Future<void> calculateFullBookPagination() async {
-    if (isCalculatingPages) return;
-    isCalculatingPages = true;
+  // Calculate which chapter and page corresponds to a page in the book
+  Map<String, int>? _calculateChapterAndPageFromBookPage(int targetPageInBook) {
+    print('');
+    print('🎯 ═══════════════════════════════════════════════════════');
+    print('🎯 CALCULATING CHAPTER AND PAGE FROM BOOK PAGE');
+    print('🎯 Target page in book: $targetPageInBook');
+    print('🎯 ═══════════════════════════════════════════════════════');
 
-    try {
-      // Wait for render box to be available
-      await Future.delayed(Duration(milliseconds: 500));
+    if (chapterPageCounts.isEmpty) {
+      print('⚠️ No cached page counts available, cannot calculate chapter/page');
+      return null;
+    }
 
-      StringBuffer fullText = StringBuffer();
-      List<String> chapterTexts = [];
-
-      // Collect all chapter texts
-      for (var chapter in epubBook.Chapters!) {
-        String content = chapter.HtmlContent ?? '';
-
-        List<EpubChapter>? subChapters = chapter.SubChapters;
-        if (subChapters != null && subChapters.isNotEmpty) {
-          for (var subChapter in subChapters) {
-            content += subChapter.HtmlContent ?? '';
-          }
-        }
-
-        String chapterText = parse(content).documentElement?.text ?? '';
-        chapterTexts.add(chapterText);
-        fullText.write(chapterText + ' ');
+    int accumulatedPages = 0;
+    for (int chapterIndex = 0; chapterIndex < _chapters.length; chapterIndex++) {
+      if (!chapterPageCounts.containsKey(chapterIndex)) {
+        print('⚠️ Chapter $chapterIndex not yet calculated, cannot determine exact position');
+        return null;
       }
 
-      fullBookText = fullText.toString();
+      int pagesInChapter = chapterPageCounts[chapterIndex]!;
+      int nextAccumulated = accumulatedPages + pagesInChapter;
 
-      if (mounted) {
-        setState(() {
-          // Trigger update after calculation
+      print('📖 Chapter $chapterIndex: pages $accumulatedPages-${nextAccumulated - 1} ($pagesInChapter pages)');
+
+      // Check if target page is in this chapter
+      if (targetPageInBook >= accumulatedPages && targetPageInBook < nextAccumulated) {
+        int pageInChapter = targetPageInBook - accumulatedPages;
+        print('✅ Found: Chapter $chapterIndex, Page $pageInChapter');
+        print('🎯 ═══════════════════════════════════════════════════════');
+        print('');
+        return {'chapter': chapterIndex, 'page': pageInChapter};
+      }
+
+      accumulatedPages = nextAccumulated;
+    }
+
+    print('⚠️ Target page $targetPageInBook exceeds total pages $accumulatedPages');
+    print('🎯 ═══════════════════════════════════════════════════════');
+    print('');
+    return null;
+  }
+
+  // Load cached page counts from storage
+  void _loadCachedPageCounts() {
+    final cached = gs.read('book_${bookId}_page_counts');
+    if (cached != null && cached is Map) {
+      // Keys may have been stored as strings; normalize to int keys
+      chapterPageCounts = cached.map<int, int>((key, value) {
+        final intKey = key is int ? key : int.tryParse(key.toString()) ?? 0;
+        return MapEntry(intKey, value as int);
+      });
+
+      // Validate cache: if cached chapters don't match current chapter count, clear cache
+      if (chapterPageCounts.length != _chapters.length) {
+        print('⚠️ Cache mismatch: Cached ${chapterPageCounts.length} chapters, book has ${_chapters.length} chapters');
+        print('⚠️ Clearing cache and recalculating...');
+        chapterPageCounts.clear();
+        _cachedKnownPagesTotal = 0;
+        totalPagesInBook = 0;
+        allChaptersCalculated = false;
+        gs.remove('book_${bookId}_page_counts');
+        log('📚 Cache cleared, will recalculate all chapters');
+
+        // Trigger precalculation immediately after clearing cache
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _isDisposed) return;
+          final size = MediaQuery.of(context).size;
+          _lastPrecalcSize = size;
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (!mounted || _isDisposed) return;
+            _precalculateAllChaptersTotal(size);
+          });
         });
+        return;
       }
-    } finally {
-      isCalculatingPages = false;
+
+      // Calculate total from cached values (use simple sum, not fold in loop)
+      _cachedKnownPagesTotal = 0;
+      for (var count in chapterPageCounts.values) {
+        _cachedKnownPagesTotal += count;
+      }
+      totalPagesInBook = _cachedKnownPagesTotal;
+
+      // Check if all chapters are cached
+      allChaptersCalculated = chapterPageCounts.length == _chapters.length;
+
+      print('');
+      print('💾 ═══════════════════════════════════════════════════════');
+      print('💾 LOADED FROM CACHE');
+      print('💾 ═══════════════════════════════════════════════════════');
+      log('📚 Loaded cached page counts: ${chapterPageCounts.length} chapters, $totalPagesInBook total pages');
+      print('💾 Cached chapters: ${chapterPageCounts.length} / ${_chapters.length}');
+      print('💾 All chapters calculated: $allChaptersCalculated');
+      print('💾 Cached total pages: $_cachedKnownPagesTotal');
+      print('💾 Chapter page counts from cache:');
+      chapterPageCounts.forEach((idx, pages) {
+        print('💾    Chapter $idx: $pages pages');
+      });
+      print('💾 ═══════════════════════════════════════════════════════');
+      print('');
+
+      // Update UI immediately if we have all chapters
+      if (allChaptersCalculated) {
+        controllerPaging.totalPages.value = totalPagesInBook;
+      }
+    } else {
+      log('📚 No cached page counts found, will calculate all chapters');
     }
+  } // Save page counts to storage
+
+  void _saveCachedPageCounts() {
+    // Store with string keys to keep JSON encoder happy
+    final stringKeyed = chapterPageCounts.map<String, int>((key, value) => MapEntry(key.toString(), value));
+    gs.write('book_${bookId}_page_counts', stringKeyed);
+    log('💾 Saved page counts to cache');
   }
 
-  // NEW: Calculate chapter start pages using the same logic as PagingWidget
-  Future<void> calculateChapterStartPages() async {
-    if (chapterPageCounts.isEmpty) return;
-
-    chapterStartPages.clear();
-    int cumulativePageCount = 0;
-
-    for (int i = 0; i < epubBook.Chapters!.length; i++) {
-      chapterStartPages[i] = cumulativePageCount + 1; // Pages are 1-indexed
-      cumulativePageCount += chapterPageCounts[i] ?? 0;
+  // Calculate total pages for all chapters in background
+  Future<void> _calculateTotalPagesInBackground() async {
+    if (isCalculatingTotalPages) return;
+    if (allChaptersCalculated) {
+      log('📚 All chapters already calculated');
+      return;
     }
 
-    // Update chapter list with start pages
-    if (mounted) {
-      setState(() {
-        for (int i = 0; i < chaptersList.length; i++) {
-          chaptersList[i].startPage = chapterStartPages[i] ?? 0;
+    isCalculatingTotalPages = true;
+
+    print('');
+    print('🔄 ═══════════════════════════════════════════════════════');
+    print('🔄 WILL CALCULATE REMAINING CHAPTERS AS USER READS');
+    print('🔄 ═══════════════════════════════════════════════════════');
+    print('🔄 Known chapters: ${chapterPageCounts.length} / ${_chapters.length}');
+    print('🔄 Known pages: $_cachedKnownPagesTotal');
+    print('🔄 Will show "calculating..." in progress bar until all chapters visited');
+    print('🔄 ═══════════════════════════════════════════════════════');
+    print('');
+
+    isCalculatingTotalPages = false;
+  }
+
+  Future<void> _precalculateAllChaptersTotal(Size pageSize) async {
+    if (allChaptersCalculated || isCalculatingTotalPages) return;
+
+    isCalculatingTotalPages = true;
+
+    print('');
+    print('🧮 ═══════════════════════════════════════════════════════');
+    print('🧮 PRECALCULATING ALL CHAPTERS IN BACKGROUND');
+    print('🧮 Page area: ${pageSize.width} x ${pageSize.height}');
+    print('🧮 Known chapters before start: ${chapterPageCounts.length}');
+    print('🧮 ═══════════════════════════════════════════════════════');
+    print('');
+
+    final totalChapters = _chapters.length;
+    final contentWidth = pageSize.width - 64.w;
+    final contentHeight = pageSize.height - 100.h;
+
+    for (int i = 0; i < totalChapters; i++) {
+      // Stop if widget is disposed
+      if (_isDisposed || !mounted) {
+        print('🛑 Precalc stopped - widget disposed');
+        isCalculatingTotalPages = false;
+        return;
+      }
+
+      if (chapterPageCounts.containsKey(i)) {
+        continue; // Already known from cache or reading
+      }
+
+      try {
+        final html = _buildChapterHtml(i);
+        final pages = await _countPages(html, contentWidth, contentHeight);
+        chapterPageCounts[i] = pages;
+        _cachedKnownPagesTotal += pages;
+
+        // Save every 20 chapters to reduce I/O operations
+        if (i % 20 == 0 || i == totalChapters - 1) {
+          _saveCachedPageCounts();
         }
-      });
+
+        // Only print progress every 20 chapters to reduce log spam
+        if (i % 20 == 0 || i == totalChapters - 1) {
+          print('🧮 Chapter $i precalculated: $pages pages (known total: $_cachedKnownPagesTotal)');
+        }
+      } catch (e, st) {
+        print('⚠️ Failed to precalculate chapter $i: $e');
+        log('⚠️ Precalc error chapter $i: $e\n$st');
+      }
+
+      // Yield to UI between chapters - minimal delay for fast completion
+      // Only yield every 5 chapters to speed up calculation
+      if (i % 5 == 0 && i > 0) {
+        await Future.delayed(Duration(milliseconds: 10));
+      }
     }
+
+    totalPagesInBook = _cachedKnownPagesTotal;
+    allChaptersCalculated = true;
+    isCalculatingTotalPages = false;
+
+    // Update UI totals
+    controllerPaging.totalPages.value = totalPagesInBook;
+
+    print('');
+    print('✅ ═══════════════════════════════════════════════════════');
+    print('✅ PRECALC COMPLETE - TOTAL PAGES: $totalPagesInBook');
+    print('✅ Chapters processed: ${chapterPageCounts.length} / $totalChapters');
+    print('✅ ═══════════════════════════════════════════════════════');
+    print('');
+  }
+
+  String _buildChapterHtml(int chapterIndex) {
+    if (chapterIndex < 0 || chapterIndex >= _chapters.length) return '';
+    String content = _chapters[chapterIndex].HtmlContent ?? '';
+    final subChapters = _chapters[chapterIndex].SubChapters;
+    if (subChapters != null && subChapters.isNotEmpty) {
+      for (var sub in subChapters) {
+        content += sub.HtmlContent ?? '';
+      }
+    }
+    return content;
+  }
+
+  Future<int> _countPages(String html, double maxWidth, double maxHeight) async {
+    final document = parse(html);
+    List<InlineSpan> spans = [];
+
+    for (var node in document.body!.nodes) {
+      spans.add(await _parseNodeForCount(node, maxWidth, maxHeight));
+    }
+
+    return _paginateAndCount(spans, maxWidth, maxHeight);
+  }
+
+  Future<InlineSpan> _parseNodeForCount(dom.Node node, double maxWidth, double maxHeight) async {
+    if (node is dom.Text) {
+      String text = node.text.replaceAll(RegExp(r'[ \t]+'), ' ');
+      if (text.trim().isEmpty) return const TextSpan(text: '');
+
+      return TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: _fontSize,
+          fontFamily: selectedTextStyle,
+          height: 1.7,
+          letterSpacing: 0.2,
+          wordSpacing: 0.5,
+          color: fontColor,
+        ),
+      );
+    }
+
+    if (node is dom.Element) {
+      if (node.localName == 'img') {
+        // Approximate image height to keep count lightweight
+        return WidgetSpan(
+          child: SizedBox(
+            width: maxWidth * 0.9,
+            height: maxHeight * 0.4,
+          ),
+        );
+      }
+
+      if (node.localName == 'br') {
+        return const TextSpan(text: "\n");
+      }
+
+      if (node.localName == 'p' || node.localName == 'div') {
+        List<InlineSpan> children = [];
+        for (var child in node.nodes) {
+          children.add(await _parseNodeForCount(child, maxWidth, maxHeight));
+        }
+        children.add(const TextSpan(text: "\n\n"));
+        return TextSpan(children: children);
+      }
+
+      if (node.localName == 'h1' || node.localName == 'h2' || node.localName == 'h3') {
+        List<InlineSpan> children = [];
+        for (var child in node.nodes) {
+          children.add(await _parseNodeForCount(child, maxWidth, maxHeight));
+        }
+        return TextSpan(
+          children: children,
+          style: TextStyle(
+            fontSize: (_fontSize) + 4,
+            fontWeight: FontWeight.bold,
+            height: 1.5,
+            color: fontColor,
+          ),
+        );
+      }
+
+      List<InlineSpan> children = [];
+      for (var child in node.nodes) {
+        children.add(await _parseNodeForCount(child, maxWidth, maxHeight));
+      }
+      return TextSpan(children: children);
+    }
+
+    return const TextSpan(text: '');
+  }
+
+  int _paginateAndCount(List<InlineSpan> allSpans, double maxWidth, double maxHeight) {
+    List<InlineSpan> flatSpans = [];
+
+    void flatten(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.children != null && span.children!.isNotEmpty) {
+          for (var child in span.children!) flatten(child);
+        } else if (span.text != null && span.text!.isNotEmpty) {
+          flatSpans.add(span);
+        }
+      } else if (span is WidgetSpan) {
+        flatSpans.add(span);
+      }
+    }
+
+    for (var s in allSpans) {
+      flatten(s);
+    }
+
+    int pageCount = 0;
+    List<InlineSpan> currentPageSpans = [];
+    double currentHeight = 0;
+
+    for (var span in flatSpans) {
+      if (span is WidgetSpan) {
+        double spanHeight = 200; // Approximate; enough for counting
+        if (currentHeight + spanHeight > maxHeight && currentPageSpans.isNotEmpty) {
+          pageCount++;
+          currentPageSpans.clear();
+          currentHeight = 0;
+        }
+        currentPageSpans.add(span);
+        currentHeight += spanHeight;
+      } else if (span is TextSpan && span.text != null) {
+        final painter = TextPainter(
+          text: TextSpan(text: span.text, style: span.style),
+          textDirection: TextDirection.ltr,
+          textScaleFactor: 1.0,
+        );
+        painter.layout(maxWidth: maxWidth);
+
+        if (currentHeight + painter.height <= maxHeight) {
+          currentPageSpans.add(span);
+          currentHeight += painter.height;
+        } else {
+          final lines = painter.computeLineMetrics();
+          double chunkHeight = 0;
+
+          for (final line in lines) {
+            if (currentHeight + chunkHeight + line.height > maxHeight) {
+              if (chunkHeight > 0 || currentPageSpans.isNotEmpty) {
+                pageCount++;
+                currentPageSpans.clear();
+                currentHeight = 0;
+                chunkHeight = 0;
+              }
+            }
+            chunkHeight += line.height;
+          }
+
+          currentHeight += chunkHeight;
+          currentPageSpans.add(span);
+        }
+        painter.dispose();
+      }
+    }
+
+    if (currentPageSpans.isNotEmpty) {
+      pageCount++;
+    }
+
+    return pageCount;
   }
 
   loadThemeSettings() {
@@ -237,126 +626,255 @@ class ShowEpubState extends State<ShowEpub> {
     }
   }
 
+  // _extractTitleFromHtml removed - cosmos_epub.dart handles title extraction properly
+
   reLoadChapter({bool init = false, int index = -1}) async {
-    int currentIndex =
-        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    // Prevent multiple simultaneous loads
+    if (_isLoadingChapter) {
+      print('⚠️ Chapter load already in progress, ignoring duplicate request');
+      return;
+    }
+
+    _isLoadingChapter = true;
+    int currentIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    int targetIndex = index == -1 ? currentIndex : index;
+
+    print('🔄 reLoadChapter called: init=$init, index=$index, targetIndex=$targetIndex, currentIndex=$currentIndex');
+
+    // Always reset swipe counters when loading a chapter to prevent accidental navigation
+    lastSwipe = 0;
+    prevSwipe = 0;
+
+    // If chapter is changing (not init and index provided), update the saved chapter index
+    if (!init && index != -1 && index != currentIndex) {
+      print('💾 Updating saved chapter index: $currentIndex → $index');
+      await bookProgress.setCurrentChapterIndex(bookId, index);
+      await bookProgress.setCurrentPageIndex(bookId, 0);
+    }
 
     setState(() {
-      loadChapterFuture = loadChapter(
-          index: init
-              ? -1
-              : index == -1
-                  ? currentIndex
-                  : index);
+      loadChapterFuture = loadChapter(init: init, index: targetIndex).then((_) {
+        print('✅ Chapter load complete, resetting flag');
+        _isLoadingChapter = false;
+      }).catchError((e, stackTrace) {
+        print('❌ Chapter load error, resetting flag: $e');
+        print('Stack trace: $stackTrace');
+        _isLoadingChapter = false;
+        // Don't rethrow - let FutureBuilder handle the error state
+      });
     });
   }
 
-  loadChapter({int index = -1}) async {
+  loadChapter({int index = -1, bool init = false}) async {
     chaptersList = [];
 
-    // Use simple for-loop instead of Future.wait
-    for (var chapter in epubBook.Chapters!) {
-      String? chapterTitle = chapter.Title;
-      List<LocalChapterModel> subChapters = [];
-      for (var element in chapter.SubChapters!) {
-        subChapters.add(
-            LocalChapterModel(chapter: element.Title!, isSubChapter: true));
-      }
-
-      chaptersList.add(LocalChapterModel(
-          chapter: chapterTitle ?? '...', isSubChapter: false));
-
-      chaptersList += subChapters;
-    }
-
-    if (chapterStartPages.isEmpty) {
-      await calculateChapterStartPages();
-    }
-
-    ///Choose initial chapter
-    if (widget.starterChapter >= 0 &&
-        widget.starterChapter < chaptersList.length) {
-      setupNavButtons();
-      await updateContentAccordingChapter(
-          index == -1 ? widget.starterChapter : index);
-    } else {
-      setupNavButtons();
-      await updateContentAccordingChapter(0);
-      CustomToast.showToast(
-          "Invalid chapter number. Range [0-${chaptersList.length}]");
-    }
-  }
-
-  void onChapterPagesCalculated(int chapterIndex, int pageCount) {
-    setState(() {
-      chapterPageCounts[chapterIndex] = pageCount;
-
-      // Recalculate total book pages
-      totalBookPages =
-          chapterPageCounts.values.fold(0, (sum, count) => sum + count);
-
-      // Update global total in handler
-      controllerPaging.globalTotalPages = totalBookPages as RxInt;
-    });
-  }
-
-  Future<void> calculateFullBookText() async {
-    StringBuffer fullText = StringBuffer();
-    allChapterTexts.clear();
-
-    // Use simple for-loop instead of Future.wait for better performance
-    for (var chapter in epubBook.Chapters!) {
-      String content = chapter.HtmlContent ?? '';
-
-      List<EpubChapter>? subChapters = chapter.SubChapters;
-      if (subChapters != null && subChapters.isNotEmpty) {
-        for (var subChapter in subChapters) {
-          content += subChapter.HtmlContent ?? '';
+    // Try to get chapter titles from Navigation (TOC) first
+    Map<String, String> navTitles = {};
+    if (epubBook.Schema?.Navigation?.NavMap?.Points != null) {
+      for (var point in epubBook.Schema!.Navigation!.NavMap!.Points!) {
+        if (point.Content?.Source != null && point.NavigationLabels != null && point.NavigationLabels!.isNotEmpty) {
+          // Extract the HTML file name from the Source path
+          String source = point.Content!.Source!;
+          String fileName = source.split('#').first; // Remove anchor
+          fileName = fileName.split('/').last; // Get just the filename
+          // Use the first navigation label's text
+          String? labelText = point.NavigationLabels!.first.Text;
+          if (labelText != null && labelText.isNotEmpty) {
+            navTitles[fileName] = labelText;
+          }
         }
       }
-      allChapterTexts.add(content);
-      fullText.write(content);
     }
 
-    fullBookText = fullText.toString();
+    // Add all chapters (don't filter by content length)
+    for (int i = 0; i < _chapters.length; i++) {
+      var chapter = _chapters[i];
+
+      // Use the title from cosmos_epub - it's already extracted properly
+      String? chapterTitle = chapter.Title;
+
+      // Only try to improve if title is REALLY generic/useless
+      final needsExtraction = chapterTitle == null ||
+          chapterTitle.isEmpty ||
+          chapterTitle.contains('_split_') ||
+          chapterTitle.toLowerCase().startsWith('index split') ||
+          chapterTitle.contains('.html') ||
+          chapterTitle.contains('.xhtml') ||
+          chapterTitle.toLowerCase() == 'titlepage' ||
+          chapterTitle.toLowerCase() == 'index' ||
+          chapterTitle.toLowerCase() == 'cover';
+
+      // If title is just "Chapter X" (without description), try to get a better one from navigation
+      final isBasicChapterTitle = chapterTitle != null && RegExp(r'^Chapter \d+$', caseSensitive: false).hasMatch(chapterTitle);
+
+      if (needsExtraction || isBasicChapterTitle) {
+        // Try navigation TOC for a better title
+        String? contentRef = chapter.ContentFileName;
+        if (contentRef != null) {
+          String fileName = contentRef.split('/').last.split('#').first;
+          if (navTitles.containsKey(fileName)) {
+            String navTitle = navTitles[fileName]!;
+            // Use navigation title if it's better (not empty and different)
+            if (navTitle.isNotEmpty && navTitle != chapterTitle) {
+              chapterTitle = navTitle;
+            }
+          }
+        }
+      }
+
+      // Add chapter to list
+      chaptersList.add(LocalChapterModel(chapter: chapterTitle ?? 'Chapter ${i + 1}', isSubChapter: false));
+      _filteredToOriginalIndex[i] = i;
+    }
+
+    // Chapter list built (debug logs removed for clarity)
+
+    // Start background calculation if we don't have all chapters cached
+    if (chapterPageCounts.length < _chapters.length) {
+      _calculateTotalPagesInBackground();
+    }
+
+    // Decide which chapter to open
+    final progress = bookProgress.getBookProgress(bookId);
+    final savedChapter = progress.currentChapterIndex ?? 0;
+    final savedPage = progress.currentPageIndex ?? 0;
+    final hasProgress = (savedChapter != 0) || (savedPage != 0);
+
+    int targetIndex = index;
+    if (init) {
+      // Priority 1: Audio sync (starterPageInBook) - only if we have cached page counts
+      if (widget.starterPageInBook != null && chapterPageCounts.isNotEmpty) {
+        print('');
+        print('🎵 ═══════════════════════════════════════════════════════');
+        print('🎵 AUDIO SYNC REQUESTED');
+        print('🎵 Target page in book: ${widget.starterPageInBook}');
+        print('🎵 ═══════════════════════════════════════════════════════');
+        print('');
+
+        final result = _calculateChapterAndPageFromBookPage(widget.starterPageInBook!);
+        if (result != null) {
+          targetIndex = result['chapter']!;
+          _targetChapterFromAudioSync = result['chapter'];
+          _targetPageFromAudioSync = result['page'];
+          print('🎵 Will start at Chapter $targetIndex, Page ${result['page']}');
+        } else {
+          print('⚠️ Could not calculate chapter/page, falling back to saved progress');
+          if (hasProgress) {
+            targetIndex = savedChapter;
+          } else {
+            targetIndex = 0;
+          }
+        }
+      }
+      // Priority 2: Saved progress from last read
+      else if (hasProgress) {
+        targetIndex = savedChapter;
+      }
+      // Priority 3: Explicit starter chapter
+      else if (widget.starterChapter >= 0 && widget.starterChapter < chaptersList.length) {
+        targetIndex = widget.starterChapter;
+      }
+      // Priority 4: First chapter
+      else {
+        targetIndex = 0;
+      }
+    }
+
+    if (targetIndex < 0 || targetIndex >= chaptersList.length) {
+      targetIndex = 0;
+    }
+
+    setupNavButtons();
+    await updateContentAccordingChapter(targetIndex);
   }
 
   updateContentAccordingChapter(int chapterIndex) async {
-    ///Set current chapter index
-    await bookProgress.setCurrentChapterIndex(bookId, chapterIndex);
+    // Save chapter index to progress (if not during init, it's already saved)
+    final currentSavedIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    if (currentSavedIndex != chapterIndex) {
+      print('💾 Updating saved chapter index: $currentSavedIndex → $chapterIndex');
+      await bookProgress.setCurrentChapterIndex(bookId, chapterIndex);
+    }
 
-    // Directly access the chapter by index instead of iterating all chapters
-    String content = epubBook.Chapters![chapterIndex].HtmlContent ?? '';
+    // Map filtered index to original EPUB chapter index
+    final originalChapterIndex = _filteredToOriginalIndex[chapterIndex] ?? chapterIndex;
 
-    // Add subchapters content if they exist
-    List<EpubChapter>? subChapters =
-        epubBook.Chapters![chapterIndex].SubChapters;
-    if (subChapters != null && subChapters.isNotEmpty) {
-      for (var subChapter in subChapters) {
-        content += subChapter.HtmlContent ?? '';
+    // Calculate accumulated pages before current chapter (only use KNOWN chapters)
+    accumulatedPagesBeforeCurrentChapter = 0;
+    for (int i = 0; i < chapterIndex; i++) {
+      if (chapterPageCounts.containsKey(i)) {
+        accumulatedPagesBeforeCurrentChapter += chapterPageCounts[i]!;
       }
+      // Don't estimate - just skip unknown chapters
+    }
+
+    print('📖 Loading Chapter $chapterIndex (accumulated pages: $accumulatedPagesBeforeCurrentChapter, total: $totalPagesInBook)');
+
+    String content = '';
+
+    try {
+      // Directly access the chapter by original index
+      if (originalChapterIndex >= 0 && originalChapterIndex < _chapters.length) {
+        content = _chapters[originalChapterIndex].HtmlContent ?? '';
+
+        // Add subchapters content if they exist
+        List<EpubChapter>? subChapters = _chapters[originalChapterIndex].SubChapters;
+        if (subChapters != null && subChapters.isNotEmpty) {
+          for (var subChapter in subChapters) {
+            content += subChapter.HtmlContent ?? '';
+          }
+        }
+      } else {
+        print('⚠️ WARNING: Chapter index $originalChapterIndex out of range (0-${_chapters.length - 1})');
+        content = '<html><body><p>Chapter not found</p></body></html>';
+      }
+    } catch (e, st) {
+      print('❌ Error loading chapter $originalChapterIndex: $e');
+      print('Stack trace: $st');
+      content = '<html><body><p>Error loading chapter: $e</p></body></html>';
     }
 
     htmlContent = content;
-    textContent = parse(htmlContent).documentElement!.text;
 
-    if (isHTML(textContent)) {
-      innerHtmlContent = textContent;
-    } else {
-      textContent = textContent.replaceAll('Unknown', '').trim();
-    }
+    // ✅ IMPORTANT: Keep the full HTML content for images
+    // Pass the raw HTML to innerHtmlContent so images are preserved
+    innerHtmlContent = htmlContent;
+
+    // Extract text content only for text direction detection
+    textContent = parse(htmlContent).documentElement!.text;
+    textContent = textContent.replaceAll('Unknown', '').trim();
 
     // Detect text direction for the current content
     currentTextDirection = RTLHelper.getTextDirection(textContent);
 
-    controllerPaging.paginate();
+    // DON'T call controllerPaging.paginate() here - PagingWidget will handle it in initState
+    // controllerPaging.paginate() won't work yet anyway since handler callback hasn't been called
+
+    // Sync progress bar immediately using known totals (even before page flip)
+    final storedPageIndex = bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+    final currentPageInBook = accumulatedPagesBeforeCurrentChapter + storedPageIndex;
+    final displayTotalPages = allChaptersCalculated ? totalPagesInBook : (_cachedKnownPagesTotal > 0 ? _cachedKnownPagesTotal : (chapterPageCounts[chapterIndex] ?? totalPagesInBook));
+
+    // If handler not yet attached, stash values to apply later
+    _pendingCurrentPageInBook = currentPageInBook;
+    _pendingTotalPages = displayTotalPages;
+
+    // If handler already attached, apply immediately
+    controllerPaging.currentPage.value = currentPageInBook;
+    controllerPaging.totalPages.value = displayTotalPages;
+
+    // Re-apply after frame to override PagingWidget's initial chapter-total
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      controllerPaging.currentPage.value = _pendingCurrentPageInBook ?? currentPageInBook;
+      controllerPaging.totalPages.value = _pendingTotalPages ?? displayTotalPages;
+    });
 
     setupNavButtons();
   }
 
   bool isHTML(String str) {
-    final RegExp htmlRegExp =
-        RegExp('<[^>]*>', multiLine: true, caseSensitive: false);
+    final RegExp htmlRegExp = RegExp('<[^>]*>', multiLine: true, caseSensitive: false);
     return htmlRegExp.hasMatch(str);
   }
 
@@ -378,6 +896,8 @@ class ShowEpubState extends State<ShowEpub> {
   }
 
   Future<bool> backPress() async {
+    print('🔙 backPress called - User/System attempting to exit ShowEpub');
+    print('🔙 Allowing navigation back (returning true)');
     // Navigator.of(context).pop();
     return true;
   }
@@ -392,27 +912,16 @@ class ShowEpubState extends State<ShowEpub> {
     });
   }
 
-  void onPageFlipUpdate(int localPageIndex, int totalChapterPages) {
-    int currentChapterIndex =
-        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    int chapterStartPage = chapterStartPages[currentChapterIndex] ?? 1;
-
-    setState(() {
-      controllerPaging.globalPage.value = chapterStartPage + localPageIndex;
-    });
-
-    widget.onPageFlip?.call(localPageIndex, totalChapterPages);
-  }
-
-  // NEW: Called when global pagination completes
-  void onGlobalPaginationComplete(int totalPages) {
-    setState(() {
-      totalBookPages = totalPages;
-      controllerPaging.globalTotalPages.value = totalPages;
-    });
+  void onPageFlipUpdate(int currentPageInBook, int totalPagesInBook) {
+    // Update internal page tracking for UI (slider, etc.)
+    controllerPaging.currentPage.value = currentPageInBook;
+    controllerPaging.totalPages.value = totalPagesInBook;
   }
 
   openTableOfContents() async {
+    final originalChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    print('🔵 Opening TOC - Current chapter: $originalChapterIndex');
+
     bool? shouldUpdate = await showModalBottomSheet<bool>(
           context: context,
           isScrollControlled: true,
@@ -424,16 +933,22 @@ class ShowEpubState extends State<ShowEpub> {
             chapters: chaptersList,
             accentColor: widget.accentColor,
             chapterListTitle: widget.chapterListTitle,
-            currentPage: controllerPaging.globalPage.value,
-            totalPages: controllerPaging.globalTotalPages.value,
+            currentPage: controllerPaging.currentPage.value,
+            totalPages: controllerPaging.totalPages.value,
           ),
         ) ??
         false;
 
-    if (shouldUpdate) {
-      var index = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-      await bookProgress.setCurrentPageIndex(bookId, 0);
-      reLoadChapter(index: index);
+    // Only reload if chapter actually changed
+    final newChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    print('🔵 TOC closed - shouldUpdate: $shouldUpdate, original: $originalChapterIndex, new: $newChapterIndex');
+
+    if (shouldUpdate && newChapterIndex != originalChapterIndex) {
+      print('✅ Chapter changed from $originalChapterIndex to $newChapterIndex - reloading...');
+      // PagingWidget will start from starterPageIndex (which is 0 for new chapters)
+      reLoadChapter(index: newChapterIndex);
+    } else {
+      print('⏭️ Skipping reload - same chapter or cancelled');
     }
   }
 
@@ -463,8 +978,7 @@ class ShowEpubState extends State<ShowEpub> {
           color: backgroundColor,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color:
-                isSelected ? widget.accentColor : Colors.grey.withOpacity(0.3),
+            color: isSelected ? widget.accentColor : Colors.grey.withOpacity(0.3),
             width: isSelected ? 3 : 1,
           ),
         ),
@@ -531,24 +1045,64 @@ class ShowEpubState extends State<ShowEpub> {
   }
 
   nextChapter() async {
-    ///Set page to initial
-    await bookProgress.setCurrentPageIndex(bookId, 0);
+    // Check if already loading to prevent race conditions
+    if (_isLoadingChapter) {
+      print('⚠️ Chapter load in progress, ignoring nextChapter request');
+      return;
+    }
 
     var index = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
 
-    if (index != chaptersList.length - 1) {
-      reLoadChapter(index: index + 1);
+    // Reset swipe counters when changing chapters
+    lastSwipe = 0;
+    prevSwipe = 0;
+
+    if (index < chaptersList.length - 1) {
+      int newIndex = index + 1;
+      print('➡️ Moving to next chapter: $index → $newIndex');
+
+      // Reset page to first page
+      await bookProgress.setCurrentPageIndex(bookId, 0);
+      // Reload with new chapter - DON'T update chapter index here, reLoadChapter will do it
+      reLoadChapter(index: newIndex);
+    } else {
+      print('⚠️ Already at last chapter ($index)');
+      // Show a message that this is the end of the book
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('end_of_book'.tr),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
   prevChapter() async {
-    ///Set page to initial
-    await bookProgress.setCurrentPageIndex(bookId, 0);
+    // Check if already loading to prevent race conditions
+    if (_isLoadingChapter) {
+      print('⚠️ Chapter load in progress, ignoring prevChapter request');
+      return;
+    }
 
     var index = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
 
-    if (index != 0) {
-      reLoadChapter(index: index - 1);
+    // Reset swipe counters when changing chapters
+    lastSwipe = 0;
+    prevSwipe = 0;
+
+    if (index > 0) {
+      int newIndex = index - 1;
+      print('⬅️ Moving to previous chapter: $index → $newIndex');
+
+      // Reset page to first page
+      await bookProgress.setCurrentPageIndex(bookId, 0);
+      // Reload with new chapter - DON'T update chapter index here, reLoadChapter will do it
+      reLoadChapter(index: newIndex);
+    } else {
+      print('⚠️ Already at first chapter (0)');
     }
   }
 
@@ -593,8 +1147,7 @@ class ShowEpubState extends State<ShowEpub> {
 
   @override
   Widget build(BuildContext context) {
-    ScreenUtil.init(context,
-        designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
+    ScreenUtil.init(context, designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
 
     return WillPopScope(
       onWillPop: backPress,
@@ -612,134 +1165,258 @@ class ShowEpubState extends State<ShowEpub> {
                         FutureBuilder<void>(
                           future: loadChapterFuture,
                           builder: (context, snapshot) {
-                            switch (snapshot.connectionState) {
-                              case ConnectionState.waiting:
-                                return Center(
-                                  child: LoadingWidget(
-                                    height: 100,
-                                    animationWidth: 50,
-                                    animationHeight: 50,
-                                  ),
-                                );
-                              default:
-                                if (widget.shouldOpenDrawer) {
-                                  WidgetsBinding.instance
-                                      .addPostFrameCallback((_) {
-                                    openTableOfContents();
+                            // Show loading only during initial waiting state
+                            if (snapshot.connectionState == ConnectionState.none || snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(
+                                child: LoadingWidget(
+                                  height: 100,
+                                  animationWidth: 50,
+                                  animationHeight: 50,
+                                ),
+                              );
+                            }
+
+                            // Handle errors
+                            if (snapshot.hasError) {
+                              print('❌ FutureBuilder error: ${snapshot.error}');
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Error loading chapter',
+                                      style: TextStyle(fontSize: 16, color: fontColor),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      '${snapshot.error}',
+                                      style: TextStyle(fontSize: 12, color: fontColor.withOpacity(0.7)),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            // Only render content when done
+                            if (snapshot.connectionState == ConnectionState.done) {
+                              if (widget.shouldOpenDrawer) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  openTableOfContents();
+                                });
+                                widget.shouldOpenDrawer = false;
+                              }
+
+                              var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+
+                              // Determine starting page: use audio sync target if available and matches current chapter
+                              int startPageIndex = bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+                              if (_targetChapterFromAudioSync == currentChapterIndex && _targetPageFromAudioSync != null && !_hasAppliedAudioSync) {
+                                startPageIndex = _targetPageFromAudioSync!;
+                                _hasAppliedAudioSync = true;
+                                print('🎵 Starting at audio sync page: $startPageIndex in chapter $currentChapterIndex');
+                              }
+
+                              return PagingWidget(
+                                textContent,
+                                epubBook: epubBook,
+                                innerHtmlContent,
+                                lastWidget: null,
+                                starterPageIndex: startPageIndex,
+                                style: TextStyle(
+                                  backgroundColor: backColor,
+                                  fontSize: _fontSize.sp,
+                                  fontFamily: selectedTextStyle,
+                                  fontWeight: FontWeight.w400,
+                                  package: 'cosmos_epub',
+                                  color: fontColor,
+                                ),
+                                handlerCallback: (ctrl) {
+                                  controllerPaging = ctrl;
+                                  // Always preserve book-level total pages (not chapter total)
+                                  // Use at least 1 to avoid division by zero issues in progress bar
+                                  final bookTotal = allChaptersCalculated ? totalPagesInBook : (_cachedKnownPagesTotal > 0 ? _cachedKnownPagesTotal : (totalPagesInBook > 0 ? totalPagesInBook : 1));
+                                  controllerPaging.totalPages.value = bookTotal;
+
+                                  // Apply any pending values computed before handler was attached
+                                  if (_pendingCurrentPageInBook != null) {
+                                    controllerPaging.currentPage.value = _pendingCurrentPageInBook!;
+                                    _pendingCurrentPageInBook = null;
+                                  }
+                                  if (_pendingTotalPages != null) {
+                                    controllerPaging.totalPages.value = _pendingTotalPages!;
+                                    _pendingTotalPages = null;
+                                  }
+                                },
+                                onTextTap: () {
+                                  setState(() {
+                                    showHeader = !showHeader;
                                   });
-                                  widget.shouldOpenDrawer = false;
-                                }
+                                },
+                                onPageFlip: (currentPage, totalPages) async {
+                                  // Store page count for current chapter
+                                  var currentChapterIdx = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
 
-                                var currentChapterIndex = bookProgress
-                                        .getBookProgress(bookId)
-                                        .currentChapterIndex ??
-                                    0;
+                                  print('');
+                                  print('🔄 onPageFlip called: Chapter $currentChapterIdx, Page $currentPage/$totalPages');
 
-                                return PagingWidget(
-                                  textContent,
-                                  innerHtmlContent,
-                                  lastWidget: null,
-                                  starterPageIndex: bookProgress
-                                          .getBookProgress(bookId)
-                                          .currentPageIndex ??
-                                      0,
-                                  style: TextStyle(
-                                    backgroundColor: backColor,
-                                    fontSize: _fontSize.sp,
-                                    fontFamily: selectedTextStyle,
-                                    fontWeight: FontWeight.w400,
-                                    package: 'cosmos_epub',
-                                    color: fontColor,
-                                  ),
-                                  handlerCallback: (ctrl) {
-                                    controllerPaging = ctrl;
-                                  },
-                                  onTextTap: () {
-                                    setState(() {
-                                      showHeader = !showHeader;
-                                    });
-                                  },
-                                  onPageFlip: (currentPage, totalPages) async {
-                                    onPageFlipUpdate(currentPage, totalPages);
-                                    if (widget.onPageFlip != null) {
-                                      widget.onPageFlip!(
-                                          currentPage, totalPages);
+                                  // Only update page count if precalc hasn't completed yet
+                                  // Once all chapters are precalculated, don't update to avoid total pages jumping
+                                  if (!allChaptersCalculated) {
+                                    bool pageCountChanged = chapterPageCounts[currentChapterIdx] != totalPages;
+
+                                    if (pageCountChanged) {
+                                      // Update the cached total incrementally (much faster than fold)
+                                      int oldPageCount = chapterPageCounts[currentChapterIdx] ?? 0;
+                                      _cachedKnownPagesTotal = _cachedKnownPagesTotal - oldPageCount + totalPages;
+                                      chapterPageCounts[currentChapterIdx] = totalPages;
+
+                                      // Recalculate estimate for unknown chapters
+                                      int knownChapters = chapterPageCounts.length;
+                                      int totalChapters = _chapters.length;
+
+                                      print('');
+                                      print('╔═════════════════════════════════════════════════════════╗');
+                                      print('║           PAGE COUNT UPDATE - CHAPTER $currentChapterIdx              ║');
+                                      print('╠═════════════════════════════════════════════════════════╣');
+                                      print('║ Current chapter pages: $totalPages');
+                                      print('║ Known chapters: $knownChapters / $totalChapters');
+                                      print('║ Known pages total: $_cachedKnownPagesTotal');
+
+                                      // No estimation: only count known chapters
+                                      if (knownChapters < totalChapters) {
+                                        totalPagesInBook = _cachedKnownPagesTotal;
+
+                                        print('║ Unknown chapters remaining: ${totalChapters - knownChapters}');
+                                        print('║ CURRENT KNOWN TOTAL: $totalPagesInBook pages (will show "hesaplanıyor...")');
+                                        log('📊 Chapter $currentChapterIdx: $totalPages pages | Known total (no estimate): $totalPagesInBook pages');
+                                      } else {
+                                        // All chapters known
+                                        totalPagesInBook = _cachedKnownPagesTotal;
+                                        allChaptersCalculated = true;
+                                        print('║ ✅ ALL CHAPTERS KNOWN');
+                                        print('║ TOTAL BOOK PAGES: $totalPagesInBook pages');
+                                        log('📊 Chapter $currentChapterIdx: $totalPages pages | Total book: $totalPagesInBook pages (all chapters known)');
+                                      }
+
+                                      // Print cache contents
+                                      print('║ ');
+                                      print('║ 📋 Chapter page counts:');
+                                      chapterPageCounts.forEach((idx, pages) {
+                                        print('║    Chapter $idx: $pages pages');
+                                      });
+                                      print('╚═════════════════════════════════════════════════════════╝');
+                                      print('');
+
+                                      // Save to cache
+                                      _saveCachedPageCounts();
                                     }
+                                  }
 
-                                    if (currentPage == totalPages - 1) {
-                                      bookProgress.setCurrentPageIndex(
-                                          bookId, 0);
-                                    } else {
-                                      bookProgress.setCurrentPageIndex(
-                                          bookId, currentPage);
-                                    }
+                                  // Calculate current position in book (where we are across all chapters)
+                                  int currentPageInBook = accumulatedPagesBeforeCurrentChapter + currentPage;
 
-                                    if (isLastPage) {
-                                      showHeader = true;
-                                    } else {
-                                      lastSwipe = 0;
-                                    }
+                                  // Show only known pages; no estimation. If not all chapters are calculated, show the known total so far.
+                                  int displayTotalPages = allChaptersCalculated ? totalPagesInBook : (_cachedKnownPagesTotal > 0 ? _cachedKnownPagesTotal : totalPages);
 
-                                    isLastPage = false;
-                                    updateUI();
+                                  // 📊 DEBUG: Print what we're showing in progress bar
+                                  print('');
+                                  print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                                  print('📊 PROGRESS BAR DISPLAY');
+                                  print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                                  print('Current page in chapter: $currentPage / $totalPages');
+                                  print('Accumulated pages before this chapter: $accumulatedPagesBeforeCurrentChapter');
+                                  print('Current page in book: $currentPageInBook');
+                                  print('Total pages to display: $displayTotalPages');
+                                  print('SHOWING: $currentPageInBook / $displayTotalPages');
+                                  print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                                  print('');
 
-                                    if (currentPage == 0) {
+                                  // Update UI with cumulative page numbers
+                                  onPageFlipUpdate(currentPageInBook, displayTotalPages);
+
+                                  if (widget.onPageFlip != null) {
+                                    widget.onPageFlip!(currentPageInBook, displayTotalPages);
+                                  }
+
+                                  if (currentPage == totalPages - 1) {
+                                    bookProgress.setCurrentPageIndex(bookId, 0);
+                                  } else {
+                                    bookProgress.setCurrentPageIndex(bookId, currentPage);
+                                  }
+
+                                  if (isLastPage) {
+                                    showHeader = true;
+                                  } else {
+                                    lastSwipe = 0;
+                                  }
+
+                                  isLastPage = false;
+                                  updateUI();
+
+                                  if (currentPage == 0) {
+                                    // For single-page chapters, skip prev logic (will be handled by onLastPage)
+                                    if (totalPages > 1) {
                                       prevSwipe++;
-                                      if (prevSwipe > 1) {
-                                        var currentChapterIndex = bookProgress
-                                                .getBookProgress(bookId)
-                                                .currentChapterIndex ??
-                                            0;
+                                      lastSwipe = 0;
+
+                                      if (prevSwipe > 1 && !_isLoadingChapter) {
+                                        var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
                                         if (currentChapterIndex > 0) {
-                                          var previousChapterIndex =
-                                              currentChapterIndex - 1;
-                                          var pageCountOfPreviousChapter =
-                                              chapterPageCounts[
-                                                      previousChapterIndex] ??
-                                                  0;
-                                          await bookProgress
-                                              .setCurrentPageIndex(
-                                                  bookId,
-                                                  pageCountOfPreviousChapter -
-                                                      1);
-                                          reLoadChapter(
-                                              index: previousChapterIndex);
+                                          var previousChapterIndex = currentChapterIndex - 1;
+                                          print('⬅️ Swiping to previous chapter: $currentChapterIndex → $previousChapterIndex');
+
+                                          await bookProgress.setCurrentPageIndex(bookId, 999);
+                                          prevChapter();
                                         }
                                       }
-                                    } else {
-                                      prevSwipe = 0;
                                     }
-                                  },
-                                  onLastPage: (index, totalPages) async {
-                                    if (widget.onLastPage != null) {
-                                      widget.onLastPage!(index);
-                                    }
+                                  } else {
+                                    prevSwipe = 0;
+                                  }
+                                },
+                                onLastPage: (index, totalPages) async {
+                                  if (widget.onLastPage != null) {
+                                    widget.onLastPage!(index);
+                                  }
 
+                                  if (!_isLoadingChapter) {
+                                    // For single-page chapters, navigate immediately (set to 2)
+                                    // For multi-page chapters, increment normally
                                     if (totalPages > 1) {
                                       lastSwipe++;
                                     } else {
                                       lastSwipe = 2;
                                     }
+                                    prevSwipe = 0;
 
                                     if (lastSwipe > 1) {
                                       nextChapter();
                                       setState(() {});
                                     }
+                                  }
 
-                                    isLastPage = true;
-                                    updateUI();
-                                  },
-                                  chapterTitle:
-                                      chaptersList[currentChapterIndex].chapter,
-                                  totalChapters: chaptersList.length,
-                                  fullBookText: fullBookText,
-                                  allChapterTexts: allChapterTexts,
-                                  onAllChaptersPaginated:
-                                      onAllChaptersPaginated,
-                                  bookId: bookId,
-                                  showNavBar: showHeader, // PASS THIS
-                                );
+                                  isLastPage = true;
+                                  updateUI();
+                                },
+                                chapterTitle: chaptersList[currentChapterIndex].chapter,
+                                totalChapters: chaptersList.length,
+
+                                bookId: bookId,
+                                showNavBar: showHeader, // PASS THIS
+                              );
                             }
+
+                            // Fallback: show loading if not done yet
+                            return Center(
+                              child: LoadingWidget(
+                                height: 100,
+                                animationWidth: 50,
+                                animationHeight: 50,
+                              ),
+                            );
                           },
                         ),
                       ],
@@ -758,8 +1435,7 @@ class ShowEpubState extends State<ShowEpub> {
                   duration: const Duration(milliseconds: 200),
                   child: Container(
                     // color: backColor,
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -795,7 +1471,6 @@ class ShowEpubState extends State<ShowEpub> {
                 ),
               ),
 
-              // Bottom Navigation Bar - OVERLAY (FIXED POSITIONING)
               Positioned(
                 left: 0,
                 right: 0,
@@ -841,10 +1516,9 @@ class ShowEpubState extends State<ShowEpub> {
                               child: Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 16.w),
                                 child: Obx(() => ProgressBarWidget(
-                                      currentPage:
-                                          controllerPaging.globalPage.value,
-                                      totalPages: controllerPaging
-                                          .globalTotalPages.value,
+                                      currentPage: controllerPaging.currentPage.value,
+                                      totalPages: controllerPaging.totalPages.value,
+                                      isCalculating: !allChaptersCalculated,
                                     )),
                               ),
                             ),

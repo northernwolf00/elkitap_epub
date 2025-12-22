@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 part 'book_progress_model.g.dart';
 
@@ -10,12 +10,12 @@ class BookProgressModel {
   int? currentChapterIndex;
   int? currentPageIndex;
 
-  List<int>? chapterPageCounts; 
+  List<int>? chapterPageCounts;
 
   BookProgressModel({
     this.currentChapterIndex,
-   this.currentPageIndex, 
-   this.bookId,
+    this.currentPageIndex,
+    this.bookId,
     this.chapterPageCounts,
-   });
+  });
 }

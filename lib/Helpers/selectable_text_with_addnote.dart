@@ -61,7 +61,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         textDirection: textDirection,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min, // IMPORTANT: Don't force expand
+          mainAxisSize: MainAxisSize.min,
           children: [
             if (isFirstPage && chapterTitle != null) ...[
               SizedBox(height: 40.h),
@@ -77,21 +77,21 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 30.h),
-              Center(
-                child: Container(
-                  width: 80.w,
-                  height: 2.h,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        (style.color ?? Colors.black).withOpacity(0.1),
-                        (style.color ?? Colors.black).withOpacity(0.5),
-                        (style.color ?? Colors.black).withOpacity(0.1),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              // Center(
+              //   child: Container(
+              //     width: 80.w,
+              //     height: 2.h,
+              //     decoration: BoxDecoration(
+              //       gradient: LinearGradient(
+              //         colors: [
+              //           (style.color ?? Colors.black).withOpacity(0.1),
+              //           (style.color ?? Colors.black).withOpacity(0.5),
+              //           (style.color ?? Colors.black).withOpacity(0.1),
+              //         ],
+              //       ),
+              //     ),
+              //   ),
+              // ),
               SizedBox(height: 30.h),
             ],
 
@@ -128,12 +128,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     // Replace hyphens with em dash
     formatted = formatted.replaceAll(RegExp(r'\s+-\s+'), ' — ');
 
-    // Clean up each line
-    formatted = formatted
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .join('\n');
+   
 
     return formatted.trim();
   }
@@ -153,9 +148,9 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         text: '    $paragraph',
         style: style.copyWith(
           fontFamily: 'SFPro',
-          height: 1.7,
-          letterSpacing: 0.2,
-          wordSpacing: 0.5,
+          height: 1.35,
+          letterSpacing: 0.1,
+          wordSpacing: 0.3,
           fontSize: style.fontSize,
         ),
       ));
@@ -172,9 +167,9 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         children: spans,
         style: style.copyWith(
           fontFamily: 'SFPro',
-          height: 1.7,
-          letterSpacing: 0.2,
-          wordSpacing: 0.5,
+          height: 1.35,
+          letterSpacing: 0.1,
+          wordSpacing: 0.3,
         ),
       ),
     );
@@ -189,7 +184,17 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
   }
 
   void _handleShare(BuildContext context, String selectedText) {
-    SharePlus.instance.share(ShareParams(text: selectedText));
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final position = box.localToGlobal(Offset.zero) & box.size;
+
+    SharePlus.instance.share(
+      ShareParams(
+        text: selectedText,
+        sharePositionOrigin: position,
+      ),
+    );
   }
 }
 
@@ -217,9 +222,7 @@ class BookPageBuilder {
           top: 20.h,
           bottom: 20.h,
         ),
-        // Wrap in SingleChildScrollView as safety fallback
         child: SingleChildScrollView(
-          // physics: NeverScrollableScrollPhysics(), // Prevent manual scrolling
           child: SelectableTextWithCustomToolbar(
             text: text,
             textDirection: textDirection,
@@ -232,6 +235,132 @@ class BookPageBuilder {
           ),
         ),
       ),
+    );
+  }
+
+  // NEW METHOD: Build page with TextSpan (for mixed text + images)
+  static Widget buildBookPageSpan({
+    required BuildContext context,
+    required TextSpan contentSpan,
+    required TextStyle style,
+    required TextDirection textDirection,
+    required String bookId,
+    required VoidCallback onTextTap,
+    bool isFirstPage = false,
+    String? chapterTitle,
+    int? pageNumber,
+    int? totalPages,
+    Color? backgroundColor,
+    double bottomNavHeight = 70.0,
+  }) {
+    return InkWell(
+      onTap: onTextTap,
+      child: Container(
+        color: backgroundColor ?? Colors.white,
+        padding: EdgeInsets.only(
+          left: 24.w,
+          right: 24.w,
+          top: 16.h,
+          bottom: bottomNavHeight + 16.h,
+        ),
+        child: Directionality(
+          textDirection: textDirection,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Chapter title for first page
+              if (isFirstPage && chapterTitle != null) ...[
+                SizedBox(height: 40.h),
+                Text(
+                  chapterTitle,
+                  textAlign: TextAlign.center,
+                  style: style.copyWith(
+                    fontSize: (style.fontSize ?? 16) + 6,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'SFPro',
+                    height: 1,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: 30.h),
+                Center(
+                  child: Container(
+                    width: 80.w,
+                    height: 2.h,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          (style.color ?? Colors.black).withOpacity(0.1),
+                          (style.color ?? Colors.black).withOpacity(0.5),
+                          (style.color ?? Colors.black).withOpacity(0.1),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 30.h),
+              ],
+
+              // Main content with TextSpan (includes text and images) wrapped in Selectable
+              Selectable(
+                selectWordOnLongPress: true,
+                selectWordOnDoubleTap: true,
+                selectionColor: const Color(0xFFB8B3E9).withOpacity(0.5),
+                popupMenuItems: [
+                  SelectableMenuItem(
+                    title: CosmosEpubLocalization.t('add_note'),
+                    isEnabled: (controller) => controller!.isTextSelected,
+                    handler: (controller) {
+                      final selectedText = controller!.getSelection()!.text!;
+                      _handleAddNoteFromSpan(context, bookId, selectedText);
+                      return true;
+                    },
+                  ),
+                  SelectableMenuItem(
+                    title: CosmosEpubLocalization.t('share'),
+                    isEnabled: (controller) => controller!.isTextSelected,
+                    handler: (controller) {
+                      final selectedText = controller!.getSelection()!.text!;
+
+                      final box = context.findRenderObject() as RenderBox?;
+                      if (box == null) return true;
+
+                      final position =
+                          box.localToGlobal(Offset.zero) & box.size;
+
+                      SharePlus.instance.share(
+                        ShareParams(
+                          text: selectedText,
+                          sharePositionOrigin: position,
+                        ),
+                      );
+                      return true;
+                    },
+                  ),
+                  SelectableMenuItem(
+                    type: SelectableMenuItemType.copy,
+                    title: CosmosEpubLocalization.t('copy'),
+                  ),
+                ],
+                child: RichText(
+                  textAlign: TextAlign.justify,
+                  text: contentSpan,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Future<void> _handleAddNoteFromSpan(
+      BuildContext context, String bookId, String selectedText) async {
+    await CosmosEpub.addNote(
+      bookId: bookId,
+      selectedText: selectedText,
+      context: context,
     );
   }
 
