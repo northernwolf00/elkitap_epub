@@ -22,13 +22,18 @@ const BookProgressModelSchema = CollectionSchema(
       name: r'bookId',
       type: IsarType.string,
     ),
-    r'currentChapterIndex': PropertySchema(
+    r'chapterPageCounts': PropertySchema(
       id: 1,
+      name: r'chapterPageCounts',
+      type: IsarType.longList,
+    ),
+    r'currentChapterIndex': PropertySchema(
+      id: 2,
       name: r'currentChapterIndex',
       type: IsarType.long,
     ),
     r'currentPageIndex': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'currentPageIndex',
       type: IsarType.long,
     )
@@ -44,7 +49,7 @@ const BookProgressModelSchema = CollectionSchema(
   getId: _bookProgressModelGetId,
   getLinks: _bookProgressModelGetLinks,
   attach: _bookProgressModelAttach,
-  version: '3.1.0+1',
+  version: '3.2.0',
 );
 
 int _bookProgressModelEstimateSize(
@@ -59,6 +64,12 @@ int _bookProgressModelEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.chapterPageCounts;
+    if (value != null) {
+      bytesCount += 3 + value.length * 8;
+    }
+  }
   return bytesCount;
 }
 
@@ -69,8 +80,9 @@ void _bookProgressModelSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.bookId);
-  writer.writeLong(offsets[1], object.currentChapterIndex);
-  writer.writeLong(offsets[2], object.currentPageIndex);
+  writer.writeLongList(offsets[1], object.chapterPageCounts);
+  writer.writeLong(offsets[2], object.currentChapterIndex);
+  writer.writeLong(offsets[3], object.currentPageIndex);
 }
 
 BookProgressModel _bookProgressModelDeserialize(
@@ -81,8 +93,9 @@ BookProgressModel _bookProgressModelDeserialize(
 ) {
   final object = BookProgressModel(
     bookId: reader.readStringOrNull(offsets[0]),
-    currentChapterIndex: reader.readLongOrNull(offsets[1]),
-    currentPageIndex: reader.readLongOrNull(offsets[2]),
+    chapterPageCounts: reader.readLongList(offsets[1]),
+    currentChapterIndex: reader.readLongOrNull(offsets[2]),
+    currentPageIndex: reader.readLongOrNull(offsets[3]),
   );
   object.localId = id;
   return object;
@@ -98,8 +111,10 @@ P _bookProgressModelDeserializeProp<P>(
     case 0:
       return (reader.readStringOrNull(offset)) as P;
     case 1:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readLongList(offset)) as P;
     case 2:
+      return (reader.readLongOrNull(offset)) as P;
+    case 3:
       return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -353,6 +368,169 @@ extension BookProgressModelQueryFilter
         property: r'bookId',
         value: '',
       ));
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'chapterPageCounts',
+      ));
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'chapterPageCounts',
+      ));
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsElementEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'chapterPageCounts',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsElementGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'chapterPageCounts',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsElementLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'chapterPageCounts',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsElementBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'chapterPageCounts',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'chapterPageCounts',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'chapterPageCounts',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'chapterPageCounts',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'chapterPageCounts',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'chapterPageCounts',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QAfterFilterCondition>
+      chapterPageCountsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'chapterPageCounts',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -681,6 +859,13 @@ extension BookProgressModelQueryWhereDistinct
   }
 
   QueryBuilder<BookProgressModel, BookProgressModel, QDistinct>
+      distinctByChapterPageCounts() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'chapterPageCounts');
+    });
+  }
+
+  QueryBuilder<BookProgressModel, BookProgressModel, QDistinct>
       distinctByCurrentChapterIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'currentChapterIndex');
@@ -706,6 +891,13 @@ extension BookProgressModelQueryProperty
   QueryBuilder<BookProgressModel, String?, QQueryOperations> bookIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'bookId');
+    });
+  }
+
+  QueryBuilder<BookProgressModel, List<int>?, QQueryOperations>
+      chapterPageCountsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'chapterPageCounts');
     });
   }
 

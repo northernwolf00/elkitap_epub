@@ -25,8 +25,7 @@ class PagingTextHandler extends GetxController {
     currentPage = (_box.read<int>('currentPage_$bookId') ?? 0).obs;
     totalPages = (_box.read<int>('totalPages_$bookId') ?? 0).obs;
 
-    ever(currentPage,
-        (_) => _box.write('currentPage_$bookId', currentPage.value));
+    ever(currentPage, (_) => _box.write('currentPage_$bookId', currentPage.value));
     ever(totalPages, (_) => _box.write('totalPages_$bookId', totalPages.value));
   }
 }
@@ -126,8 +125,7 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     String contentToParse = widget.innerHtmlContent ?? widget.textContent;
 
-    print(
-        '📄 Content to parse (first 200 chars): ${contentToParse.substring(0, contentToParse.length > 200 ? 200 : contentToParse.length)}');
+    print('📄 Content to parse (first 200 chars): ${contentToParse.substring(0, contentToParse.length > 200 ? 200 : contentToParse.length)}');
 
     var document = html_parser.parse(contentToParse);
     List<InlineSpan> spans = [];
@@ -174,9 +172,7 @@ class _PagingWidgetState extends State<PagingWidget> {
         }
         children.add(const TextSpan(text: "\n\n"));
         return TextSpan(children: children);
-      } else if (node.localName == 'h1' ||
-          node.localName == 'h2' ||
-          node.localName == 'h3') {
+      } else if (node.localName == 'h1' || node.localName == 'h2' || node.localName == 'h3') {
         List<InlineSpan> children = [];
         for (var child in node.nodes) {
           children.add(await _parseNode(child, maxWidth));
@@ -309,8 +305,7 @@ class _PagingWidgetState extends State<PagingWidget> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.warning_amber_rounded,
-                size: 24, color: Colors.orange[700]),
+            Icon(Icons.warning_amber_rounded, size: 24, color: Colors.orange[700]),
             SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -400,11 +395,7 @@ class _PagingWidgetState extends State<PagingWidget> {
       return images[noLeading];
     }
 
-    String cleanSrc = src
-        .replaceAll('../', '')
-        .replaceAll('./', '')
-        .replaceAll('\\', '/')
-        .trim();
+    String cleanSrc = src.replaceAll('../', '').replaceAll('./', '').replaceAll('\\', '/').trim();
 
     if (images.containsKey(cleanSrc)) {
       print('✅ Found cleaned match: $cleanSrc');
@@ -416,9 +407,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     for (var key in images.keys) {
       final cleanKey = key.replaceAll('\\', '/');
 
-      if (cleanKey == cleanSrc ||
-          cleanKey.endsWith(filename) ||
-          cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
+      if (cleanKey == cleanSrc || cleanKey.endsWith(filename) || cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
         print('✅ Found via matching: $key');
         return images[key];
       }
@@ -437,8 +426,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     return null;
   }
 
-  Future<void> _paginateFlattened(
-      List<InlineSpan> allSpans, Size pageSize) async {
+  Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async {
     List<InlineSpan> flatSpans = [];
 
     void flatten(InlineSpan span) {
@@ -460,8 +448,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     List<InlineSpan> currentPageSpans = [];
     double currentHeight = 0;
     double maxWidth = pageSize.width - 64.w;
-    double maxHeight =
-        pageSize.height - 80.h; // Optimized for more content per page
+    double maxHeight = pageSize.height - 80.h; // Optimized for more content per page
 
     for (int i = 0; i < flatSpans.length; i++) {
       final span = flatSpans[i];
@@ -483,12 +470,10 @@ class _PagingWidgetState extends State<PagingWidget> {
           print('⚠️ Could not measure WidgetSpan, using estimate: $spanHeight');
         }
 
-        print(
-            '🖼️ Widget span height: $spanHeight, current: $currentHeight/$maxHeight');
+        print('🖼️ Widget span height: $spanHeight, current: $currentHeight/$maxHeight');
 
         // Check if we need a new page
-        if (currentHeight + spanHeight > maxHeight &&
-            currentPageSpans.isNotEmpty) {
+        if (currentHeight + spanHeight > maxHeight && currentPageSpans.isNotEmpty) {
           _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
           currentPageSpans.clear();
           currentHeight = 0;
@@ -532,11 +517,7 @@ class _PagingWidgetState extends State<PagingWidget> {
             }
 
             // Add line to chunk
-            int endOffset = line.width > 0
-                ? painter
-                    .getPositionForOffset(Offset(line.width, line.baseline))
-                    .offset
-                : charIndex + 1;
+            int endOffset = line.width > 0 ? painter.getPositionForOffset(Offset(line.width, line.baseline)).offset : charIndex + 1;
             endOffset = endOffset.clamp(charIndex, text.length);
 
             String lineText = text.substring(charIndex, endOffset);
@@ -619,9 +600,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     // Trigger initial onPageFlip for the starting page so progress bar updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (pages.isNotEmpty) {
-        final startIndex = widget.starterPageIndex < pages.length
-            ? widget.starterPageIndex
-            : 0;
+        final startIndex = widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0;
         widget.onPageFlip(startIndex, pages.length);
       }
     });
@@ -649,13 +628,13 @@ class _PagingWidgetState extends State<PagingWidget> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                const  Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const  SizedBox(height: 16),
-                const  Text(
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text(
                     'Error loading content',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                 const SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
                     '${snapshot.error}',
                     style: TextStyle(fontSize: 13, color: Colors.grey[700]),
@@ -685,12 +664,7 @@ class _PagingWidgetState extends State<PagingWidget> {
                     key: _pageKey,
                     child: PageFlipWidget(
                       key: _pageController,
-                      initialIndex: widget.starterPageIndex != 0
-                          ? (pages.isNotEmpty &&
-                                  widget.starterPageIndex < pages.length
-                              ? widget.starterPageIndex
-                              : 0)
-                          : widget.starterPageIndex,
+                      initialIndex: widget.starterPageIndex != 0 ? (pages.isNotEmpty && widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0) : widget.starterPageIndex,
                       onPageFlip: (pageIndex) {
                         _currentPageIndex = pageIndex;
                         _handler.currentPage.value = pageIndex + 1;
@@ -701,8 +675,7 @@ class _PagingWidgetState extends State<PagingWidget> {
                           widget.onLastPage(pageIndex, pages.length);
                         }
                       },
-                      backgroundColor:
-                          widget.style.backgroundColor ?? Colors.white,
+                      backgroundColor: widget.style.backgroundColor ?? Colors.white,
                       lastPage: widget.lastWidget,
                       children: pages,
                     ),
