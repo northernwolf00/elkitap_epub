@@ -128,8 +128,6 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     // Replace hyphens with em dash
     formatted = formatted.replaceAll(RegExp(r'\s+-\s+'), ' — ');
 
-   
-
     return formatted.trim();
   }
 
@@ -263,92 +261,94 @@ class BookPageBuilder {
           top: 16.h,
           bottom: bottomNavHeight + 16.h,
         ),
-        child: Directionality(
-          textDirection: textDirection,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Chapter title for first page
-              if (isFirstPage && chapterTitle != null) ...[
-                SizedBox(height: 40.h),
-                Text(
-                  chapterTitle,
-                  textAlign: TextAlign.center,
-                  style: style.copyWith(
-                    fontSize: (style.fontSize ?? 16) + 6,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'SFPro',
-                    height: 1,
-                    letterSpacing: 0.5,
+        child: SingleChildScrollView(
+          child: Directionality(
+            textDirection: textDirection,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Chapter title for first page
+                if (isFirstPage && chapterTitle != null) ...[
+                  SizedBox(height: 40.h),
+                  Text(
+                    chapterTitle,
+                    textAlign: TextAlign.center,
+                    style: style.copyWith(
+                      fontSize: (style.fontSize ?? 16) + 6,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'SFPro',
+                      height: 1,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-                SizedBox(height: 30.h),
-                Center(
-                  child: Container(
-                    width: 80.w,
-                    height: 2.h,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          (style.color ?? Colors.black).withOpacity(0.1),
-                          (style.color ?? Colors.black).withOpacity(0.5),
-                          (style.color ?? Colors.black).withOpacity(0.1),
-                        ],
+                  SizedBox(height: 30.h),
+                  Center(
+                    child: Container(
+                      width: 80.w,
+                      height: 2.h,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            (style.color ?? Colors.black).withOpacity(0.1),
+                            (style.color ?? Colors.black).withOpacity(0.5),
+                            (style.color ?? Colors.black).withOpacity(0.1),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 30.h),
-              ],
-
-              // Main content with TextSpan (includes text and images) wrapped in Selectable
-              Selectable(
-                selectWordOnLongPress: true,
-                selectWordOnDoubleTap: true,
-                selectionColor: const Color(0xFFB8B3E9).withOpacity(0.5),
-                popupMenuItems: [
-                  SelectableMenuItem(
-                    title: CosmosEpubLocalization.t('add_note'),
-                    isEnabled: (controller) => controller!.isTextSelected,
-                    handler: (controller) {
-                      final selectedText = controller!.getSelection()!.text!;
-                      _handleAddNoteFromSpan(context, bookId, selectedText);
-                      return true;
-                    },
-                  ),
-                  SelectableMenuItem(
-                    title: CosmosEpubLocalization.t('share'),
-                    isEnabled: (controller) => controller!.isTextSelected,
-                    handler: (controller) {
-                      final selectedText = controller!.getSelection()!.text!;
-
-                      final box = context.findRenderObject() as RenderBox?;
-                      if (box == null) return true;
-
-                      final position =
-                          box.localToGlobal(Offset.zero) & box.size;
-
-                      SharePlus.instance.share(
-                        ShareParams(
-                          text: selectedText,
-                          sharePositionOrigin: position,
-                        ),
-                      );
-                      return true;
-                    },
-                  ),
-                  SelectableMenuItem(
-                    type: SelectableMenuItemType.copy,
-                    title: CosmosEpubLocalization.t('copy'),
-                  ),
+                  SizedBox(height: 30.h),
                 ],
-                child: RichText(
-                  textAlign: TextAlign.justify,
-                  text: contentSpan,
+
+                // Main content with TextSpan (includes text and images) wrapped in Selectable
+                Selectable(
+                  selectWordOnLongPress: true,
+                  selectWordOnDoubleTap: true,
+                  selectionColor: const Color(0xFFB8B3E9).withOpacity(0.5),
+                  popupMenuItems: [
+                    SelectableMenuItem(
+                      title: CosmosEpubLocalization.t('add_note'),
+                      isEnabled: (controller) => controller!.isTextSelected,
+                      handler: (controller) {
+                        final selectedText = controller!.getSelection()!.text!;
+                        _handleAddNoteFromSpan(context, bookId, selectedText);
+                        return true;
+                      },
+                    ),
+                    SelectableMenuItem(
+                      title: CosmosEpubLocalization.t('share'),
+                      isEnabled: (controller) => controller!.isTextSelected,
+                      handler: (controller) {
+                        final selectedText = controller!.getSelection()!.text!;
+
+                        final box = context.findRenderObject() as RenderBox?;
+                        if (box == null) return true;
+
+                        final position =
+                            box.localToGlobal(Offset.zero) & box.size;
+
+                        SharePlus.instance.share(
+                          ShareParams(
+                            text: selectedText,
+                            sharePositionOrigin: position,
+                          ),
+                        );
+                        return true;
+                      },
+                    ),
+                    SelectableMenuItem(
+                      type: SelectableMenuItemType.copy,
+                      title: CosmosEpubLocalization.t('copy'),
+                    ),
+                  ],
+                  child: RichText(
+                    textAlign: TextAlign.justify,
+                    text: contentSpan,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
