@@ -48,6 +48,7 @@ class _ThemeGridState extends State<ThemeGrid> {
                     backgroundColor: cLightGrayColor,
                     textColor: Colors.black,
                     updateTheme: _handleThemeChange,
+                    
                   ),
                   ThemeCard(
                     id: 4,
@@ -72,6 +73,7 @@ class _ThemeGridState extends State<ThemeGrid> {
                     backgroundColor: Colors.white,
                     textColor: Colors.black,
                     updateTheme: _handleThemeChange,
+                    
                   ),
                   ThemeCard(
                     id: 5,
@@ -133,6 +135,7 @@ class ThemeCard extends StatelessWidget {
   final Color backgroundColor;
   final Color textColor;
   final Function(int) updateTheme;
+  final FontWeight fontWeight;
 
   const ThemeCard({
     super.key,
@@ -142,6 +145,7 @@ class ThemeCard extends StatelessWidget {
     required this.backgroundColor,
     required this.textColor,
     required this.updateTheme,
+    this.fontWeight = FontWeight.normal,
   });
 
   @override
@@ -188,7 +192,7 @@ class ThemeCard extends StatelessWidget {
               'Aa',
               style: TextStyle(
                 fontSize: 22.sp,
-                fontWeight: FontWeight.bold,
+                fontWeight: fontWeight,
                 color: textColor,
                 height: 1,
               ),
