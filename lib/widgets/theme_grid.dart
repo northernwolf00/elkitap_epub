@@ -43,12 +43,11 @@ class _ThemeGridState extends State<ThemeGrid> {
                 children: [
                   ThemeCard(
                     id: 1,
-                    title: 'Bold',
+                    title: 'Original',
                     isSelected: widget.staticThemeId == 1,
                     backgroundColor: cLightGrayColor,
                     textColor: Colors.black,
                     updateTheme: _handleThemeChange,
-                    
                   ),
                   ThemeCard(
                     id: 4,
@@ -73,7 +72,6 @@ class _ThemeGridState extends State<ThemeGrid> {
                     backgroundColor: Colors.white,
                     textColor: Colors.black,
                     updateTheme: _handleThemeChange,
-                    
                   ),
                   ThemeCard(
                     id: 5,
@@ -181,7 +179,7 @@ class ThemeCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
             color: isSelected ? Colors.grey.shade400 : Colors.grey.shade300,
-            width: isSelected ? 3 : 2,
+            width: isSelected ? 2 : 1,
           ),
         ),
         padding: EdgeInsets.all(12.w),

@@ -2,6 +2,7 @@ import 'package:cosmos_epub/cosmos_epub.dart';
 import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 class BookOptionsMenu extends StatefulWidget {
   final Color fontColor;
@@ -37,22 +38,19 @@ class _BookOptionsMenuState extends State<BookOptionsMenu> {
         icon: Icon(
           Icons.more_horiz,
           color: widget.fontColor,
-          size: 16.sp,
+          size: 20.sp,
         ),
-        color: widget.backColor,
+        color: widget.backColor.withOpacity(0.95),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14.r),
         ),
-        elevation: 6,
+        elevation: 8,
         padding: EdgeInsets.zero,
-        offset: Offset(0, 50.h),
+        offset: Offset(0, 45.h),
         onSelected: (value) {
           switch (value) {
             case 'book_description':
               openBookDescription(context);
-              break;
-            case 'contents':
-              openTableOfContents();
               break;
             case 'add_to_shelf':
             case 'remove_from_shelf':
@@ -68,22 +66,21 @@ class _BookOptionsMenuState extends State<BookOptionsMenu> {
           _buildMenuItem(
             label: CosmosEpubLocalization.t('book_description'),
             value: 'book_description',
+            icon: Icons.description_outlined,
             fontColor: widget.fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
-            label: CosmosEpub.isInShelf
-                ? CosmosEpubLocalization.t('remove_from_shelf')
-                : CosmosEpubLocalization.t('add_to_shelf'),
+            label: CosmosEpub.isInShelf ? CosmosEpubLocalization.t('remove_from_shelf') : CosmosEpubLocalization.t('add_to_shelf'),
             value: CosmosEpub.isInShelf ? 'remove_from_shelf' : 'add_to_shelf',
+            icon: CosmosEpub.isInShelf ? Icons.bookmark : Icons.bookmark_border,
             fontColor: widget.fontColor,
             showDivider: true,
           ),
           _buildMenuItem(
-            label: CosmosEpub.isInMyBooks
-                ? CosmosEpubLocalization.t('remove_from_my_books')
-                : CosmosEpubLocalization.t('save_to_my_books'),
+            label: CosmosEpub.isInMyBooks ? CosmosEpubLocalization.t('remove_from_my_books') : CosmosEpubLocalization.t('save_to_my_books'),
             value: CosmosEpub.isInMyBooks ? 'remove_from_my_books' : 'save_to_my_books',
+            icon: CosmosEpub.isInMyBooks ? Icons.check_circle : Icons.add_circle_outline,
             fontColor: widget.fontColor,
             showDivider: false,
           ),
@@ -92,41 +89,47 @@ class _BookOptionsMenuState extends State<BookOptionsMenu> {
     );
   }
 
-  /// Custom reusable menu item
   PopupMenuEntry<String> _buildMenuItem({
     required String label,
     required String value,
+    required IconData icon,
     required Color fontColor,
     bool showDivider = false,
   }) {
     return PopupMenuItem<String>(
       value: value,
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
+                      fontSize: 17.sp,
+                      fontWeight: FontWeight.w400,
                       color: fontColor,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'Gilroy',
-                      package: 'cosmos_epub',
                     ),
                   ),
+                ),
+                Icon(
+                  icon,
+                  size: 22.sp,
+                  color: fontColor,
                 ),
               ],
             ),
           ),
           if (showDivider)
-            Container(
-              height: 0.7,
+            Divider(
+              height: 0.5,
+              thickness: 0.5,
               color: fontColor.withOpacity(0.2),
+              indent: 16.w,
+              endIndent: 16.w,
             ),
         ],
       ),
@@ -238,19 +241,21 @@ class _BookOptionsMenuState extends State<BookOptionsMenu> {
     );
   }
 
-  void openTableOfContents() {
-   
-  }
-
   void toggleShelf() async {
     await CosmosEpub.onAddToShelf(widget.bookId);
-    // Trigger rebuild to update menu
-    setState(() {});
+    // Wait a bit for dialogs to close, then rebuild
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void toggleMyBooks() async {
     await CosmosEpub.onSaveToMyBooks(widget.bookId);
-    // Trigger rebuild to update menu
-    setState(() {});
+    // Wait a bit for dialogs to close, then rebuild
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (mounted) {
+      setState(() {});
+    }
   }
 }

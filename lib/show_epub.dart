@@ -497,9 +497,9 @@ class ShowEpubState extends State<ShowEpub> {
         style: TextStyle(
           fontSize: _fontSize,
           fontFamily: selectedTextStyle,
-          height: 1.7,
-          letterSpacing: 0.2,
-          wordSpacing: 0.5,
+          height: 1.5,
+          letterSpacing: 0,
+          wordSpacing: 0,
           color: fontColor,
         ),
       );
@@ -525,7 +525,7 @@ class ShowEpubState extends State<ShowEpub> {
         for (var child in node.nodes) {
           children.add(await _parseNodeForCount(child, maxWidth, maxHeight));
         }
-        children.add(const TextSpan(text: "\n\n"));
+        children.add(const TextSpan(text: "\n"));
         return TextSpan(children: children);
       }
 
@@ -539,9 +539,9 @@ class ShowEpubState extends State<ShowEpub> {
         return TextSpan(
           children: children,
           style: TextStyle(
-            fontSize: (_fontSize) + 4,
+            fontSize: (_fontSize),
             fontWeight: FontWeight.bold,
-            height: 1.5,
+            height: 1,
             color: fontColor,
           ),
         );
@@ -1089,22 +1089,28 @@ class ShowEpubState extends State<ShowEpub> {
     log('theme id $id');
     staticThemeId = id;
     if (id == 1) {
-      backColor = cLightGrayColor;
+      // Original - Light gray
+      backColor = Color(0xFFF5F5F5);
       fontColor = Colors.black;
     } else if (id == 2) {
+      // Bold - Pure white
       backColor = Colors.white;
       fontColor = Colors.black;
     } else if (id == 3) {
-      backColor = Colors.white;
+      // Paper - Light pinkish gray
+      backColor = Color(0xFFF0ECED);
       fontColor = Colors.black;
     } else if (id == 4) {
-      backColor = cDarkGrayColor;
-      fontColor = Colors.white;
+      // Quiet - Dark gray background with light gray text
+      backColor = Color(0xFF4A4A4C);
+      fontColor = Color(0xFFB8B8B8);
     } else if (id == 5) {
-      backColor = cCreamColor;
+      // Calm - Cream
+      backColor = Color(0xFFf5ebda);
       fontColor = Colors.black;
     } else {
-      backColor = cOffWhiteColor;
+      // Focus - Off white
+      backColor = Color(0xFFFFFDF7);
       fontColor = Colors.black;
     }
 
@@ -1327,10 +1333,9 @@ class ShowEpubState extends State<ShowEpub> {
                                   backgroundColor: backColor,
                                   fontSize: _fontSize.sp,
                                   fontFamily: selectedTextStyle,
-                                  fontWeight:
-                                      (staticThemeId == 1 || staticThemeId == 2)
-                                          ? FontWeight.bold
-                                          : FontWeight.w400,
+                                  fontWeight: staticThemeId == 2
+                                      ? FontWeight.bold
+                                      : FontWeight.w400,
                                   package: 'cosmos_epub',
                                   color: fontColor,
                                 ),
@@ -1595,7 +1600,7 @@ class ShowEpubState extends State<ShowEpub> {
                   child: Container(
                     // color: backColor,
                     padding:
-                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1639,88 +1644,108 @@ class ShowEpubState extends State<ShowEpub> {
                   height: showHeader ? 70.h : 0,
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeInOut,
-                  child: Container(
-                    decoration: BoxDecoration(
-                        // color: backColor,
-                        // boxShadow: [
-                        //   BoxShadow(
-                        //     color: Colors.black.withOpacity(0.08),
-                        //     blurRadius: 12,
-                        //     offset: Offset(0, -2),
-                        //   ),
-                        // ],
-                        // border: Border(
-                        //   top: BorderSide(
-                        //     color: fontColor.withOpacity(0.08),
-                        //     width: 0.5,
-                        //   ),
-                        // ),
-                        ),
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 20.w,
-                          vertical: 8.h,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            _buildNavButton(
-                              icon: Icons.menu,
-                              onPressed: openTableOfContents,
-                              tooltip: 'Table of Contents',
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                                child: GestureDetector(
-                                  onLongPressStart: (_) {
-                                    // Visual feedback that long-press is active
-                                    HapticFeedback.mediumImpact();
-                                  },
-                                  onLongPressMoveUpdate: (details) {
-                                    final double dx =
-                                        details.localOffsetFromOrigin.dx;
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10.w,
+                        vertical: 8.h,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _buildNavButton(
+                            icon: Icons.menu,
+                            onPressed: openTableOfContents,
+                            tooltip: 'Table of Contents',
+                          ),
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4.w),
+                              child: Obx(() {
+                                final currentChapterIdx = bookProgress
+                                        .getBookProgress(bookId)
+                                        .currentChapterIndex ??
+                                    0;
+                                final currentChapterTitle = currentChapterIdx >=
+                                            0 &&
+                                        currentChapterIdx < chaptersList.length
+                                    ? chaptersList[currentChapterIdx].chapter
+                                    : '';
 
-                                    // Provide haptic feedback for swipe gestures
-                                    if (dx.abs() > 50) {
-                                      HapticFeedback.lightImpact();
+                                return ProgressBarWidget(
+                                  currentPage:
+                                      controllerPaging.currentPage.value,
+                                  totalPages: controllerPaging.totalPages.value,
+                                  isCalculating: !allChaptersCalculated,
+                                  onNextPage: () =>
+                                      controllerPaging.goToNextPage(),
+                                  onPreviousPage: () =>
+                                      controllerPaging.goToPreviousPage(),
+                                  onJumpToPage: (targetPageInBook) {
+                                    print(
+                                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                                    print(
+                                        '🎯 SHOW_EPUB: User wants to jump to BOOK page $targetPageInBook');
+                                    print(
+                                        '📊 Current state: Page ${controllerPaging.currentPage.value} / ${controllerPaging.totalPages.value}');
+                                    print(
+                                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+                                    // Calculate which chapter and page this corresponds to
+                                    final result =
+                                        _calculateChapterAndPageFromBookPage(
+                                            targetPageInBook);
+
+                                    if (result != null) {
+                                      final targetChapter = result['chapter']!;
+                                      final targetPageInChapter =
+                                          result['page']!;
+
+                                      print(
+                                          '✅ Calculated: Chapter $targetChapter, Page $targetPageInChapter in chapter');
+
+                                      // Save the target page in chapter
+                                      bookProgress
+                                          .setCurrentPageIndex(
+                                              bookId, targetPageInChapter)
+                                          .then((_) {
+                                        // Load the target chapter
+                                        reLoadChapter(index: targetChapter);
+                                      });
+                                    } else {
+                                      print(
+                                          '⚠️ Could not calculate chapter/page for book page $targetPageInBook');
+                                      print(
+                                          '⚠️ This might be because page counts are not fully cached yet');
                                     }
                                   },
-                                  onLongPressEnd: (_) {
-                                    HapticFeedback.lightImpact();
-                                  },
-                                  child: Obx(() => ProgressBarWidget(
-                                        currentPage:
-                                            controllerPaging.currentPage.value,
-                                        totalPages:
-                                            controllerPaging.totalPages.value,
-                                        isCalculating: !allChaptersCalculated,
-                                      )),
-                                ),
-                              ),
-                            ),
-                            _buildNavButton(
-                              icon: Icons.text_fields_rounded,
-                              onPressed: () {
-                                updateFontSettings(
-                                  context: context,
-                                  backColor: backColor,
-                                  fontColor: fontColor,
-                                  brightnessLevel: brightnessLevel,
-                                  staticThemeId: staticThemeId,
-                                  setBrightness: setBrightness,
-                                  updateTheme: updateTheme,
-                                  fontSizeProgress: _fontSize,
-                                  onFontSizeChange: changeFontSize,
+                                  chapterTitle: currentChapterTitle,
+                                  backgroundColor: backColor,
+                                  textColor: fontColor,
                                 );
-                              },
-                              tooltip: 'Font Settings',
+                              }),
                             ),
-                          ],
-                        ),
+                          ),
+                          _buildNavButton(
+                            icon: Icons.text_fields_rounded,
+                            onPressed: () {
+                              updateFontSettings(
+                                context: context,
+                                backColor: backColor,
+                                fontColor: fontColor,
+                                brightnessLevel: brightnessLevel,
+                                staticThemeId: staticThemeId,
+                                setBrightness: setBrightness,
+                                updateTheme: updateTheme,
+                                fontSizeProgress: _fontSize,
+                                onFontSizeChange: changeFontSize,
+                              );
+                            },
+                            tooltip: 'Font Settings',
+                          ),
+                        ],
                       ),
                     ),
                   ),

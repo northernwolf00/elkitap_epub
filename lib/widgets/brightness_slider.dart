@@ -42,7 +42,7 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: EdgeInsets.only(bottom: 20.h, left: 10.w, right: 10.w),
+      margin: EdgeInsets.only(bottom: 24.h, left: 10.w, top: 10, right: 10.w),
       decoration: BoxDecoration(
         color: widget.backColor.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12.r),
@@ -65,8 +65,8 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
             child: Padding(
               padding: EdgeInsets.only(right: 15.w),
               child: Container(
-                height: 18,
-                width: 18,
+                height: 10,
+                width: 10,
                 decoration: BoxDecoration(
                   border: Border.all(color: widget.fontColor, width: 2),
                   shape: BoxShape.circle,
@@ -77,14 +77,14 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
           Expanded(
             child: SliderTheme(
               data: SliderThemeData(
-                trackHeight: 10.0,
-                activeTrackColor: Colors.grey.shade600,
+                trackHeight: 18.0,
+                activeTrackColor: Colors.grey.shade500,
                 inactiveTrackColor: Colors.grey.shade300,
                 thumbShape: RoundSliderThumbShape(
                   enabledThumbRadius: 0, // Hidden thumb
                 ),
                 overlayShape: RoundSliderOverlayShape(overlayRadius: 0),
-                trackShape: const RoundedRectSliderTrackShape(),
+                trackShape: RoundedRectSliderTrackShape(),
               ),
               child: Slider(
                 value: _localValue.clamp(0.0, 1.0),
@@ -122,7 +122,7 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
               padding: EdgeInsets.only(left: 15.w),
               child: Icon(
                 Icons.wb_sunny_outlined,
-                size: 25.sp,
+                size: 20.sp,
                 color: widget.fontColor,
               ),
             ),

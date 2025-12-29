@@ -69,11 +69,10 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                 chapterTitle!,
                 textAlign: TextAlign.center,
                 style: style.copyWith(
-                  fontSize: (style.fontSize ?? 16) + 6,
+                  fontSize: (style.fontSize ?? 12),
                   fontWeight: FontWeight.bold,
                   fontFamily: 'SFPro',
                   height: 1,
-                  letterSpacing: 0.5,
                 ),
               ),
               SizedBox(height: 30.h),
@@ -141,21 +140,21 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
       final paragraph = paragraphs[i].trim();
       if (paragraph.isEmpty) continue;
 
-      // Add paragraph indent (using em spaces for first line)
+      // Add paragraph indent (using em-space for first line)
       spans.add(TextSpan(
-        text: '    $paragraph',
+        text: '\u2003$paragraph',
         style: style.copyWith(
           fontFamily: 'SFPro',
-          height: 1.35,
-          letterSpacing: 0.1,
-          wordSpacing: 0.3,
+          height: 1,
+          letterSpacing: 0,
+          wordSpacing: 0,
           fontSize: style.fontSize,
         ),
       ));
 
-      // Add paragraph break (except for last paragraph)
+      // Add single paragraph break (except for last paragraph)
       if (i < paragraphs.length - 1) {
-        spans.add(TextSpan(text: '\n\n'));
+        spans.add(TextSpan(text: '\n'));
       }
     }
 
@@ -165,9 +164,9 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         children: spans,
         style: style.copyWith(
           fontFamily: 'SFPro',
-          height: 1.35,
-          letterSpacing: 0.1,
-          wordSpacing: 0.3,
+          height: 1,
+          letterSpacing: 0,
+          wordSpacing: 0,
         ),
       ),
     );

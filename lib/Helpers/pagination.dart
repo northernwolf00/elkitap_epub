@@ -21,6 +21,9 @@ class PagingTextHandler extends GetxController {
   late final RxInt currentPage;
   late final RxInt totalPages;
 
+  // Reference to the PageFlipWidget controller for programmatic navigation
+  GlobalKey<PageFlipWidgetState>? _pageFlipController;
+
   PagingTextHandler({required this.paginate, required this.bookId}) {
     currentPage = (_box.read<int>('currentPage_$bookId') ?? 0).obs;
     totalPages = (_box.read<int>('totalPages_$bookId') ?? 0).obs;
@@ -28,6 +31,68 @@ class PagingTextHandler extends GetxController {
     ever(currentPage,
         (_) => _box.write('currentPage_$bookId', currentPage.value));
     ever(totalPages, (_) => _box.write('totalPages_$bookId', totalPages.value));
+  }
+
+  // Set the page flip controller reference
+  void setPageFlipController(GlobalKey<PageFlipWidgetState> controller) {
+    _pageFlipController = controller;
+  }
+
+  // Navigate to next page
+  Future<void> goToNextPage() async {
+    print('🔄 goToNextPage called');
+    final state = _pageFlipController?.currentState;
+    if (state == null) {
+      print('❌ PageFlipController state is null!');
+      return;
+    }
+
+    final currentPageNum = state.pageNumber;
+    final totalPages = state.pages.length;
+    print('📄 Current: $currentPageNum, Total: $totalPages');
+
+    // Check if not on last page
+    if (currentPageNum < totalPages - 1) {
+      print('✅ Navigating to next page...');
+      final targetPage = currentPageNum + 1;
+
+      // Use goToPage for proper animation and state management
+      await state.goToPage(targetPage);
+
+      // Trigger the onPageFlip callback after navigation
+      state.widget.onPageFlip(targetPage);
+      print('✅ Navigation complete. New page: $targetPage');
+    } else {
+      print('⚠️ Already on last page');
+    }
+  }
+
+  // Navigate to previous page
+  Future<void> goToPreviousPage() async {
+    print('🔄 goToPreviousPage called');
+    final state = _pageFlipController?.currentState;
+    if (state == null) {
+      print('❌ PageFlipController state is null!');
+      return;
+    }
+
+    final currentPageNum = state.pageNumber;
+    print('📄 Current page: $currentPageNum');
+
+    // Check if not on first page
+    if (currentPageNum > 0) {
+      print('✅ Navigating to previous page...');
+      final targetPage = currentPageNum - 1;
+
+      // Use goToPage for proper animation and state management
+      await state.goToPage(targetPage);
+
+      // Trigger the onPageFlip callback after navigation
+      state.widget.onPageFlip(targetPage);
+      print('✅ Navigation complete. New page: $targetPage');
+    } else {
+      print('⚠️ Already on first page');
+    }
   }
 }
 
@@ -90,6 +155,7 @@ class _PagingWidgetState extends State<PagingWidget> {
   void initState() {
     super.initState();
     _handler = PagingTextHandler(paginate: rePaginate, bookId: widget.bookId);
+    _handler.setPageFlipController(_pageController);
     widget.handlerCallback(_handler);
     rePaginate();
   }
@@ -172,9 +238,9 @@ class _PagingWidgetState extends State<PagingWidget> {
         text: text,
         style: widget.style.copyWith(
           fontFamily: 'SFPro',
-          height: 1.35,
-          letterSpacing: 0.1,
-          wordSpacing: 0.3,
+          height: 1.5,
+          letterSpacing: 0,
+          wordSpacing: 0,
         ),
       );
     } else if (node is dom.Element) {
@@ -188,7 +254,7 @@ class _PagingWidgetState extends State<PagingWidget> {
           final span = await _parseNode(child, maxWidth);
           children.add(span);
         }
-        children.add(const TextSpan(text: "\n\n"));
+        children.add(const TextSpan(text: "\n"));
         return TextSpan(children: children);
       } else if (node.localName == 'h1' ||
           node.localName == 'h2' ||
