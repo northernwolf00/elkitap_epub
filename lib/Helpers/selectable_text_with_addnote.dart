@@ -159,7 +159,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     }
 
     return RichText(
-      textAlign: TextAlign.justify,
+      textAlign: TextAlign.start,
       text: TextSpan(
         children: spans,
         style: style.copyWith(
@@ -342,7 +342,7 @@ class BookPageBuilder {
                     ),
                   ],
                   child: RichText(
-                    textAlign: TextAlign.justify,
+                    textAlign: TextAlign.start,
                     text: contentSpan,
                   ),
                 ),
