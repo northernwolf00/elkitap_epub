@@ -69,10 +69,10 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                 chapterTitle!,
                 textAlign: TextAlign.center,
                 style: style.copyWith(
-                  fontSize: (style.fontSize ?? 12),
+                  fontSize: (style.fontSize ?? 10) + 2,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'SFPro',
-                  height: 1,
+                  height: 1.3,
                 ),
               ),
               SizedBox(height: 30.h),
@@ -107,27 +107,86 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
 
     String formatted = rawText;
 
-    // Remove excessive spaces (2 or more spaces become 1)
-    formatted = formatted.replaceAll(RegExp(r' {2,}'), ' ');
+    // Remove all excessive whitespace (tabs, multiple spaces, non-breaking spaces, etc.)
+    formatted = formatted.replaceAll('\u00A0', ' '); // Non-breaking space
+    formatted = formatted.replaceAll('\u200B', ''); // Zero-width space
+    formatted = formatted.replaceAll('\u2009', ' '); // Thin space
+    formatted = formatted.replaceAll('\u202F', ' '); // Narrow no-break space
+    formatted = formatted.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
+
+    // Remove spaces at the beginning and end of lines
+    formatted = formatted.replaceAll(RegExp(r'^\s+', multiLine: true), '');
+    formatted = formatted.replaceAll(RegExp(r'\s+$', multiLine: true), '');
 
     // Normalize line breaks (3+ newlines become 2)
     formatted = formatted.replaceAll(RegExp(r'\n{3,}'), '\n\n');
 
-    // Add space after punctuation if missing
-    formatted = formatted.replaceAll(RegExp(r'\.(\S)'), '. \$1');
-    formatted = formatted.replaceAll(RegExp(r',(\S)'), ', \$1');
-    formatted = formatted.replaceAll(RegExp(r';(\S)'), '; \$1');
-    formatted = formatted.replaceAll(RegExp(r':(\S)'), ': \$1');
-    formatted = formatted.replaceAll(RegExp(r'!(\S)'), '! \$1');
-    formatted = formatted.replaceAll(RegExp(r'\?(\S)'), '? \$1');
+    // Remove extra spaces around punctuation marks
+    formatted = formatted.replaceAll(RegExp(r'\s+([.,;:!?\)\]»])'), '\$1');
+    formatted = formatted.replaceAll(RegExp(r'([(\[«])\s+'), '\$1');
 
-    // Remove spaces before punctuation
-    formatted = formatted.replaceAll(RegExp(r'\s+([.,;:!?])'), '\$1');
+    // Add space after punctuation if missing (both Latin and Cyrillic)
+    formatted = formatted.replaceAll(RegExp(r'\.([a-zA-Zа-яА-ЯёЁ])'), '. \$1');
+    formatted = formatted.replaceAll(RegExp(r',([a-zA-Zа-яА-ЯёЁ])'), ', \$1');
+    formatted = formatted.replaceAll(RegExp(r';([a-zA-Zа-яА-ЯёЁ])'), '; \$1');
+    formatted = formatted.replaceAll(RegExp(r':([a-zA-Zа-яА-ЯёЁ])'), ': \$1');
+    formatted = formatted.replaceAll(RegExp(r'!([a-zA-Zа-яА-ЯёЁ])'), '! \$1');
+    formatted = formatted.replaceAll(RegExp(r'\?([a-zA-Zа-яА-ЯёЁ])'), '? \$1');
 
-    // Replace hyphens with em dash
-    formatted = formatted.replaceAll(RegExp(r'\s+-\s+'), ' — ');
+    // Russian quotation marks fixes
+    formatted = formatted.replaceAll(RegExp(r'«\s+'), '«');
+    formatted = formatted.replaceAll(RegExp(r'\s+»'), '»');
+
+    // Replace multiple hyphens or em-dashes with single em dash
+    formatted = formatted.replaceAll(RegExp(r'\s*[-–—]+\s*'), ' — ');
+
+    // Remove any remaining double spaces
+    formatted = formatted.replaceAll(RegExp(r' {2,}'), ' ');
+
+    // Add soft hyphens for word breaking (hyphenation)
+    formatted = _addSoftHyphens(formatted);
 
     return formatted.trim();
+  }
+
+  // Add soft hyphens to allow proper word breaking with hyphens
+  String _addSoftHyphens(String text) {
+    // Split into words and add soft hyphens to long words
+    return text.replaceAllMapped(RegExp(r'\b[\w\u0400-\u04FF]{8,}\b'), (match) {
+      String word = match.group(0)!;
+      // Don't hyphenate if word already contains hyphens or soft hyphens
+      if (word.contains('-') || word.contains('\u00AD')) return word;
+
+      // Check if word is Russian (Cyrillic) or English
+      bool isRussian = RegExp(r'[\u0400-\u04FF]').hasMatch(word);
+
+      StringBuffer result = StringBuffer();
+      for (int i = 0; i < word.length; i++) {
+        result.write(word[i]);
+
+        // Russian hyphenation rules
+        if (isRussian && i > 2 && i < word.length - 2) {
+          // Add soft hyphen after consonants before vowels in Russian
+          String current = word[i];
+          String next = i < word.length - 1 ? word[i + 1] : '';
+
+          bool currentIsConsonant = RegExp(r'[бвгджзклмнпрстфхцчшщБВГДЖЗКЛМНПРСТФХЦЧШЩ]').hasMatch(current);
+          bool nextIsVowel = RegExp(r'[аэоуиыяюеёАЭОУИЫЯЮЕЁ]').hasMatch(next);
+
+          if (currentIsConsonant && nextIsVowel && (i % 3 == 0 || i % 4 == 0)) {
+            result.write('\u00AD'); // Soft hyphen
+          }
+        }
+        // English hyphenation rules
+        else if (!isRussian && i > 3 && i < word.length - 3) {
+          // Add soft hyphen after vowels when word is long enough
+          if ((i % 4 == 0 || i % 5 == 0) && 'aeiouAEIOU'.contains(word[i])) {
+            result.write('\u00AD'); // Soft hyphen
+          }
+        }
+      }
+      return result.toString();
+    });
   }
 
   Widget _buildFormattedText(String text, TextStyle style) {
@@ -145,26 +204,26 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         text: '\u2003$paragraph',
         style: style.copyWith(
           fontFamily: 'SFPro',
-          height: 1,
+          height: 1.5,
           letterSpacing: 0,
           wordSpacing: 0,
           fontSize: style.fontSize,
         ),
       ));
 
-      // Add single paragraph break (except for last paragraph)
+      // Add proper paragraph break (except for last paragraph)
       if (i < paragraphs.length - 1) {
-        spans.add(TextSpan(text: '\n'));
+        spans.add(TextSpan(text: '\n\n'));
       }
     }
 
     return RichText(
-      textAlign: TextAlign.start,
+      textAlign: TextAlign.justify,
       text: TextSpan(
         children: spans,
         style: style.copyWith(
           fontFamily: 'SFPro',
-          height: 1,
+          height: 1.5,
           letterSpacing: 0,
           wordSpacing: 0,
         ),
@@ -342,7 +401,7 @@ class BookPageBuilder {
                     ),
                   ],
                   child: RichText(
-                    textAlign: TextAlign.start,
+                    textAlign: TextAlign.justify,
                     text: contentSpan,
                   ),
                 ),
@@ -365,17 +424,37 @@ class BookPageBuilder {
 
   static String cleanBookText(String htmlText) {
     String cleaned = htmlText.replaceAll(RegExp(r'<[^>]*>'), '');
+
+    // HTML entity decoding
     cleaned = cleaned
         .replaceAll('&nbsp;', ' ')
+        .replaceAll('&#160;', ' ')
         .replaceAll('&amp;', '&')
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>')
         .replaceAll('&quot;', '"')
         .replaceAll('&#39;', "'")
         .replaceAll('&mdash;', '—')
-        .replaceAll('&ndash;', '–');
+        .replaceAll('&ndash;', '–')
+        .replaceAll('&laquo;', '«')
+        .replaceAll('&raquo;', '»');
+
+    // Remove Unicode invisible characters
+    cleaned = cleaned.replaceAll('\u00A0', ' '); // Non-breaking space
+    cleaned = cleaned.replaceAll('\u200B', ''); // Zero-width space
+    cleaned = cleaned.replaceAll('\u2009', ' '); // Thin space
+    cleaned = cleaned.replaceAll('\u202F', ' '); // Narrow no-break space
+    cleaned = cleaned.replaceAll('\uFEFF', ''); // Zero-width no-break space
+
+    // Remove excessive spaces
+    cleaned = cleaned.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r' {2,}'), ' ');
+
+    // Clean up line breaks
     cleaned = cleaned.replaceAll(RegExp(r'\n\s*\n\s*\n+'), '\n\n');
+    cleaned = cleaned.replaceAll(RegExp(r'^\s+', multiLine: true), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+$', multiLine: true), '');
+
     return cleaned.trim();
   }
 }

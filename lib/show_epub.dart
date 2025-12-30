@@ -90,8 +90,8 @@ class ShowEpubState extends State<ShowEpub> {
   final controller = ScrollController();
   Future<void> loadChapterFuture = Future.value(true);
   List<LocalChapterModel> chaptersList = [];
-  double fontSizeProgress = 12.0;
-  double _fontSize = 12.0;
+  double fontSizeProgress = 10.0;
+  double _fontSize = 10.0;
   TextDirection currentTextDirection = TextDirection.ltr;
 
   late EpubBook epubBook;
@@ -637,7 +637,7 @@ class ShowEpubState extends State<ShowEpub> {
     selectedFont = gs.read(libFont) ?? selectedFont;
     var themeId = gs.read(libTheme) ?? staticThemeId;
     updateTheme(themeId, isInit: true);
-    _fontSize = gs.read(libFontSize) ?? _fontSize;
+    _fontSize = gs.read(libFontSize) ?? 10.0;
     fontSizeProgress = _fontSize;
   }
 
