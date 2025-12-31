@@ -21,6 +21,9 @@ class PagingTextHandler extends GetxController {
   late final RxInt currentPage;
   late final RxInt totalPages;
 
+  // Reference to the PageFlipWidget controller for programmatic navigation
+  GlobalKey<PageFlipWidgetState>? _pageFlipController;
+
   PagingTextHandler({required this.paginate, required this.bookId}) {
     currentPage = (_box.read<int>('currentPage_$bookId') ?? 0).obs;
     totalPages = (_box.read<int>('totalPages_$bookId') ?? 0).obs;
@@ -28,6 +31,68 @@ class PagingTextHandler extends GetxController {
     ever(currentPage,
         (_) => _box.write('currentPage_$bookId', currentPage.value));
     ever(totalPages, (_) => _box.write('totalPages_$bookId', totalPages.value));
+  }
+
+  // Set the page flip controller reference
+  void setPageFlipController(GlobalKey<PageFlipWidgetState> controller) {
+    _pageFlipController = controller;
+  }
+
+  // Navigate to next page
+  Future<void> goToNextPage() async {
+    print('🔄 goToNextPage called');
+    final state = _pageFlipController?.currentState;
+    if (state == null) {
+      print('❌ PageFlipController state is null!');
+      return;
+    }
+
+    final currentPageNum = state.pageNumber;
+    final totalPages = state.pages.length;
+    print('📄 Current: $currentPageNum, Total: $totalPages');
+
+    // Check if not on last page
+    if (currentPageNum < totalPages - 1) {
+      print('✅ Navigating to next page...');
+      final targetPage = currentPageNum + 1;
+
+      // Use goToPage for proper animation and state management
+      await state.goToPage(targetPage);
+
+      // Trigger the onPageFlip callback after navigation
+      state.widget.onPageFlip(targetPage);
+      print('✅ Navigation complete. New page: $targetPage');
+    } else {
+      print('⚠️ Already on last page');
+    }
+  }
+
+  // Navigate to previous page
+  Future<void> goToPreviousPage() async {
+    print('🔄 goToPreviousPage called');
+    final state = _pageFlipController?.currentState;
+    if (state == null) {
+      print('❌ PageFlipController state is null!');
+      return;
+    }
+
+    final currentPageNum = state.pageNumber;
+    print('📄 Current page: $currentPageNum');
+
+    // Check if not on first page
+    if (currentPageNum > 0) {
+      print('✅ Navigating to previous page...');
+      final targetPage = currentPageNum - 1;
+
+      // Use goToPage for proper animation and state management
+      await state.goToPage(targetPage);
+
+      // Trigger the onPageFlip callback after navigation
+      state.widget.onPageFlip(targetPage);
+      print('✅ Navigation complete. New page: $targetPage');
+    } else {
+      print('⚠️ Already on first page');
+    }
   }
 }
 
@@ -90,6 +155,7 @@ class _PagingWidgetState extends State<PagingWidget> {
   void initState() {
     super.initState();
     _handler = PagingTextHandler(paginate: rePaginate, bookId: widget.bookId);
+    _handler.setPageFlipController(_pageController);
     widget.handlerCallback(_handler);
     rePaginate();
   }
@@ -162,19 +228,33 @@ class _PagingWidgetState extends State<PagingWidget> {
   Future<InlineSpan> _parseNode(dom.Node node, double maxWidth) async {
     if (node is dom.Text) {
       String text = node.text;
-      text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
+
+      // Remove all types of excessive whitespace
+      text = text.replaceAll('\u00A0', ' '); // Non-breaking space
+      text = text.replaceAll('\u200B', ''); // Zero-width space
+      text = text.replaceAll('\u2009', ' '); // Thin space
+      text = text.replaceAll('\u202F', ' '); // Narrow no-break space
+      text = text.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
 
       if (text.trim().isEmpty) {
         return const TextSpan(text: '');
       }
 
+      // Clean up punctuation spacing
+      text = text.replaceAll(RegExp(r'\s+([.,;:!?\)\]»])'), '\$1');
+      text = text.replaceAll(RegExp(r'([(\[«])\s+'), '\$1');
+      text = text.replaceAll(RegExp(r' {2,}'), ' ');
+
+      // Add soft hyphens for proper word breaking
+      text = _addSoftHyphens(text);
+
       return TextSpan(
         text: text,
         style: widget.style.copyWith(
           fontFamily: 'SFPro',
-          height: 1.35,
-          letterSpacing: 0.1,
-          wordSpacing: 0.3,
+          height: 1.5,
+          letterSpacing: 0,
+          wordSpacing: 0,
         ),
       );
     } else if (node is dom.Element) {
@@ -188,7 +268,7 @@ class _PagingWidgetState extends State<PagingWidget> {
           final span = await _parseNode(child, maxWidth);
           children.add(span);
         }
-        children.add(const TextSpan(text: "\n\n"));
+        children.add(const TextSpan(text: "\n"));
         return TextSpan(children: children);
       } else if (node.localName == 'h1' ||
           node.localName == 'h2' ||
@@ -640,6 +720,48 @@ class _PagingWidgetState extends State<PagingWidget> {
             : 0;
         widget.onPageFlip(startIndex, pages.length);
       }
+    });
+  }
+
+  // Add soft hyphens to allow proper word breaking with hyphens
+  String _addSoftHyphens(String text) {
+    // Split into words and add soft hyphens to long words (support Cyrillic)
+    return text.replaceAllMapped(RegExp(r'\b[\w\u0400-\u04FF]{8,}\b'), (match) {
+      String word = match.group(0)!;
+      // Don't hyphenate if word already contains hyphens, soft hyphens, or is a number
+      if (word.contains('-') || word.contains('\u00AD') || RegExp(r'^\d+$').hasMatch(word)) {
+        return word;
+      }
+
+      // Check if word is Russian (Cyrillic) or English
+      bool isRussian = RegExp(r'[\u0400-\u04FF]').hasMatch(word);
+
+      StringBuffer result = StringBuffer();
+      for (int i = 0; i < word.length; i++) {
+        result.write(word[i]);
+
+        // Russian hyphenation rules
+        if (isRussian && i > 2 && i < word.length - 2) {
+          // Add soft hyphen after consonants before vowels in Russian
+          String current = word[i];
+          String next = i < word.length - 1 ? word[i + 1] : '';
+
+          bool currentIsConsonant = RegExp(r'[бвгджзклмнпрстфхцчшщБВГДЖЗКЛМНПРСТФХЦЧШЩ]').hasMatch(current);
+          bool nextIsVowel = RegExp(r'[аэоуиыяюеёАЭОУИЫЯЮЕЁ]').hasMatch(next);
+
+          if (currentIsConsonant && nextIsVowel && (i % 3 == 0 || i % 4 == 0)) {
+            result.write('\u00AD'); // Soft hyphen (U+00AD)
+          }
+        }
+        // English hyphenation rules
+        else if (!isRussian && i > 3 && i < word.length - 3) {
+          // Add soft hyphen after vowels when word is long enough
+          if ((i % 4 == 0 || i % 5 == 0) && 'aeiouAEIOU'.contains(word[i])) {
+            result.write('\u00AD'); // Soft hyphen (U+00AD)
+          }
+        }
+      }
+      return result.toString();
     });
   }
 
