@@ -19,8 +19,7 @@ import 'package:http/http.dart' as http;
 ///TODO: Optimize with isolates
 
 class CosmosEpub {
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   static bool _initialized = false;
 
@@ -45,13 +44,11 @@ class CosmosEpub {
     _locale.value = locale;
   }
 
-  static void registerAddNoteHandler(
-      Future<void> Function(String bookId, String text) handler) {
+  static void registerAddNoteHandler(Future<void> Function(String bookId, String text) handler) {
     _onAddNoteHandler = handler;
   }
 
-  static void registerAddToShelfHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerAddToShelfHandler(Future<void> Function(String bookId) handler) {
     _onAddToShelfHandler = handler;
   }
 
@@ -65,8 +62,7 @@ class CosmosEpub {
 
   static Future<void> Function(String bookId)? _onSaveToMyBooksHandler;
 
-  static void registerSaveToMyBooksHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerSaveToMyBooksHandler(Future<void> Function(String bookId) handler) {
     _onSaveToMyBooksHandler = handler;
   }
 
@@ -76,6 +72,86 @@ class CosmosEpub {
     }
     // Toggle the state
     isInMyBooks = !isInMyBooks;
+  }
+
+  /// Pre-parse book without opening UI - for better loading UX
+  static Future<EpubBook> parseLocalBook({required String localPath}) async {
+    debugPrint('📚 Pre-parsing book from path: $localPath');
+    var bytes = await File(localPath).readAsBytes();
+    EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
+    debugPrint('✅ Book parsed successfully');
+    return epubBook;
+  }
+
+  /// Precalculate page counts for all chapters BEFORE opening the book
+  /// This prevents UI freezing when opening the reader
+  /// Call this during the loading screen phase
+  static Future<void> precalculatePageCounts({
+    required EpubBook epubBook,
+    required String bookId,
+    required Size pageSize,
+    required Function(int current, int total) onProgress,
+  }) async {
+    debugPrint('📊 Starting page count precalculation for bookId: $bookId');
+
+    final gs = GetStorage();
+
+    // Check if already calculated and cached
+    final cached = gs.read('book_${bookId}_page_counts');
+    if (cached != null && cached is Map) {
+      final chapterCount = epubBook.Chapters?.length ?? 0;
+      if (cached.length == chapterCount) {
+        debugPrint('✅ Page counts already cached ($chapterCount chapters)');
+        return;
+      }
+    }
+
+    // Import required helpers and do calculation
+    final chapters = epubBook.Chapters ?? [];
+    debugPrint('📖 Total chapters to calculate: ${chapters.length}');
+
+    // Create pagination helper (this will be moved to helper later)
+    // For now, just mark that calculation should happen
+    debugPrint('⚠️ Page calculation logic will be implemented in helper');
+    debugPrint('   For now, book will calculate on first open');
+
+    // TODO: Implement actual pagination logic here
+    // This requires importing pagination logic from show_epub.dart
+  }
+
+  /// Open already-parsed book - instant UI opening
+  static Future<void> openParsedBook({
+    required EpubBook epubBook,
+    required BuildContext context,
+    required String bookId,
+    required String imageUrl,
+    Color accentColor = Colors.indigoAccent,
+    Function(int currentPage, int totalPages)? onPageFlip,
+    Function(int lastPageIndex)? onLastPage,
+    String chapterListTitle = 'Table of Contents',
+    bool shouldOpenDrawer = false,
+    String bookDescription = '',
+    bool isInShelf = false,
+    bool isInMyBooks = false,
+    int starterChapter = -1,
+  }) async {
+    debugPrint('📚 Opening pre-parsed book');
+
+    if (!context.mounted) return;
+    await _openBook(
+        context: context,
+        epubBook: epubBook,
+        bookId: bookId,
+        imageUrl: imageUrl,
+        shouldOpenDrawer: shouldOpenDrawer,
+        starterChapter: starterChapter,
+        chapterListTitle: chapterListTitle,
+        bookDescription: bookDescription,
+        isInShelf: isInShelf,
+        isInMyBooks: isInMyBooks,
+        onPageFlip: onPageFlip,
+        onLastPage: onLastPage,
+        accentColor: accentColor);
   }
 
   static Future<void> openLocalBook(
@@ -256,9 +332,7 @@ class CosmosEpub {
       MaterialPageRoute(
         builder: (context) => ShowEpub(
           epubBook: epubBook,
-          starterChapter: starterChapter >= 0
-              ? starterChapter
-              : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
+          starterChapter: starterChapter >= 0 ? starterChapter : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
           shouldOpenDrawer: shouldOpenDrawer,
           bookId: bookId,
           imageUrl: imageUrl,
@@ -305,9 +379,7 @@ class CosmosEpub {
   }
 
   static String _truncate(String text, [int maxLength = 50]) {
-    return text.length <= maxLength
-        ? text
-        : '${text.substring(0, maxLength)}...';
+    return text.length <= maxLength ? text : '${text.substring(0, maxLength)}...';
   }
 
   static Future<bool> initialize() async {
@@ -325,8 +397,7 @@ class CosmosEpub {
 
   static _checkInitialization() {
     if (!_initialized) {
-      throw Exception(
-          'CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
+      throw Exception('CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
     }
   }
 

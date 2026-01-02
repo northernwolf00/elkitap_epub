@@ -32,7 +32,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     return Selectable(
       selectWordOnLongPress: true,
       selectWordOnDoubleTap: true,
-      selectionColor: const Color(0xFFB8B3E9).withOpacity(0.5),
+      selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
       popupMenuItems: [
         SelectableMenuItem(
           title: CosmosEpubLocalization.t('add_note'),
@@ -64,7 +64,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isFirstPage && chapterTitle != null) ...[
-              SizedBox(height: 40.h),
+              SizedBox(height: 20.h),
               Text(
                 chapterTitle!,
                 textAlign: TextAlign.center,
@@ -75,7 +75,7 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                   height: 1.3,
                 ),
               ),
-              SizedBox(height: 30.h),
+              SizedBox(height: 16.h),
               // Center(
               //   child: Container(
               //     width: 80.w,
@@ -273,8 +273,8 @@ class BookPageBuilder {
       child: Container(
         color: backgroundColor ?? Colors.white,
         padding: EdgeInsets.only(
-          left: 32.w,
-          right: 32.w,
+          left: 18.w,
+          right: 18.w,
           top: 20.h,
           bottom: 20.h,
         ),
@@ -310,111 +310,120 @@ class BookPageBuilder {
     double bottomNavHeight = 70.0,
   }) {
     return InkWell(
-      onTap: onTextTap,
-      child: Container(
-        color: backgroundColor ?? Colors.white,
-        padding: EdgeInsets.only(
-          left: 24.w,
-          right: 24.w,
-          top: 16.h,
-          bottom: bottomNavHeight + 16.h,
-        ),
-        child: SingleChildScrollView(
+        onTap: onTextTap,
+        child: Container(
+          color: backgroundColor ?? Colors.white,
+          padding: EdgeInsets.only(
+            left: 16.w,
+            right: 16.w,
+            top: 4.h,  // Reduced from 8h
+            bottom: 4.h,  // Reduced from 12h to maximize content area
+          ),
           child: Directionality(
             textDirection: textDirection,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Chapter title for first page
-                if (isFirstPage && chapterTitle != null) ...[
-                  SizedBox(height: 40.h),
-                  Text(
-                    chapterTitle,
-                    textAlign: TextAlign.center,
-                    style: style.copyWith(
-                      fontSize: (style.fontSize ?? 16) + 6,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'SFPro',
-                      height: 1,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  SizedBox(height: 30.h),
-                  Center(
-                    child: Container(
-                      width: 80.w,
-                      height: 2.h,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            (style.color ?? Colors.black).withOpacity(0.1),
-                            (style.color ?? Colors.black).withOpacity(0.5),
-                            (style.color ?? Colors.black).withOpacity(0.1),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 30.h),
-                ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                print('📐 Page container height: ${constraints.maxHeight}');
 
-                // Main content with TextSpan (includes text and images) wrapped in Selectable
-                Selectable(
-                  selectWordOnLongPress: true,
-                  selectWordOnDoubleTap: true,
-                  selectionColor: const Color(0xFFB8B3E9).withOpacity(0.5),
-                  popupMenuItems: [
-                    SelectableMenuItem(
-                      title: CosmosEpubLocalization.t('add_note'),
-                      isEnabled: (controller) => controller!.isTextSelected,
-                      handler: (controller) {
-                        final selectedText = controller!.getSelection()!.text!;
-                        _handleAddNoteFromSpan(context, bookId, selectedText);
-                        return true;
-                      },
-                    ),
-                    SelectableMenuItem(
-                      title: CosmosEpubLocalization.t('share'),
-                      isEnabled: (controller) => controller!.isTextSelected,
-                      handler: (controller) {
-                        final selectedText = controller!.getSelection()!.text!;
-
-                        final box = context.findRenderObject() as RenderBox?;
-                        if (box == null) return true;
-
-                        final position =
-                            box.localToGlobal(Offset.zero) & box.size;
-
-                        SharePlus.instance.share(
-                          ShareParams(
-                            text: selectedText,
-                            sharePositionOrigin: position,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Chapter title header on ALL pages
+                    if (chapterTitle != null) ...[
+                      if (isFirstPage) ...[
+                        SizedBox(height: 4.h),  // Reduced from 8h
+                        Text(
+                          chapterTitle,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: style.copyWith(
+                            fontSize: (style.fontSize ?? 16) + 2,  // Smaller title
+                            fontWeight: FontWeight.w500,
+                            height: 1.1,  // Tighter spacing
+                            letterSpacing: 0.1,
                           ),
-                        );
-                        return true;
-                      },
-                    ),
-                    SelectableMenuItem(
-                      type: SelectableMenuItemType.copy,
-                      title: CosmosEpubLocalization.t('copy'),
+                        ),
+                        SizedBox(height: 6.h),  // Reduced from 10h
+                      ] else ...[
+                        SizedBox(height: 2.h),  // Reduced from 4h
+                        Text(
+                          chapterTitle,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: style.copyWith(
+                            fontSize: (style.fontSize ?? 16) - 2,
+                            fontWeight: FontWeight.w400,
+                            height: 1.0,  // Tighter spacing
+                            color: (style.color ?? Colors.black).withValues(alpha: 0.5),
+                          ),
+                        ),
+                        SizedBox(height: 4.h),  // Reduced from 6h
+                      ],
+                    ],
+
+                    // Main content - fill remaining space completely
+                    Expanded(
+                      child: Selectable(
+                          selectWordOnLongPress: true,
+                          selectWordOnDoubleTap: true,
+                          selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
+                          popupMenuItems: [
+                            SelectableMenuItem(
+                              title: CosmosEpubLocalization.t('add_note'),
+                              isEnabled: (controller) => controller!.isTextSelected,
+                              handler: (controller) {
+                                final selectedText = controller!.getSelection()!.text!;
+                                _handleAddNoteFromSpan(context, bookId, selectedText);
+                                return true;
+                              },
+                            ),
+                            SelectableMenuItem(
+                              title: CosmosEpubLocalization.t('share'),
+                              isEnabled: (controller) => controller!.isTextSelected,
+                              handler: (controller) {
+                                final selectedText = controller!.getSelection()!.text!;
+
+                                final box = context.findRenderObject() as RenderBox?;
+                                if (box == null) return true;
+
+                                final position = box.localToGlobal(Offset.zero) & box.size;
+
+                                SharePlus.instance.share(
+                                  ShareParams(
+                                    text: selectedText,
+                                    sharePositionOrigin: position,
+                                  ),
+                                );
+                                return true;
+                              },
+                            ),
+                            SelectableMenuItem(
+                              type: SelectableMenuItemType.copy,
+                              title: CosmosEpubLocalization.t('copy'),
+                            ),
+                          ],
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              print('📝 RichText container height: ${constraints.maxHeight}');
+                              return RichText(
+                                textAlign: TextAlign.justify,
+                                text: contentSpan,
+                              );
+                            },
+                          ),
+                        ),
                     ),
                   ],
-                  child: RichText(
-                    textAlign: TextAlign.justify,
-                    text: contentSpan,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 
-  static Future<void> _handleAddNoteFromSpan(
-      BuildContext context, String bookId, String selectedText) async {
+  static Future<void> _handleAddNoteFromSpan(BuildContext context, String bookId, String selectedText) async {
     await CosmosEpub.addNote(
       bookId: bookId,
       selectedText: selectedText,
