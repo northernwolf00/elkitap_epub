@@ -7,7 +7,7 @@ import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class ChaptersBottomSheet extends StatelessWidget {
+class ChaptersBottomSheet extends StatefulWidget {
   final String title;
   final List<LocalChapterModel> chapters;
   final String bookId;
@@ -16,6 +16,7 @@ class ChaptersBottomSheet extends StatelessWidget {
   final String chapterListTitle;
   final int currentPage;
   final int totalPages;
+  final int currentPageInChapter; // New parameter for current page within chapter
 
   const ChaptersBottomSheet({
     super.key,
@@ -27,11 +28,17 @@ class ChaptersBottomSheet extends StatelessWidget {
     required this.chapterListTitle,
     required this.currentPage,
     required this.totalPages,
+    this.currentPageInChapter = 0, // Default to 0
   });
 
   @override
+  State<ChaptersBottomSheet> createState() => _ChaptersBottomSheetState();
+}
+
+class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
+  @override
   Widget build(BuildContext context) {
-    String allChapterText = chapters.map((c) => c.chapter).join(' ');
+    String allChapterText = widget.chapters.map((c) => c.chapter).join(' ');
     TextDirection textDirection = RTLHelper.getTextDirection(allChapterText);
 
     return DraggableScrollableSheet(
@@ -83,7 +90,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                             ),
                             clipBehavior: Clip.hardEdge,
                             child: CachedNetworkImage(
-                              imageUrl: imageUrl, // << put your URL here
+                              imageUrl: widget.imageUrl, // << put your URL here
                               fit: BoxFit.cover,
                               placeholder: (context, url) => const LoadingWidget(
                                 height: 80,
@@ -103,15 +110,15 @@ class ChaptersBottomSheet extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  title,
+                                  widget.title,
                                   textDirection: textDirection,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.grey,
+                                    color: Colors.black,
                                     fontSize: 16.sp,
                                   ),
                                 ),
-                                if (totalPages > 0) ...[
+                                if (widget.totalPages > 0) ...[
                                   SizedBox(height: 4.h),
                                   Row(
                                     children: [
@@ -120,13 +127,15 @@ class ChaptersBottomSheet extends StatelessWidget {
                                         style: TextStyle(
                                           color: Colors.black.withOpacity(0.6),
                                           fontSize: 13.sp,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                       Text(
-                                        '${currentPage + 1} ${CosmosEpubLocalization.t('of')} $totalPages',
+                                        '${widget.currentPageInChapter + 1} ${CosmosEpubLocalization.t('of')} ${widget.totalPages}',
                                         style: TextStyle(
-                                          color: Colors.black,
+                                          color: Colors.black.withOpacity(0.6),
                                           fontSize: 13.sp,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ],
@@ -136,7 +145,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                             ),
                           ),
                           InkWell(
-                            onTap: () => Navigator.of(context).pop(false),
+                            onTap: () => Navigator.of(context).pop(null),
                             child: CircleAvatar(
                               backgroundColor: Colors.grey[300],
                               child: Icon(
@@ -157,7 +166,7 @@ class ChaptersBottomSheet extends StatelessWidget {
                   child: ListView.separated(
                     controller: scrollController,
                     padding: EdgeInsets.symmetric(vertical: 8.h),
-                    itemCount: chapters.length,
+                    itemCount: widget.chapters.length,
                     separatorBuilder: (context, index) => Divider(
                       height: 1,
                       thickness: 0.5,
@@ -166,22 +175,54 @@ class ChaptersBottomSheet extends StatelessWidget {
                       endIndent: 16.w,
                     ),
                     itemBuilder: (context, i) {
-                      final isCurrentChapter = bookProgress.getBookProgress(bookId).currentChapterIndex == i;
+                      final chapter = widget.chapters[i];
+                      final currentChapterIndex = bookProgress.getBookProgress(widget.bookId).currentChapterIndex ?? 0;
+
+                      // Check if this item is currently selected
+                      bool isCurrentChapter = false;
+                      if (chapter.isSubChapter && chapter.parentChapterIndex >= 0) {
+                        // Sub-chapter: selected if parent chapter matches AND page matches
+                        isCurrentChapter = (currentChapterIndex == chapter.parentChapterIndex && widget.currentPageInChapter == chapter.pageInChapter);
+                      } else {
+                        // Regular chapter: selected if chapter index matches
+                        isCurrentChapter = (currentChapterIndex == i);
+                      }
 
                       return InkWell(
                         onTap: () async {
-                          print('📌 Chapter tapped: $i, current: ${bookProgress.getBookProgress(bookId).currentChapterIndex}');
+                          print('📌 Chapter tapped: $i, isSubChapter: ${chapter.isSubChapter}, parentChapterIndex: ${chapter.parentChapterIndex}, pageInChapter: ${chapter.pageInChapter}');
 
-                          // If tapping the current chapter, just close without reload
-                          if (i == bookProgress.getBookProgress(bookId).currentChapterIndex) {
-                            print('⏭️ Same chapter tapped, closing without reload');
-                            Navigator.of(context).pop(false);
+                          // Handle sub-chapter navigation - return Map with navigation info
+                          if (chapter.isSubChapter && chapter.parentChapterIndex >= 0) {
+                            print('📖 Sub-chapter tapped, navigating to parent chapter ${chapter.parentChapterIndex}, page ${chapter.pageInChapter}');
+
+                            Navigator.of(context).pop({
+                              'isSubChapter': true,
+                              'chapterIndex': chapter.parentChapterIndex,
+                              'pageIndex': chapter.pageInChapter,
+                              'subchapterIndex': i, // Include the subchapter's own index
+                              'subchapterTitle': chapter.chapter, // Include the subchapter's title
+                            });
+                            return;
+                          }
+
+                          // If tapping the current chapter, navigate to first page of chapter
+                          if (i == bookProgress.getBookProgress(widget.bookId).currentChapterIndex) {
+                            print('📄 Same chapter tapped, navigating to first page');
+                            Navigator.of(context).pop({
+                              'isSubChapter': false,
+                              'chapterIndex': i,
+                              'pageIndex': 0, // Go to first page of chapter
+                            });
                             return;
                           }
 
                           print('✅ Changing to chapter $i');
-                          await bookProgress.setCurrentChapterIndex(bookId, i);
-                          Navigator.of(context).pop(true);
+                          Navigator.of(context).pop({
+                            'isSubChapter': false,
+                            'chapterIndex': i,
+                            'pageIndex': 0,
+                          });
                         },
                         child: Container(
                           color: isCurrentChapter ? Colors.grey[400] : Colors.grey[200],
@@ -195,18 +236,16 @@ class ChaptersBottomSheet extends StatelessWidget {
                               Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.only(
-                                    left: chapters[i].isSubChapter && textDirection == TextDirection.ltr ? 20.w : 0,
-                                    right: chapters[i].isSubChapter && textDirection == TextDirection.rtl ? 20.w : 0,
+                                    left: widget.chapters[i].isSubChapter && textDirection == TextDirection.ltr ? 20.w : 0,
+                                    right: widget.chapters[i].isSubChapter && textDirection == TextDirection.rtl ? 20.w : 0,
                                   ),
                                   child: Text(
-                                    chapters[i].chapter,
-                                    textDirection: RTLHelper.getTextDirection(chapters[i].chapter),
+                                    widget.chapters[i].chapter,
+                                    textDirection: RTLHelper.getTextDirection(widget.chapters[i].chapter),
                                     style: TextStyle(
-                                      color: isCurrentChapter ? Colors.grey[300] : Colors.grey,
-                                      fontFamily: fontNames.where((element) => element == selectedFont).first,
-                                      package: 'cosmos_epub',
+                                      color: isCurrentChapter ? Colors.grey[300] : Colors.black54,
                                       fontSize: 14.sp,
-                                      fontWeight: chapters[i].isSubChapter ? FontWeight.w400 : FontWeight.w600,
+                                      fontWeight: widget.chapters[i].isSubChapter ? FontWeight.w400 : FontWeight.bold,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -214,11 +253,14 @@ class ChaptersBottomSheet extends StatelessWidget {
                                 ),
                               ),
                               // Show page number if available
-                              if (chapters[i].startPage > 0)
+                              if (widget.chapters[i].startPage > 0)
                                 Text(
-                                  '${chapters[i].startPage}',
+                                  widget.chapters[i].isSubChapter
+                                      ? '${widget.chapters[i].startPage - 1}' // Sub-chapter: use startPage directly
+                                      : '${widget.chapters[i].startPage - 1}', // Main chapter: -1 for display
                                   style: TextStyle(
                                     color: Colors.grey,
+                                    // fontFamily: 'Gilroy',
                                     fontSize: 13.sp,
                                   ),
                                 ),

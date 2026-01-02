@@ -4,16 +4,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 
 class ProgressBarWidget extends StatefulWidget {
-  final int currentPage;
-  final int totalPages;
-  final bool isCalculating;
-  final VoidCallback? onNextPage;
-  final VoidCallback? onPreviousPage;
-  final Function(int targetPage)? onJumpToPage;
-  final String? chapterTitle;
-  final Color? backgroundColor;
-  final Color? textColor;
-
   const ProgressBarWidget({
     Key? key,
     required this.currentPage,
@@ -27,18 +17,29 @@ class ProgressBarWidget extends StatefulWidget {
     this.textColor,
   }) : super(key: key);
 
+  final Function(int targetPage)? onJumpToPage;
+  final Color? backgroundColor;
+  final String? chapterTitle;
+  final int currentPage;
+  final bool isCalculating;
+  final VoidCallback? onNextPage;
+  final VoidCallback? onPreviousPage;
+  final Color? textColor;
+  final int totalPages;
+
   @override
   State<ProgressBarWidget> createState() => _ProgressBarWidgetState();
 }
 
 class _ProgressBarWidgetState extends State<ProgressBarWidget> {
-  bool _isLongPressing = false;
-  double _dragStartX = 0;
+  static const double _maxSwipeDistance = 200.0;
+
   double _currentSwipeDelta = 0;
-  OverlayEntry? _overlayEntry;
-  static const double _maxSwipeDistance = 200.0; // Max swipe distance for full effect
-  int _targetPage = 0;
+  double _dragStartX = 0;
+  bool _isLongPressing = false;
   int _lastHapticPage = -1;
+  OverlayEntry? _overlayEntry;
+  int _targetPage = 0;
 
   @override
   void dispose() {
@@ -70,7 +71,7 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
             width: Get.size.width,
             padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0x29787880),
+              color: const Color.fromARGB(78, 115, 115, 117),
               borderRadius: BorderRadius.circular(100),
             ),
             child: Column(
@@ -140,25 +141,17 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
           setState(() {
             _currentSwipeDelta = dx;
 
-            // Calculate how many pages to jump based on swipe distance
-            // Max distance maps to jumping ~50 pages or 10% of book
             final swipeRatio = (dx / _maxSwipeDistance).clamp(-1.0, 1.0);
 
-            // Calculate max jump: 10% of total pages, but between 10 and 50
             final tenPercent = (widget.totalPages * 0.1).round();
             final maxJump = tenPercent < 10 ? 10 : (tenPercent > 50 ? 50 : tenPercent);
 
-            // Calculate the actual page jump (can be negative for left swipe)
             final pageJump = (swipeRatio * maxJump).round();
 
-            // Calculate target page
             final newTarget = widget.currentPage + pageJump;
             _targetPage = newTarget.clamp(1, widget.totalPages);
-
-            print('👆 Swipe: $dx, Ratio: $swipeRatio, MaxJump: $maxJump, Jump: $pageJump, Current: ${widget.currentPage}, Target: $_targetPage');
           });
 
-          // Haptic feedback every time we cross a new page threshold
           if (_targetPage != _lastHapticPage) {
             HapticFeedback.selectionClick();
             _lastHapticPage = _targetPage;
@@ -171,15 +164,12 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
         print('📍 Long press ended on progress bar');
         print('📍 Target page: $_targetPage, Current page: ${widget.currentPage}');
 
-        // Remove overlay first
         _removeOverlay();
 
-        // Jump to target page if it's different from current
         if (_targetPage != widget.currentPage && widget.onJumpToPage != null) {
           print('🎯 Calling onJumpToPage callback with page $_targetPage');
           HapticFeedback.mediumImpact();
 
-          // Call the callback
           widget.onJumpToPage!(_targetPage);
         } else {
           HapticFeedback.lightImpact();
@@ -218,7 +208,6 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
               borderRadius: BorderRadius.circular(100),
               child: Stack(
                 children: [
-                  // Progress bar
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final progress = widget.totalPages > 0 ? (widget.currentPage / widget.totalPages).clamp(0.0, 1.0) : 0.0;
@@ -233,53 +222,51 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
                       );
                     },
                   ),
-                  // Swipe indicators (left and right)
                   if (_isLongPressing && _currentSwipeDelta.abs() > 5)
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isSwipingRight = _currentSwipeDelta > 0;
-                        final swipeProgress = (_currentSwipeDelta.abs() / _maxSwipeDistance).clamp(0.0, 1.0);
-                        final pagesDiff = (_targetPage - widget.currentPage).abs();
+                    Positioned.fill(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isSwipingRight = _currentSwipeDelta > 0;
+                          final swipeProgress = (_currentSwipeDelta.abs() / _maxSwipeDistance).clamp(0.0, 1.0);
+                          final pagesDiff = (_targetPage - widget.currentPage).abs();
 
-                        return Positioned(
-                          left: isSwipingRight ? null : 0,
-                          right: isSwipingRight ? 0 : null,
-                          top: 0,
-                          bottom: 0,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 50),
-                            width: constraints.maxWidth * 0.6 * swipeProgress,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: isSwipingRight ? Alignment.centerRight : Alignment.centerLeft,
-                                end: isSwipingRight ? Alignment.centerLeft : Alignment.centerRight,
-                                colors: [
-                                  Colors.grey.withOpacity(0.5 + (swipeProgress * 0.3)),
-                                  Colors.transparent,
-                                ],
+                          return Align(
+                            alignment: isSwipingRight ? Alignment.centerRight : Alignment.centerLeft,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 50),
+                              width: constraints.maxWidth * 0.6 * swipeProgress,
+                              height: double.infinity,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: isSwipingRight ? Alignment.centerRight : Alignment.centerLeft,
+                                  end: isSwipingRight ? Alignment.centerLeft : Alignment.centerRight,
+                                  colors: [
+                                    Colors.grey.withOpacity(0.5 + (swipeProgress * 0.3)),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                              child: Center(
+                                child: pagesDiff > 1
+                                    ? Text(
+                                        '${isSwipingRight ? '+' : '-'}$pagesDiff',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16.sp,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : Icon(
+                                        isSwipingRight ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
+                                        color: Colors.white,
+                                        size: 20.sp,
+                                      ),
                               ),
                             ),
-                            child: Center(
-                              child: pagesDiff > 1
-                                  ? Text(
-                                      '${isSwipingRight ? '+' : '-'}$pagesDiff',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : Icon(
-                                      isSwipingRight ? Icons.arrow_forward_rounded : Icons.arrow_back_rounded,
-                                      color: Colors.white,
-                                      size: 20.sp,
-                                    ),
-                            ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  // Page numbers
                   Center(
                     child: RichText(
                       text: TextSpan(
@@ -287,8 +274,9 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
                           TextSpan(
                             text: '${widget.currentPage}',
                             style: TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.bold,
                               fontSize: 20.sp,
+                              fontFamily: 'Gilroy',
                               color: Colors.black,
                               letterSpacing: -0.5,
                             ),

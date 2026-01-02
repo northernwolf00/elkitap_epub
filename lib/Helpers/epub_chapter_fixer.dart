@@ -19,7 +19,6 @@ class EpubChapterFixer {
 
       // Validate basic EPUB structure
       if (htmlFiles.isEmpty && images.isEmpty) {
-        print('⚠️ WARNING: EPUB has no HTML or image content!');
         _createDummyChapter(epubBook);
         return;
       }
@@ -27,10 +26,7 @@ class EpubChapterFixer {
       // ✅ IMPORTANT: Don't fix if EPUB already has good chapter structure
       // If chapters count is reasonable compared to HTML files, EPUB is probably fine
       if (chapters.length >= htmlFiles.length / 2 && chapters.length > 5) {
-        print('✅ EPUB has sufficient chapters (${chapters.length}), skipping fix');
-        // Still check if chapters have valid content
         if (_hasInvalidChapters(chapters)) {
-          print('🔧 Repairing chapters with missing content...');
           _repairChapterContent(epubBook);
         }
         return;
@@ -53,19 +49,11 @@ class EpubChapterFixer {
           final isTooShort = contentLength < 1000;
 
           hasValidExistingChapter = !isTitleOrCover && !isTooShort;
-
-          if (isTooShort) {
-            print('🔧 Existing chapter too short (${contentLength} bytes), will recreate chapters');
-          }
         }
 
         if (hasValidExistingChapter) {
-          print('✅ EPUB has 1 valid chapter with real content, keeping original structure');
           return;
         }
-
-        print('🔧 Fixing EPUB: Found ${chapters.length} chapters but ${htmlFiles.length} HTML + ${images.length} image files');
-        print('🔧 Creating virtual chapters from content files...');
 
         final newChapters = <EpubChapter>[];
 
@@ -80,18 +68,14 @@ class EpubChapterFixer {
 
         if (newChapters.isNotEmpty) {
           epubBook.Chapters = newChapters;
-          print('🔧 ✅ Created ${newChapters.length} chapters from content files');
         } else {
           // If all chapters were skipped (metadata pages), don't replace original chapters
           // This preserves the working EPUB structure even if we couldn't improve it
-          print('⚠️ No valid content chapters found (all were metadata)');
-          print('⚠️ Keeping original EPUB chapters (${chapters.length})');
         }
       }
 
       // Fix 2: Validate existing chapters have content
       if (chapters.isNotEmpty && _hasInvalidChapters(chapters)) {
-        print('🔧 Repairing chapters with missing content...');
         _repairChapterContent(epubBook);
       }
     } catch (e, st) {
@@ -114,7 +98,6 @@ class EpubChapterFixer {
     Map<String, EpubTextContentFile> htmlFiles,
     List<EpubChapter> newChapters,
   ) {
-    print('🔧 Using spine order for chapter creation');
     int index = 0;
     final List<(String href, String title, String content)> indexSplitFiles = [];
     final List<String> splitChapterTitles = [];
@@ -154,18 +137,12 @@ class EpubChapterFixer {
 
         // Special: Extract chapter titles from index_split_000 (first file with titles)
         if (href.toLowerCase().contains('index_split_000') || href.toLowerCase().contains('index_split_0')) {
-          print('🔧 Extracting chapter titles from $href (content length: ${htmlContent.Content?.length ?? 0})');
           final splitChapters = _splitHtmlByChapters(htmlContent.Content ?? '', fallbackTitle);
-          print('🔧   Split found ${splitChapters.length} chapters');
           for (var (chapterTitle, _) in splitChapters) {
-            print('🔧   Checking title: "$chapterTitle"');
             // Skip if just number without description (duplicates)
             final isJustNumber = RegExp(r'^[Cc][Hh][Aa][Pp][Tt][Ee][Rr]\s+\d+$').hasMatch(chapterTitle);
             if (!isJustNumber && chapterTitle != fallbackTitle && !chapterTitle.toLowerCase().contains('index split')) {
               splitChapterTitles.add(chapterTitle);
-              print('🔧   ✅ Added title: "$chapterTitle"');
-            } else {
-              print('🔧   ❌ Skipped: isJustNumber=$isJustNumber, isFallback=${chapterTitle == fallbackTitle}, containsIndexSplit=${chapterTitle.toLowerCase().contains('index split')}');
             }
           }
         }
@@ -174,7 +151,6 @@ class EpubChapterFixer {
 
       // Skip titlepage/cover
       if (htmlFiles.length > 2 && _shouldSkipChapter(fallbackTitle, href)) {
-        print('🔧   Skipped metadata file: "$fallbackTitle" from $href');
         continue;
       }
 
@@ -191,8 +167,6 @@ class EpubChapterFixer {
 
     // Second pass: Create chapters from collected titles
     if (splitChapterTitles.isNotEmpty && indexSplitFiles.isNotEmpty) {
-      print('🔧 Creating ${splitChapterTitles.length} chapters from ${indexSplitFiles.length} index_split files');
-
       // Calculate how many chapters each file should have
       final totalTitles = splitChapterTitles.length;
       final totalFiles = indexSplitFiles.length;
@@ -202,11 +176,9 @@ class EpubChapterFixer {
       int titleIndex = 0;
       int fileIndex = 0;
 
-      for (var (href, fallbackTitle, content) in indexSplitFiles) {
+      for (var (href, _, content) in indexSplitFiles) {
         // How many chapters for this file?
         final chaptersForThisFile = fileIndex < extraChapters ? baseChaptersPerFile + 1 : baseChaptersPerFile;
-
-        print('🔧   File $href will have $chaptersForThisFile chapters');
 
         for (int i = 0; i < chaptersForThisFile && titleIndex < totalTitles; i++) {
           final chapterTitle = splitChapterTitles[titleIndex];
@@ -221,14 +193,11 @@ class EpubChapterFixer {
           newChapters.add(chapter);
           index++;
           titleIndex++;
-
-          print('🔧   Created chapter $index: "$chapterTitle" from $href');
         }
         fileIndex++;
       }
     } else if (indexSplitFiles.isNotEmpty) {
       // Fallback: No titles collected, use file names
-      print('🔧 Creating chapters from ${indexSplitFiles.length} index_split files (no titles collected)');
       for (var (href, fallbackTitle, content) in indexSplitFiles) {
         final chapter = EpubChapter();
         chapter.Title = fallbackTitle;
@@ -239,8 +208,6 @@ class EpubChapterFixer {
 
         newChapters.add(chapter);
         index++;
-
-        print('🔧   Created chapter $index: "$fallbackTitle" from $href');
       }
     }
   }
@@ -249,7 +216,6 @@ class EpubChapterFixer {
     Map<String, EpubTextContentFile> htmlFiles,
     List<EpubChapter> newChapters,
   ) {
-    print('🔧 Using sorted HTML files for chapter creation');
     final sortedHtmlKeys = htmlFiles.keys.toList()..sort();
     int index = 0;
     final List<(String key, String title, String content)> indexSplitFiles = [];
@@ -272,7 +238,6 @@ class EpubChapterFixer {
       // Skip titlepage/cover BEFORE splitting (for books with many chapters)
       // But process it if this is the only HTML file (broken EPUBs)
       if (htmlFiles.length > 2 && _shouldSkipChapter(fallbackTitle, htmlKey)) {
-        print('🔧   Skipped metadata file: "$fallbackTitle" from $htmlKey');
         continue;
       }
 
@@ -283,7 +248,6 @@ class EpubChapterFixer {
       if (splitChapters.length == 1 && splitChapters[0].$1 == fallbackTitle) {
         // Check if this looks like index_split file with no content
         if (fallbackTitle.toLowerCase().contains('index split') || fallbackTitle.toLowerCase().contains('index_split')) {
-          print('🔧   Skipped empty index_split file: "$fallbackTitle" from $htmlKey');
           continue;
         }
       }
@@ -298,14 +262,11 @@ class EpubChapterFixer {
 
         newChapters.add(chapter);
         index++;
-
-        print('🔧   Created chapter $index: "$chapterTitle" from $htmlKey');
       }
     }
 
     // Second pass: if no chapters found, use index_split files (for broken EPUBs)
     if (newChapters.isEmpty && indexSplitFiles.isNotEmpty) {
-      print('🔧 No regular chapters found, using index_split files for broken EPUB');
       index = 0;
       for (var (key, title, content) in indexSplitFiles) {
         final splitChapters = _splitHtmlByChapters(content, title);
@@ -320,8 +281,6 @@ class EpubChapterFixer {
 
           newChapters.add(chapter);
           index++;
-
-          print('🔧   Created chapter $index: "$chapterTitle" from index_split');
         }
       }
     }
@@ -457,8 +416,6 @@ class EpubChapterFixer {
         return [(fallbackTitle, htmlContent)];
       }
 
-      print('🔧 Found ${chapterMatches.length} valid chapters in single HTML file');
-
       final chapters = <(String title, String content)>[];
 
       for (int i = 0; i < chapterMatches.length; i++) {
@@ -469,7 +426,6 @@ class EpubChapterFixer {
         // Example: "CHAPTER 1" or "Chapter 1" without " - description"
         final isJustNumber = RegExp(r'^[Cc][Hh][Aa][Pp][Tt][Ee][Rr]\s+\d+$').hasMatch(chapterTitle);
         if (isJustNumber) {
-          print('🔧   Skipped duplicate chapter (no description): "$chapterTitle"');
           continue;
         }
 
@@ -496,7 +452,6 @@ class EpubChapterFixer {
 </html>''';
 
         chapters.add((chapterTitle, wrappedContent));
-        print('🔧   Split chapter: "$chapterTitle"');
       }
 
       if (chapters.isEmpty) {

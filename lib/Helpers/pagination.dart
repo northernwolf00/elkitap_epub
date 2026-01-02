@@ -94,6 +94,35 @@ class PagingTextHandler extends GetxController {
       print('⚠️ Already on first page');
     }
   }
+
+  // Navigate to specific page (for sub-chapter navigation)
+  Future<bool> goToPage(int pageIndex) async {
+    print('🔄 goToPage called: $pageIndex');
+    final state = _pageFlipController?.currentState;
+    if (state == null) {
+      print('❌ PageFlipController state is null!');
+      return false;
+    }
+
+    final totalPagesCount = state.pages.length;
+    print('📄 Target: $pageIndex, Total: $totalPagesCount');
+
+    // Validate page index
+    if (pageIndex >= 0 && pageIndex < totalPagesCount) {
+      print('✅ Navigating to page $pageIndex...');
+
+      // Use goToPage for proper animation and state management
+      await state.goToPage(pageIndex);
+
+      // Trigger the onPageFlip callback after navigation
+      state.widget.onPageFlip(pageIndex);
+      print('✅ Navigation complete. New page: $pageIndex');
+      return true;
+    } else {
+      print('⚠️ Invalid page index: $pageIndex (total: $totalPagesCount)');
+      return false;
+    }
+  }
 }
 
 class PagingWidget extends StatefulWidget {
@@ -201,6 +230,26 @@ class _PagingWidgetState extends State<PagingWidget> {
     });
   }
 
+  // Helper function to extract ONLY text from a node, excluding cite elements
+  String _extractTextOnly(dom.Element element, {bool excludeCite = false}) {
+    StringBuffer buffer = StringBuffer();
+
+    for (var child in element.nodes) {
+      if (child is dom.Text) {
+        buffer.write(child.text);
+      } else if (child is dom.Element) {
+        // Skip cite elements completely if excludeCite is true
+        if (excludeCite && child.localName == 'cite') {
+          continue;
+        }
+        // Recursively get text from other elements
+        buffer.write(_extractTextOnly(child, excludeCite: excludeCite));
+      }
+    }
+
+    return buffer.toString();
+  }
+
   Future<void> _paginate() async {
     print('📖 Starting pagination...');
     final pageSize = _initializedRenderBox.size;
@@ -214,9 +263,33 @@ class _PagingWidgetState extends State<PagingWidget> {
     var document = html_parser.parse(contentToParse);
     List<InlineSpan> spans = [];
 
-    double maxWidth = pageSize.width - 64.w;
+    double maxWidth = pageSize.width - 32.w;
 
-    for (var node in document.body!.nodes) {
+    // Prepare chapter title for matching
+    final chapterTitleLower = widget.chapterTitle.trim().toLowerCase();
+    print('📌 Chapter title to skip: "$chapterTitleLower"');
+
+    for (var i = 0; i < document.body!.nodes.length; i++) {
+      final node = document.body!.nodes[i];
+
+      // Check if this node is just the chapter title - skip it
+      String nodeText = '';
+      if (node is dom.Element) {
+        nodeText = node.text.trim();
+      } else if (node is dom.Text) {
+        nodeText = node.text.trim();
+      }
+
+      // Skip if node text matches chapter title exactly or is contained in it
+      if (chapterTitleLower.isNotEmpty && nodeText.isNotEmpty) {
+        final nodeTextLower = nodeText.toLowerCase();
+        if (nodeTextLower == chapterTitleLower ||
+            chapterTitleLower.contains(nodeTextLower) && nodeText.length > 2) {
+          print('🗑️ Skipping duplicate chapter title node: "$nodeText"');
+          continue;
+        }
+      }
+
       spans.add(await _parseNode(node, maxWidth));
     }
 
@@ -229,12 +302,13 @@ class _PagingWidgetState extends State<PagingWidget> {
     if (node is dom.Text) {
       String text = node.text;
 
-      // Remove all types of excessive whitespace
+      // Remove all types of excessive whitespace BUT preserve newlines
       text = text.replaceAll('\u00A0', ' '); // Non-breaking space
       text = text.replaceAll('\u200B', ''); // Zero-width space
       text = text.replaceAll('\u2009', ' '); // Thin space
       text = text.replaceAll('\u202F', ' '); // Narrow no-break space
-      text = text.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
+      // Replace ALL whitespace (including newlines) with single space for continuous text flow
+      text = text.replaceAll(RegExp(r'\s+'), ' ');
 
       if (text.trim().isEmpty) {
         return const TextSpan(text: '');
@@ -242,19 +316,17 @@ class _PagingWidgetState extends State<PagingWidget> {
 
       // Clean up punctuation spacing
       text = text.replaceAll(RegExp(r'\s+([.,;:!?\)\]»])'), '\$1');
-      text = text.replaceAll(RegExp(r'([(\[«])\s+'), '\$1');
-      text = text.replaceAll(RegExp(r' {2,}'), ' ');
-
-      // Add soft hyphens for proper word breaking
-      text = _addSoftHyphens(text);
+      text = text.replaceAll(RegExp(r'([([«])\s+'), '\$1');
 
       return TextSpan(
         text: text,
         style: widget.style.copyWith(
           fontFamily: 'SFPro',
           height: 1.5,
-          letterSpacing: 0,
-          wordSpacing: 0,
+          letterSpacing: 0.1,
+          wordSpacing: 0.5,
+          // Enable word breaking for long words in Turkmen/Russian
+          overflow: TextOverflow.visible,
         ),
       );
     } else if (node is dom.Element) {
@@ -263,16 +335,220 @@ class _PagingWidgetState extends State<PagingWidget> {
       } else if (node.localName == 'br') {
         return const TextSpan(text: "\n");
       } else if (node.localName == 'p' || node.localName == 'div') {
+        // Normal paragraph
         List<InlineSpan> children = [];
+
+        // Add paragraph indent using non-breaking spaces
+        children.add(TextSpan(
+          text:
+              '\u00A0\u00A0\u00A0\u00A0\u00A0', // 5 non-breaking spaces for indent
+          style: widget.style,
+        ));
+
         for (var child in node.nodes) {
           final span = await _parseNode(child, maxWidth);
           children.add(span);
         }
-        children.add(const TextSpan(text: "\n"));
+
+        // Add single line paragraph break like Apple Books
+        children.add(const TextSpan(text: '\n'));
+
         return TextSpan(children: children);
       } else if (node.localName == 'h1' ||
           node.localName == 'h2' ||
           node.localName == 'h3') {
+        List<InlineSpan> children = [];
+
+        // Add spacing before heading
+        children.add(const TextSpan(text: '\n'));
+
+        for (var child in node.nodes) {
+          children.add(await _parseNode(child, maxWidth));
+        }
+
+        // Add spacing after heading
+        children.add(const TextSpan(text: '\n\n'));
+
+        return TextSpan(
+          children: children,
+          style: widget.style.copyWith(
+            fontSize: (widget.style.fontSize ?? 16) + 4,
+            fontWeight: FontWeight.w500,
+            fontStyle: FontStyle.italic,
+            height: 1.5,
+          ),
+        );
+      } else if (node.localName == 'blockquote') {
+        // Epigraph/quote - right aligned, italic like Apple Books
+        // ONLY extract text, completely ignore ALL child elements (including cite)
+        String fullText = _extractTextOnly(node, excludeCite: true);
+
+        fullText = fullText.trim();
+        if (fullText.isEmpty) {
+          return const TextSpan(text: '');
+        }
+
+        print('📝 Blockquote full text: "$fullText"');
+
+        // Try to detect author name at the end
+        // Simple approach: Last 2-4 capitalized words without ending punctuation
+        String? authorName;
+        String quoteText = fullText;
+
+        // Split into words
+        List<String> words = fullText.split(RegExp(r'\s+'));
+
+        // Check last 2-4 words
+        if (words.length >= 4) {
+          // Try last 2 words
+          String lastTwo = words.sublist(words.length - 2).join(' ');
+          bool allCaps = words.sublist(words.length - 2).every((w) {
+            if (w.isEmpty) return false;
+            return w[0] == w[0].toUpperCase() && w[0] != w[0].toLowerCase();
+          });
+
+          // No punctuation at end
+          bool noPunct = !lastTwo.endsWith('.') &&
+              !lastTwo.endsWith('!') &&
+              !lastTwo.endsWith('?') &&
+              !lastTwo.endsWith(',');
+
+          if (allCaps && noPunct) {
+            print('🔍 Detected 2-word author: "$lastTwo"');
+            authorName = lastTwo;
+            quoteText = words.sublist(0, words.length - 2).join(' ');
+          } else {
+            // Try last 3 words
+            if (words.length >= 5) {
+              String lastThree = words.sublist(words.length - 3).join(' ');
+              bool allCaps3 = words.sublist(words.length - 3).every((w) {
+                if (w.isEmpty) return false;
+                return w[0] == w[0].toUpperCase() && w[0] != w[0].toLowerCase();
+              });
+              bool noPunct3 = !lastThree.endsWith('.') &&
+                  !lastThree.endsWith('!') &&
+                  !lastThree.endsWith('?') &&
+                  !lastThree.endsWith(',');
+
+              if (allCaps3 && noPunct3) {
+                print('🔍 Detected 3-word author: "$lastThree"');
+                authorName = lastThree;
+                quoteText = words.sublist(0, words.length - 3).join(' ');
+              }
+            }
+          }
+        }
+
+        // Clean up whitespace and punctuation
+        quoteText = quoteText.replaceAll('\u00A0', ' ');
+        quoteText = quoteText.replaceAll('\u200B', '');
+        quoteText = quoteText.replaceAll('\u2009', ' ');
+        quoteText = quoteText.replaceAll('\u202F', ' ');
+        quoteText = quoteText.replaceAll(RegExp(r'\s+'), ' ');
+        quoteText = quoteText.replaceAll(RegExp(r'\s+([.,;:!?\)\]»])'), '\$1');
+        quoteText = quoteText.replaceAll(RegExp(r'([([«])\s+'), '\$1');
+        quoteText = quoteText.trim();
+
+        print('📖 Final quote text: "$quoteText"');
+        if (authorName != null) {
+          print('✍️ Final author name: "$authorName"');
+        }
+
+        // ALWAYS show quote text, even if empty after author detection
+        if (quoteText.isEmpty && authorName != null) {
+          // If we accidentally removed all text, restore it
+          quoteText = fullText;
+          authorName = null;
+          print(
+              '⚠️ Quote was empty after author detection - restoring full text');
+        }
+
+        // Build the widget - quote only (author will be separate)
+        List<InlineSpan> spans = [];
+
+        // Add quote
+        spans.add(WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Container(
+            padding: EdgeInsets.fromLTRB(maxWidth / 2.5, 0.h, 0.w, 8.h),
+            child: RichText(
+              textAlign: TextAlign.justify,
+              text: TextSpan(
+                style: widget.style.copyWith(
+                  fontStyle: FontStyle.italic,
+                  height: 1.5,
+                ),
+                children: [
+                  TextSpan(text: '\u00A0\u00A0\u00A0\u00A0\u00A0'),
+                  TextSpan(text: quoteText),
+                ],
+              ),
+            ),
+          ),
+        ));
+
+        // Add author if detected
+        if (authorName != null && authorName.isNotEmpty) {
+          print('✅ Adding author widget: "$authorName"');
+          spans.add(WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(maxWidth / 3, 3.h, 0.w, 4.h),
+              child: Center(
+                child: Text(
+                  authorName,
+                  textAlign: TextAlign.center,
+                  style: widget.style.copyWith(
+                    fontStyle: FontStyle.normal,
+                    fontWeight: FontWeight.bold,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
+          ));
+        } else {
+          print('⚠️ No author detected in blockquote');
+        }
+
+        return TextSpan(children: spans);
+      } else if (node.localName == 'cite') {
+        // Author/citation - centered below quote like Apple Books
+        String authorText = '';
+        for (var child in node.nodes) {
+          if (child is dom.Text) {
+            authorText += child.text;
+          } else if (child is dom.Element) {
+            authorText += child.text;
+          }
+        }
+
+        authorText = authorText.trim();
+        if (authorText.isEmpty) {
+          return const TextSpan(text: '');
+        }
+
+        return WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Container(
+            width: maxWidth,
+            padding: EdgeInsets.fromLTRB(0.w, 16.h, 0.w, 24.h),
+            child: Text(
+              authorText,
+              textAlign: TextAlign.center,
+              style: widget.style.copyWith(
+                fontStyle: FontStyle.normal,
+                fontWeight: FontWeight.bold,
+                height: 1.3,
+              ),
+            ),
+          ),
+        );
+      } else if (node.localName == 'em' || node.localName == 'i') {
+        // Italic text
         List<InlineSpan> children = [];
         for (var child in node.nodes) {
           children.add(await _parseNode(child, maxWidth));
@@ -280,9 +556,19 @@ class _PagingWidgetState extends State<PagingWidget> {
         return TextSpan(
           children: children,
           style: widget.style.copyWith(
-            fontSize: (widget.style.fontSize ?? 16) + 4,
+            fontStyle: FontStyle.italic,
+          ),
+        );
+      } else if (node.localName == 'strong' || node.localName == 'b') {
+        // Bold text
+        List<InlineSpan> children = [];
+        for (var child in node.nodes) {
+          children.add(await _parseNode(child, maxWidth));
+        }
+        return TextSpan(
+          children: children,
+          style: widget.style.copyWith(
             fontWeight: FontWeight.bold,
-            height: 1.5,
           ),
         );
       } else {
@@ -555,9 +841,23 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     List<InlineSpan> currentPageSpans = [];
     double currentHeight = 0;
-    double maxWidth = pageSize.width - 64.w;
-    double maxHeight =
-        pageSize.height - 80.h; // Optimized for more content per page
+
+    double horizontalPadding = 10.w; // Consistent minimal padding
+    if (pageSize.width >= 600) {
+      horizontalPadding =
+          20.w; // Slightly more for tablets but still much less than before
+    }
+    double maxWidth = pageSize.width - horizontalPadding;
+
+    // Calculate available height for content to FILL THE PAGE COMPLETELY
+    // CRITICAL: Must fill page like a real book - NO large empty spaces!
+    // No reserved space - fill page completely!
+    double reservedSpace = 0.0;
+    double maxHeight = pageSize.height - reservedSpace;
+
+    print('📏 Page size: ${pageSize.width} x ${pageSize.height}');
+    print(
+        '📏 Reserved: $reservedSpace | Available: $maxHeight (${((maxHeight / pageSize.height) * 100).toStringAsFixed(0)}% of page)');
 
     for (int i = 0; i < flatSpans.length; i++) {
       final span = flatSpans[i];
@@ -574,24 +874,37 @@ class _PagingWidgetState extends State<PagingWidget> {
           painter.layout(maxWidth: maxWidth);
           spanHeight = painter.height;
           painter.dispose();
+          print('✅ Measured WidgetSpan: $spanHeight');
         } catch (e) {
-          spanHeight = 300; // Default image height estimate
-          print('⚠️ Could not measure WidgetSpan, using estimate: $spanHeight');
+          // Much smaller estimate for quotes/author names
+          // Quote typically: padding + text (~80-120h)
+          // Author name: padding + text (~40-60h)
+          spanHeight = 100.h; // Realistic estimate instead of 300!
+          print(
+              '⚠️ Could not measure WidgetSpan, using REDUCED estimate: $spanHeight');
         }
 
         print(
             '🖼️ Widget span height: $spanHeight, current: $currentHeight/$maxHeight');
 
-        // Check if we need a new page
-        if (currentHeight + spanHeight > maxHeight &&
+        // Aggressive page filling: Try to fit widget on current page
+        // Only create new page if widget + current content significantly exceeds limit
+        // Use 20% tolerance to fill pages better and reduce empty space
+        if (currentHeight + spanHeight > maxHeight * 1.20 &&
             currentPageSpans.isNotEmpty) {
+          // Only create new page if we really need it
           _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
           currentPageSpans.clear();
           currentHeight = 0;
+          print(
+              '📄 New page created before widget (would significantly exceed)');
         }
 
         currentPageSpans.add(span);
         currentHeight += spanHeight;
+
+        // IMPORTANT: Don't create new page immediately after widget!
+        // Allow text to continue filling the page to maximum capacity
       } else if (span is TextSpan && span.text != null) {
         String text = span.text!;
         TextPainter painter = TextPainter(
@@ -601,8 +914,9 @@ class _PagingWidgetState extends State<PagingWidget> {
         );
         painter.layout(maxWidth: maxWidth);
 
-        if (currentHeight + painter.height <= maxHeight) {
-          // Fits on current page
+        // Allow 10% overflow to fill pages completely (like real books)
+        if (currentHeight + painter.height <= maxHeight * 1.10) {
+          // Fits on current page (with tolerance)
           currentPageSpans.add(span);
           currentHeight += painter.height;
         } else {
@@ -612,7 +926,8 @@ class _PagingWidgetState extends State<PagingWidget> {
 
           int charIndex = 0;
           for (var line in lines) {
-            if (currentHeight + chunkHeight + line.height > maxHeight) {
+            // Allow overflow per line for maximum page filling
+            if (currentHeight + chunkHeight + line.height > maxHeight * 1.10) {
               if (currentChunk.isNotEmpty) {
                 currentPageSpans.add(
                   TextSpan(text: currentChunk.toString(), style: span.style),
@@ -636,6 +951,10 @@ class _PagingWidgetState extends State<PagingWidget> {
             endOffset = endOffset.clamp(charIndex, text.length);
 
             String lineText = text.substring(charIndex, endOffset);
+
+            // Check if line breaks mid-word and add hyphen if needed
+            lineText = _addHyphenIfLineBreaksMidWord(lineText, text, endOffset);
+
             currentChunk.write(lineText);
             chunkHeight += line.height;
             charIndex = endOffset;
@@ -657,7 +976,8 @@ class _PagingWidgetState extends State<PagingWidget> {
             );
             remainingPainter.layout(maxWidth: maxWidth);
 
-            if (currentHeight + remainingPainter.height > maxHeight) {
+            // Allow 10% overflow for remaining text too
+            if (currentHeight + remainingPainter.height > maxHeight * 1.10) {
               _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
               currentPageSpans.clear();
               currentHeight = 0;
@@ -684,6 +1004,67 @@ class _PagingWidgetState extends State<PagingWidget> {
     _finalizePages();
   }
 
+  // Function to detect if line breaks mid-word and add hyphen ONLY there
+  // Improved for English, Russian, and Turkmen word breaking
+  String _addHyphenIfLineBreaksMidWord(
+      String lineText, String fullText, int endOffset) {
+    // Check if we're at end of full text
+    if (endOffset >= fullText.length) return lineText;
+
+    // Don't add hyphen if line is empty or already ends with whitespace/punctuation
+    if (lineText.isEmpty ||
+        lineText.endsWith(' ') ||
+        lineText.endsWith('\n') ||
+        lineText.endsWith('-') ||
+        lineText.endsWith('.') ||
+        lineText.endsWith(',') ||
+        lineText.endsWith('!') ||
+        lineText.endsWith('?')) {
+      return lineText;
+    }
+
+    // Check if next character in full text is whitespace or punctuation (natural word boundary)
+    if (endOffset < fullText.length) {
+      final nextChar = fullText[endOffset];
+      if (nextChar == ' ' ||
+          nextChar == '\n' ||
+          nextChar == '.' ||
+          nextChar == ',' ||
+          nextChar == '!' ||
+          nextChar == '?') {
+        return lineText; // Natural word boundary, no hyphen needed
+      }
+    }
+
+    // Word is actually broken mid-word!
+    // Check if it contains alphabetic characters (English/Russian/Turkmen)
+    // Minimum 6 characters to avoid breaking short words
+    // Supports:
+    // - Latin (English): a-z, A-Z
+    // - Cyrillic (Russian): U+0400-04FF
+    // - Cyrillic Extended (Turkmen): U+0500-052F
+    final match =
+        RegExp(r'[a-zA-Z\u0400-\u04FF\u0500-\u052F]{6,}$').firstMatch(lineText);
+    if (match == null) return lineText;
+
+    // Extract the word that's being broken
+    final brokenWord = match.group(0);
+    if (brokenWord == null || brokenWord.length < 6) return lineText;
+
+    // Make sure we're not breaking too close to the beginning
+    // At least 3 characters should remain on first line
+    final remainingChars =
+        lineText.length - lineText.lastIndexOf(RegExp(r'\s')) - 1;
+    if (remainingChars < 3) return lineText;
+
+    // Add hyphen at line break for better readability
+    // Examples:
+    // English: "instructions" → "instruc-" + "tions"
+    // Russian: "инструкция" → "инстру-" + "кция"
+    // Turkmen: "kitaphanasy" → "kitap-" + "hanasy"
+    return lineText + '-';
+  }
+
   void _finalizePages() {
     final bottomNavHeight = widget.showNavBar ? 10.0 : 0.0;
 
@@ -701,7 +1082,8 @@ class _PagingWidgetState extends State<PagingWidget> {
         bookId: widget.bookId,
         onTextTap: widget.onTextTap,
         isFirstPage: isFirstPageOfChapter,
-        chapterTitle: isFirstPageOfChapter ? widget.chapterTitle : null,
+        chapterTitle:
+            widget.chapterTitle, // Always show chapter title on every page
         pageNumber: index + 1,
         totalPages: _pageSpans.length,
         backgroundColor: widget.style.backgroundColor,
@@ -723,48 +1105,6 @@ class _PagingWidgetState extends State<PagingWidget> {
     });
   }
 
-  // Add soft hyphens to allow proper word breaking with hyphens
-  String _addSoftHyphens(String text) {
-    // Split into words and add soft hyphens to long words (support Cyrillic)
-    return text.replaceAllMapped(RegExp(r'\b[\w\u0400-\u04FF]{8,}\b'), (match) {
-      String word = match.group(0)!;
-      // Don't hyphenate if word already contains hyphens, soft hyphens, or is a number
-      if (word.contains('-') || word.contains('\u00AD') || RegExp(r'^\d+$').hasMatch(word)) {
-        return word;
-      }
-
-      // Check if word is Russian (Cyrillic) or English
-      bool isRussian = RegExp(r'[\u0400-\u04FF]').hasMatch(word);
-
-      StringBuffer result = StringBuffer();
-      for (int i = 0; i < word.length; i++) {
-        result.write(word[i]);
-
-        // Russian hyphenation rules
-        if (isRussian && i > 2 && i < word.length - 2) {
-          // Add soft hyphen after consonants before vowels in Russian
-          String current = word[i];
-          String next = i < word.length - 1 ? word[i + 1] : '';
-
-          bool currentIsConsonant = RegExp(r'[бвгджзклмнпрстфхцчшщБВГДЖЗКЛМНПРСТФХЦЧШЩ]').hasMatch(current);
-          bool nextIsVowel = RegExp(r'[аэоуиыяюеёАЭОУИЫЯЮЕЁ]').hasMatch(next);
-
-          if (currentIsConsonant && nextIsVowel && (i % 3 == 0 || i % 4 == 0)) {
-            result.write('\u00AD'); // Soft hyphen (U+00AD)
-          }
-        }
-        // English hyphenation rules
-        else if (!isRussian && i > 3 && i < word.length - 3) {
-          // Add soft hyphen after vowels when word is long enough
-          if ((i % 4 == 0 || i % 5 == 0) && 'aeiouAEIOU'.contains(word[i])) {
-            result.write('\u00AD'); // Soft hyphen (U+00AD)
-          }
-        }
-      }
-      return result.toString();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<void>(
@@ -783,7 +1123,7 @@ class _PagingWidgetState extends State<PagingWidget> {
         if (snapshot.hasError) {
           return Center(
             child: Padding(
-              padding: EdgeInsets.all(32.w),
+              padding: EdgeInsets.all(18.w),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -853,4 +1193,6 @@ class _PagingWidgetState extends State<PagingWidget> {
       },
     );
   }
+
+  /// Add soft hyphens to long words for better text breaking in justified text
 }
