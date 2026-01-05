@@ -849,10 +849,34 @@ class _PagingWidgetState extends State<PagingWidget> {
     }
     double maxWidth = pageSize.width - horizontalPadding;
 
-    // Calculate available height for content to FILL THE PAGE COMPLETELY
-    // CRITICAL: Must fill page like a real book - NO large empty spaces!
-    // No reserved space - fill page completely!
-    double reservedSpace = 0.0;
+    // Calculate available height for content to prevent text cutoff
+    // Account for all UI elements that take up space:
+    // - Header: ~56.h (app bar)
+    // - Top padding: 8.h (from buildBookPageSpan)
+    // - Bottom padding: 16.h (from buildBookPageSpan)
+    // - Chapter title: ~40-50.h (when present)
+    // - Bottom navigation: 60-80.h (when shown)
+    // - Safe area insets: variable (for notched devices)
+    // - Extra safety margin: 20.h
+
+    double baseReservedSpace =
+        56.h + 8.h + 16.h + 20.h; // Header + paddings + safety (100.h)
+    double chapterTitleSpace = 45.h; // Space for chapter title
+    double bottomNavSpace =
+        widget.showNavBar ? 40.h : 0.h; // Bottom nav if shown
+
+    double reservedSpace =
+        baseReservedSpace + chapterTitleSpace + bottomNavSpace;
+
+    // Adjust for different screen sizes to ensure text never gets cut off
+    if (pageSize.height < 600) {
+      // Small phones - be more conservative with space
+      reservedSpace = reservedSpace * 0.95;
+    } else if (pageSize.height > 900) {
+      // Tablets/large phones - add more space for better readability
+      reservedSpace = reservedSpace * 1.15;
+    }
+
     double maxHeight = pageSize.height - reservedSpace;
 
     print('📏 Page size: ${pageSize.width} x ${pageSize.height}');
@@ -890,7 +914,8 @@ class _PagingWidgetState extends State<PagingWidget> {
         // Aggressive page filling: Try to fit widget on current page
         // Only create new page if widget + current content significantly exceeds limit
         // Use 20% tolerance to fill pages better and reduce empty space
-        if (currentHeight + spanHeight > maxHeight * 1.20 &&
+        // FIX: strict check, no overflow allowed
+        if (currentHeight + spanHeight > maxHeight &&
             currentPageSpans.isNotEmpty) {
           // Only create new page if we really need it
           _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
@@ -915,7 +940,8 @@ class _PagingWidgetState extends State<PagingWidget> {
         painter.layout(maxWidth: maxWidth);
 
         // Allow 10% overflow to fill pages completely (like real books)
-        if (currentHeight + painter.height <= maxHeight * 1.10) {
+        // FIX: strict check, no overflow allowed
+        if (currentHeight + painter.height <= maxHeight) {
           // Fits on current page (with tolerance)
           currentPageSpans.add(span);
           currentHeight += painter.height;
@@ -927,7 +953,8 @@ class _PagingWidgetState extends State<PagingWidget> {
           int charIndex = 0;
           for (var line in lines) {
             // Allow overflow per line for maximum page filling
-            if (currentHeight + chunkHeight + line.height > maxHeight * 1.10) {
+            // FIX: strict check per line
+            if (currentHeight + chunkHeight + line.height > maxHeight) {
               if (currentChunk.isNotEmpty) {
                 currentPageSpans.add(
                   TextSpan(text: currentChunk.toString(), style: span.style),
@@ -977,7 +1004,8 @@ class _PagingWidgetState extends State<PagingWidget> {
             remainingPainter.layout(maxWidth: maxWidth);
 
             // Allow 10% overflow for remaining text too
-            if (currentHeight + remainingPainter.height > maxHeight * 1.10) {
+            // FIX: strict remaining check
+            if (currentHeight + remainingPainter.height > maxHeight) {
               _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
               currentPageSpans.clear();
               currentHeight = 0;

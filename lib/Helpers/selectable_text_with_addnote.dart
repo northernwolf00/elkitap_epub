@@ -112,7 +112,8 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     formatted = formatted.replaceAll('\u200B', ''); // Zero-width space
     formatted = formatted.replaceAll('\u2009', ' '); // Thin space
     formatted = formatted.replaceAll('\u202F', ' '); // Narrow no-break space
-    formatted = formatted.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
+    formatted =
+        formatted.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
 
     // Remove spaces at the beginning and end of lines
     formatted = formatted.replaceAll(RegExp(r'^\s+', multiLine: true), '');
@@ -170,7 +171,9 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
           String current = word[i];
           String next = i < word.length - 1 ? word[i + 1] : '';
 
-          bool currentIsConsonant = RegExp(r'[бвгджзклмнпрстфхцчшщБВГДЖЗКЛМНПРСТФХЦЧШЩ]').hasMatch(current);
+          bool currentIsConsonant =
+              RegExp(r'[бвгджзклмнпрстфхцчшщБВГДЖЗКЛМНПРСТФХЦЧШЩ]')
+                  .hasMatch(current);
           bool nextIsVowel = RegExp(r'[аэоуиыяюеёАЭОУИЫЯЮЕЁ]').hasMatch(next);
 
           if (currentIsConsonant && nextIsVowel && (i % 3 == 0 || i % 4 == 0)) {
@@ -316,8 +319,8 @@ class BookPageBuilder {
           padding: EdgeInsets.only(
             left: 16.w,
             right: 16.w,
-            top: 4.h,  // Reduced from 8h
-            bottom: 4.h,  // Reduced from 12h to maximize content area
+            top: 8.h, // Increased for better header spacing
+            bottom: 16.h, // Increased to prevent text cutoff at bottom
           ),
           child: Directionality(
             textDirection: textDirection,
@@ -331,22 +334,23 @@ class BookPageBuilder {
                     // Chapter title header on ALL pages
                     if (chapterTitle != null) ...[
                       if (isFirstPage) ...[
-                        SizedBox(height: 4.h),  // Reduced from 8h
+                        SizedBox(height: 4.h), // Reduced from 8h
                         Text(
                           chapterTitle,
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: style.copyWith(
-                            fontSize: (style.fontSize ?? 16) + 2,  // Smaller title
+                            fontSize:
+                                (style.fontSize ?? 16) + 2, // Smaller title
                             fontWeight: FontWeight.w500,
-                            height: 1.1,  // Tighter spacing
+                            height: 1.1, // Tighter spacing
                             letterSpacing: 0.1,
                           ),
                         ),
-                        SizedBox(height: 6.h),  // Reduced from 10h
+                        SizedBox(height: 6.h), // Reduced from 10h
                       ] else ...[
-                        SizedBox(height: 2.h),  // Reduced from 4h
+                        SizedBox(height: 2.h), // Reduced from 4h
                         Text(
                           chapterTitle,
                           textAlign: TextAlign.center,
@@ -355,40 +359,51 @@ class BookPageBuilder {
                           style: style.copyWith(
                             fontSize: (style.fontSize ?? 16) - 2,
                             fontWeight: FontWeight.w400,
-                            height: 1.0,  // Tighter spacing
-                            color: (style.color ?? Colors.black).withValues(alpha: 0.5),
+                            height: 1.0, // Tighter spacing
+                            color: (style.color ?? Colors.black)
+                                .withValues(alpha: 0.5),
                           ),
                         ),
-                        SizedBox(height: 4.h),  // Reduced from 6h
+                        SizedBox(height: 4.h), // Reduced from 6h
                       ],
                     ],
 
                     // Main content - fill remaining space completely
                     Expanded(
-                      child: Selectable(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Selectable(
                           selectWordOnLongPress: true,
                           selectWordOnDoubleTap: true,
-                          selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
+                          selectionColor:
+                              const Color(0xFFB8B3E9).withValues(alpha: 0.5),
                           popupMenuItems: [
                             SelectableMenuItem(
                               title: CosmosEpubLocalization.t('add_note'),
-                              isEnabled: (controller) => controller!.isTextSelected,
+                              isEnabled: (controller) =>
+                                  controller!.isTextSelected,
                               handler: (controller) {
-                                final selectedText = controller!.getSelection()!.text!;
-                                _handleAddNoteFromSpan(context, bookId, selectedText);
+                                final selectedText =
+                                    controller!.getSelection()!.text!;
+                                _handleAddNoteFromSpan(
+                                    context, bookId, selectedText);
                                 return true;
                               },
                             ),
                             SelectableMenuItem(
                               title: CosmosEpubLocalization.t('share'),
-                              isEnabled: (controller) => controller!.isTextSelected,
+                              isEnabled: (controller) =>
+                                  controller!.isTextSelected,
                               handler: (controller) {
-                                final selectedText = controller!.getSelection()!.text!;
+                                final selectedText =
+                                    controller!.getSelection()!.text!;
 
-                                final box = context.findRenderObject() as RenderBox?;
+                                final box =
+                                    context.findRenderObject() as RenderBox?;
                                 if (box == null) return true;
 
-                                final position = box.localToGlobal(Offset.zero) & box.size;
+                                final position =
+                                    box.localToGlobal(Offset.zero) & box.size;
 
                                 SharePlus.instance.share(
                                   ShareParams(
@@ -406,7 +421,8 @@ class BookPageBuilder {
                           ],
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              print('📝 RichText container height: ${constraints.maxHeight}');
+                              print(
+                                  '📝 RichText container height: ${constraints.maxHeight}');
                               return RichText(
                                 textAlign: TextAlign.justify,
                                 text: contentSpan,
@@ -414,7 +430,10 @@ class BookPageBuilder {
                             },
                           ),
                         ),
+                      ),
                     ),
+                    // Add bottom spacer to prevent text from touching bottom nav
+                    SizedBox(height: 8.h),
                   ],
                 );
               },
@@ -423,7 +442,8 @@ class BookPageBuilder {
         ));
   }
 
-  static Future<void> _handleAddNoteFromSpan(BuildContext context, String bookId, String selectedText) async {
+  static Future<void> _handleAddNoteFromSpan(
+      BuildContext context, String bookId, String selectedText) async {
     await CosmosEpub.addNote(
       bookId: bookId,
       selectedText: selectedText,
@@ -456,7 +476,8 @@ class BookPageBuilder {
     cleaned = cleaned.replaceAll('\uFEFF', ''); // Zero-width no-break space
 
     // Remove excessive spaces
-    cleaned = cleaned.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
+    cleaned =
+        cleaned.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r' {2,}'), ' ');
 
     // Clean up line breaks
