@@ -774,30 +774,32 @@ class ShowEpubState extends State<ShowEpub> {
   updateTheme(int id, {bool isInit = false}) {
     log('theme id $id');
     staticThemeId = id;
+    bool isDarkMode = Get.isDarkMode;
+
     if (id == 1) {
-      // Original - Light gray
-      backColor = Color(0xFFF5F5F5);
-      fontColor = Colors.black;
+      // Original: White background in light mode, Black in dark mode
+      backColor = isDarkMode ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+      fontColor = isDarkMode ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
     } else if (id == 2) {
-      // Bold - Pure white
-      backColor = Colors.white;
-      fontColor = Colors.black;
+      // Quiet: Dark gray in both modes
+      backColor = const Color(0xFF1C1C1E);
+      fontColor = isDarkMode ? const Color(0xFF8E8E93) : const Color(0xFFE5E5EA);
     } else if (id == 3) {
-      // Paper - Light pinkish gray
-      backColor = Color(0xFFF0ECED);
-      fontColor = Colors.black;
+      // Paper: Light gray in light mode, Dark gray in dark mode
+      backColor = isDarkMode ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+      fontColor = isDarkMode ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
     } else if (id == 4) {
-      // Quiet - Dark gray background with light gray text
-      backColor = Color(0xFF4A4A4C);
-      fontColor = Color(0xFFB8B8B8);
+      // Bold: White in light mode, Black in dark mode (same as Original but with bold text)
+      backColor = isDarkMode ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+      fontColor = isDarkMode ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
     } else if (id == 5) {
-      // Calm - Cream
-      backColor = Color(0xFFf5ebda);
-      fontColor = Colors.black;
+      // Calm: Warm beige in light mode, Dark brown in dark mode
+      backColor = isDarkMode ? const Color(0xFF3A2E2A) : const Color(0xFFFBF1E6);
+      fontColor = isDarkMode ? const Color(0xFFD9C5B2) : const Color(0xFF000000);
     } else {
-      // Focus - Off white
-      backColor = Color(0xFFFFFDF7);
-      fontColor = Colors.black;
+      // Focus: Light gray in light mode, Dark gray in dark mode
+      backColor = isDarkMode ? const Color(0xFF1C1C1E) : const Color(0xFFF8F8F8);
+      fontColor = isDarkMode ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
     }
 
     gs.write(libTheme, id);
@@ -901,7 +903,8 @@ class ShowEpubState extends State<ShowEpub> {
       final currentPageIndex =
           bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
 
-      print('🔙 prevChapter: Keeping page index at $currentPageIndex for chapter $newIndex');
+      print(
+          '🔙 prevChapter: Keeping page index at $currentPageIndex for chapter $newIndex');
 
       // Reload with new chapter - DON'T update chapter index here, reLoadChapter will do it
       reLoadChapter(index: newIndex, startPage: currentPageIndex);

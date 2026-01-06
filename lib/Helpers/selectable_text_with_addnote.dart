@@ -274,7 +274,7 @@ class BookPageBuilder {
     return InkWell(
       onTap: onTextTap,
       child: Container(
-        color: backgroundColor ?? Colors.white,
+        color: backgroundColor ?? const Color(0xFFFFFFFF),
         padding: EdgeInsets.only(
           left: 18.w,
           right: 18.w,
@@ -315,7 +315,7 @@ class BookPageBuilder {
     return InkWell(
         onTap: onTextTap,
         child: Container(
-          color: backgroundColor ?? Colors.white,
+          color: backgroundColor ?? const Color(0xFFFFFFFF),
           padding: EdgeInsets.only(
             left: 16.w,
             right: 16.w,

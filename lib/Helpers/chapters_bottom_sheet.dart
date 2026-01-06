@@ -16,7 +16,8 @@ class ChaptersBottomSheet extends StatefulWidget {
   final String chapterListTitle;
   final int currentPage;
   final int totalPages;
-  final int currentPageInChapter; // New parameter for current page within chapter
+  final int
+      currentPageInChapter; // New parameter for current page within chapter
 
   const ChaptersBottomSheet({
     super.key,
@@ -60,7 +61,8 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
               children: [
                 // Header
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                   child: Column(
                     children: [
                       // Drag handle
@@ -85,20 +87,24 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                             height: 80,
                             width: 60,
                             decoration: BoxDecoration(
-                              color: Colors.red, // fallback background while loading
-                              borderRadius: BorderRadius.circular(8), // optional
+                              color: Colors
+                                  .red, // fallback background while loading
+                              borderRadius:
+                                  BorderRadius.circular(8), // optional
                             ),
                             clipBehavior: Clip.hardEdge,
                             child: CachedNetworkImage(
                               imageUrl: widget.imageUrl, // << put your URL here
                               fit: BoxFit.cover,
-                              placeholder: (context, url) => const LoadingWidget(
+                              placeholder: (context, url) =>
+                                  const LoadingWidget(
                                 height: 80,
                                 animationWidth: 40,
                                 animationHeight: 40,
                               ),
                               errorWidget: (context, url, error) => Center(
-                                child: Icon(Icons.broken_image, color: Colors.white),
+                                child: Icon(Icons.broken_image,
+                                    color: Colors.white),
                               ),
                             ),
                           ),
@@ -160,7 +166,10 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                     ],
                   ),
                 ),
-                Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
+                Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Colors.grey.withOpacity(0.2)),
                 // Chapters list
                 Expanded(
                   child: ListView.separated(
@@ -176,13 +185,20 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                     ),
                     itemBuilder: (context, i) {
                       final chapter = widget.chapters[i];
-                      final currentChapterIndex = bookProgress.getBookProgress(widget.bookId).currentChapterIndex ?? 0;
+                      final currentChapterIndex = bookProgress
+                              .getBookProgress(widget.bookId)
+                              .currentChapterIndex ??
+                          0;
 
                       // Check if this item is currently selected
                       bool isCurrentChapter = false;
-                      if (chapter.isSubChapter && chapter.parentChapterIndex >= 0) {
+                      if (chapter.isSubChapter &&
+                          chapter.parentChapterIndex >= 0) {
                         // Sub-chapter: selected if parent chapter matches AND page matches
-                        isCurrentChapter = (currentChapterIndex == chapter.parentChapterIndex && widget.currentPageInChapter == chapter.pageInChapter);
+                        isCurrentChapter = (currentChapterIndex ==
+                                chapter.parentChapterIndex &&
+                            widget.currentPageInChapter ==
+                                chapter.pageInChapter);
                       } else {
                         // Regular chapter: selected if chapter index matches
                         isCurrentChapter = (currentChapterIndex == i);
@@ -190,25 +206,34 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
 
                       return InkWell(
                         onTap: () async {
-                          print('📌 Chapter tapped: $i, isSubChapter: ${chapter.isSubChapter}, parentChapterIndex: ${chapter.parentChapterIndex}, pageInChapter: ${chapter.pageInChapter}');
+                          print(
+                              '📌 Chapter tapped: $i, isSubChapter: ${chapter.isSubChapter}, parentChapterIndex: ${chapter.parentChapterIndex}, pageInChapter: ${chapter.pageInChapter}');
 
                           // Handle sub-chapter navigation - return Map with navigation info
-                          if (chapter.isSubChapter && chapter.parentChapterIndex >= 0) {
-                            print('📖 Sub-chapter tapped, navigating to parent chapter ${chapter.parentChapterIndex}, page ${chapter.pageInChapter}');
+                          if (chapter.isSubChapter &&
+                              chapter.parentChapterIndex >= 0) {
+                            print(
+                                '📖 Sub-chapter tapped, navigating to parent chapter ${chapter.parentChapterIndex}, page ${chapter.pageInChapter}');
 
                             Navigator.of(context).pop({
                               'isSubChapter': true,
                               'chapterIndex': chapter.parentChapterIndex,
                               'pageIndex': chapter.pageInChapter,
-                              'subchapterIndex': i, // Include the subchapter's own index
-                              'subchapterTitle': chapter.chapter, // Include the subchapter's title
+                              'subchapterIndex':
+                                  i, // Include the subchapter's own index
+                              'subchapterTitle': chapter
+                                  .chapter, // Include the subchapter's title
                             });
                             return;
                           }
 
                           // If tapping the current chapter, navigate to first page of chapter
-                          if (i == bookProgress.getBookProgress(widget.bookId).currentChapterIndex) {
-                            print('📄 Same chapter tapped, navigating to first page');
+                          if (i ==
+                              bookProgress
+                                  .getBookProgress(widget.bookId)
+                                  .currentChapterIndex) {
+                            print(
+                                '📄 Same chapter tapped, navigating to first page');
                             Navigator.of(context).pop({
                               'isSubChapter': false,
                               'chapterIndex': i,
@@ -225,7 +250,9 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                           });
                         },
                         child: Container(
-                          color: isCurrentChapter ? Colors.grey[400] : Colors.grey[200],
+                          color: isCurrentChapter
+                              ? Colors.grey[400]
+                              : Colors.grey[200],
                           padding: EdgeInsets.symmetric(
                             horizontal: 16.w,
                             vertical: 20.h,
@@ -236,16 +263,28 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                               Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.only(
-                                    left: widget.chapters[i].isSubChapter && textDirection == TextDirection.ltr ? 20.w : 0,
-                                    right: widget.chapters[i].isSubChapter && textDirection == TextDirection.rtl ? 20.w : 0,
+                                    left: widget.chapters[i].isSubChapter &&
+                                            textDirection == TextDirection.ltr
+                                        ? 20.w
+                                        : 0,
+                                    right: widget.chapters[i].isSubChapter &&
+                                            textDirection == TextDirection.rtl
+                                        ? 20.w
+                                        : 0,
                                   ),
                                   child: Text(
                                     widget.chapters[i].chapter,
-                                    textDirection: RTLHelper.getTextDirection(widget.chapters[i].chapter),
+                                    textDirection: RTLHelper.getTextDirection(
+                                        widget.chapters[i].chapter),
                                     style: TextStyle(
-                                      color: isCurrentChapter ? Colors.grey[300] : Colors.black54,
+                                      color: isCurrentChapter
+                                          ? Colors.black54
+                                          : Colors.black54,
                                       fontSize: 14.sp,
-                                      fontWeight: widget.chapters[i].isSubChapter ? FontWeight.w400 : FontWeight.bold,
+                                      fontWeight:
+                                          widget.chapters[i].isSubChapter
+                                              ? FontWeight.w400
+                                              : FontWeight.bold,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,

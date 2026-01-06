@@ -45,48 +45,60 @@ class _ThemeGridState extends State<ThemeGrid> {
                     id: 1,
                     title: 'Original',
                     isSelected: widget.staticThemeId == 1,
-                    backgroundColor: cLightGrayColor,
-                    textColor: Colors.black,
+                    backgroundColor:
+                        Get.isDarkMode ? Colors.black : Colors.white,
+                    textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
                     id: 4,
                     title: 'Quiet',
                     isSelected: widget.staticThemeId == 4,
-                    backgroundColor: cDarkGrayColor,
-                    textColor: Colors.white,
+                    backgroundColor: const Color(0xFF1C1C1E),
+                    textColor: Get.isDarkMode
+                        ? const Color(0xFF8E8E93)
+                        : const Color(0xFFE5E5EA),
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
                     id: 3,
                     title: 'Paper',
                     isSelected: widget.staticThemeId == 3,
-                    backgroundColor: Colors.white,
-                    textColor: Colors.black,
+                    backgroundColor: Get.isDarkMode
+                        ? const Color(0xFF2C2C2E)
+                        : const Color(0xFFF2F2F7),
+                    textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
                     id: 2,
                     title: 'Bold',
                     isSelected: widget.staticThemeId == 2,
-                    backgroundColor: Colors.white,
-                    textColor: Colors.black,
+                    backgroundColor:
+                        Get.isDarkMode ? Colors.black : Colors.white,
+                    textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
+                    fontWeight: FontWeight.bold,
                   ),
                   ThemeCard(
                     id: 5,
                     title: 'Calm',
                     isSelected: widget.staticThemeId == 5,
-                    backgroundColor: cCreamColor,
-                    textColor: Colors.black,
+                    backgroundColor: Get.isDarkMode
+                        ? const Color(0xFF3A2E2A)
+                        : const Color(0xFFFBF1E6),
+                    textColor:
+                        Get.isDarkMode ? const Color(0xFFD9C5B2) : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
                     id: 6,
                     title: 'Focus',
                     isSelected: widget.staticThemeId == 6,
-                    backgroundColor: cOffWhiteColor,
-                    textColor: Colors.black,
+                    backgroundColor: Get.isDarkMode
+                        ? const Color(0xFF1C1C1E)
+                        : const Color(0xFFF8F8F8),
+                    textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
                 ],

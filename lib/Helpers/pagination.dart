@@ -195,12 +195,15 @@ class _PagingWidgetState extends State<PagingWidget> {
     if (widget.style.fontSize != oldWidget.style.fontSize ||
         widget.style.fontFamily != oldWidget.style.fontFamily ||
         widget.style.color != oldWidget.style.color ||
+        widget.style.backgroundColor != oldWidget.style.backgroundColor ||
         widget.style.height != oldWidget.style.height ||
         widget.innerHtmlContent != oldWidget.innerHtmlContent ||
         widget.textContent != oldWidget.textContent) {
       print('🔄 Style or content changed - triggering re-pagination');
       print(
           '   Old Size: ${oldWidget.style.fontSize}, New Size: ${widget.style.fontSize}');
+      print(
+          '   Old Background: ${oldWidget.style.backgroundColor}, New Background: ${widget.style.backgroundColor}');
       rePaginate();
     }
   }
@@ -1208,7 +1211,7 @@ class _PagingWidgetState extends State<PagingWidget> {
                         }
                       },
                       backgroundColor:
-                          widget.style.backgroundColor ?? Colors.white,
+                          widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
                       lastPage: widget.lastWidget,
                       children: pages,
                     ),
