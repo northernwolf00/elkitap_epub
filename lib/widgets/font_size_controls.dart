@@ -1,13 +1,14 @@
 import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 class FontSizeControls extends StatelessWidget {
   final Color fontColor;
   final double fontSizeProgress;
   final Function(double) onFontSizeChange;
   final int staticThemeId;
-  final Function(int) updateTheme;
+  final Function(int id, {bool? forceDarkMode}) updateTheme;
 
   const FontSizeControls({
     super.key,
@@ -28,7 +29,7 @@ class FontSizeControls extends StatelessWidget {
           Expanded(
             child: Container(
               height: 43.h,
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 3.h),
+              // padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 3.h),
               decoration: BoxDecoration(
                 color: Colors.grey.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12.r),
@@ -48,16 +49,23 @@ class FontSizeControls extends StatelessWidget {
             margin: EdgeInsets.only(left: 16.w),
             decoration: BoxDecoration(
               color: Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(12.r),
             ),
             child: IconButton(
               icon: Icon(
-                staticThemeId == 4 ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                color: fontColor,
+                Get.isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                color: Get.isDarkMode ? fontColor.withOpacity(.6) : Colors.black,
                 size: 20.sp,
               ),
               onPressed: () {
-                updateTheme(staticThemeId == 4 ? 3 : 4);
+                // Determine target dark mode state (opposite of current)
+                final targetDarkMode = !Get.isDarkMode;
+
+                // Change GetX theme mode
+                Get.changeThemeMode(targetDarkMode ? ThemeMode.dark : ThemeMode.light);
+
+                // Apply theme immediately with forced dark mode value
+                updateTheme(staticThemeId, forceDarkMode: targetDarkMode);
               },
             ),
           ),
@@ -66,37 +74,40 @@ class FontSizeControls extends StatelessWidget {
     );
   }
 
-  Widget _fontButton(BuildContext context, String label, double size, int direction) {
+  Widget _fontButton(BuildContext context, String label, double size, int direction, {bool isDisabled = false}) {
     return Expanded(
       child: InkWell(
         borderRadius: BorderRadius.circular(12.r),
-        splashColor: Colors.grey.withOpacity(0.3),
-        highlightColor: Colors.grey.withOpacity(0.1),
-        onTap: () async {
-          // Show loading dialog
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return const LoadingWidget(
-                height: 150,
-                animationWidth: 80,
-                animationHeight: 80,
-              );
-            },
-          );
+        splashColor: isDisabled ? Colors.transparent : Colors.grey.withOpacity(0.3),
+        highlightColor: isDisabled ? Colors.transparent : Colors.grey.withOpacity(0.1),
+        onTap: isDisabled
+            ? null
+            : () async {
+                // Show loading dialog
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return const LoadingWidget(
+                      height: 150,
+                      animationWidth: 80,
+                      animationHeight: 80,
+                    );
+                  },
+                );
 
-          double newSize = fontSizeProgress + direction;
-          newSize = newSize.clamp(10.0, 24.0);
-          onFontSizeChange(newSize);
+                double newSize = fontSizeProgress + (direction * 2);
+                newSize = newSize.clamp(10.0, 24.0);
 
-          // Small delay to ensure loading is visible and UI has time to process
-          await Future.delayed(const Duration(milliseconds: 500));
+                onFontSizeChange(newSize);
 
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        },
+                // Small delay to ensure loading is visible and UI has time to process
+                await Future.delayed(const Duration(milliseconds: 500));
+
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
         child: Container(
           height: 40.h,
           alignment: Alignment.center,
@@ -104,7 +115,7 @@ class FontSizeControls extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: size,
-              color: fontColor,
+              color: isDisabled ? Colors.grey.withOpacity(0.4) : (Get.isDarkMode ? fontColor.withOpacity(.6) : Colors.black),
               fontWeight: FontWeight.w600,
             ),
           ),

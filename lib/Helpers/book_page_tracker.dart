@@ -1,5 +1,5 @@
-import 'package:cosmos_epub/Model/book_progress_model.dart';
-import 'package:cosmos_epub/Model/chapter_model.dart';
+import 'package:cosmos_epub/models/book_progress_model.dart';
+import 'package:cosmos_epub/models/chapter_model.dart';
 import 'package:isar_community/isar.dart';
 
 class BookPageTracker {
@@ -13,10 +13,7 @@ class BookPageTracker {
     int chapterIndex,
     int pageCount,
   ) async {
-    var progress = await isar.bookProgressModels
-        .filter()
-        .bookIdEqualTo(bookId)
-        .findFirst();
+    var progress = await isar.bookProgressModels.filter().bookIdEqualTo(bookId).findFirst();
 
     if (progress == null) {
       progress = BookProgressModel(
@@ -47,33 +44,23 @@ class BookPageTracker {
 
   // Get total pages for the book
   Future<int> getTotalPages(String bookId) async {
-    var progress = await isar.bookProgressModels
-        .filter()
-        .bookIdEqualTo(bookId)
-        .findFirst();
+    var progress = await isar.bookProgressModels.filter().bookIdEqualTo(bookId).findFirst();
 
     if (progress?.chapterPageCounts == null) return 0;
 
-    return progress!.chapterPageCounts!
-        .fold<int>(0, (int sum, int count) => sum + count);
+    return progress!.chapterPageCounts!.fold<int>(0, (int sum, int count) => sum + count);
   }
 
   // Get page counts as a list
   Future<List<int>> getChapterPageCounts(String bookId) async {
-    var progress = await isar.bookProgressModels
-        .filter()
-        .bookIdEqualTo(bookId)
-        .findFirst();
+    var progress = await isar.bookProgressModels.filter().bookIdEqualTo(bookId).findFirst();
 
     return progress?.chapterPageCounts ?? [];
   }
 
   // Get current global page number
   Future<int> getCurrentGlobalPage(String bookId) async {
-    var progress = await isar.bookProgressModels
-        .filter()
-        .bookIdEqualTo(bookId)
-        .findFirst();
+    var progress = await isar.bookProgressModels.filter().bookIdEqualTo(bookId).findFirst();
 
     if (progress == null) return 1;
 
@@ -83,9 +70,7 @@ class BookPageTracker {
 
     // Add pages from previous chapters
     if (progress.chapterPageCounts != null) {
-      for (int i = 0;
-          i < currentChapter && i < progress.chapterPageCounts!.length;
-          i++) {
+      for (int i = 0; i < currentChapter && i < progress.chapterPageCounts!.length; i++) {
         globalPage += progress.chapterPageCounts![i];
       }
     }

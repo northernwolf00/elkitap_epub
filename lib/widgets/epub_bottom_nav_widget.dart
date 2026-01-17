@@ -1,10 +1,11 @@
-import 'package:cosmos_epub/Helpers/progress_bar_widget.dart';
+import 'package:cosmos_epub/helpers/progress_bar_widget.dart';
 import 'package:cosmos_epub/widgets/font_settings_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 /// Bottom navigation bar widget for EPUB reader
-class EpubBottomNavWidget extends StatelessWidget {
+class EpubBottomNavWidget extends StatefulWidget {
   final bool showHeader;
   final Color fontColor;
   final Color backColor;
@@ -20,9 +21,12 @@ class EpubBottomNavWidget extends StatelessWidget {
   final double fontSize;
   final double brightnessLevel;
   final int staticThemeId;
+  final Color buttonBackgroundColor;
+  final Color buttonIconColor;
   final Function(double) setBrightness;
-  final Function(int) updateTheme;
+  final Function(int id, {bool? forceDarkMode}) updateTheme;
   final Function(double) onFontSizeChange;
+  final Function(bool)? onProgressLongPressChanged;
 
   const EpubBottomNavWidget({
     Key? key,
@@ -41,42 +45,48 @@ class EpubBottomNavWidget extends StatelessWidget {
     required this.fontSize,
     required this.brightnessLevel,
     required this.staticThemeId,
+    required this.buttonBackgroundColor,
+    required this.buttonIconColor,
     required this.setBrightness,
     required this.updateTheme,
     required this.onFontSizeChange,
+    this.onProgressLongPressChanged,
   }) : super(key: key);
 
+  @override
+  State<EpubBottomNavWidget> createState() => _EpubBottomNavWidgetState();
+}
+
+class _EpubBottomNavWidgetState extends State<EpubBottomNavWidget> {
+  bool _isProgressLongPressed = false;
+
   Widget _buildNavButton({
-    required IconData icon,
+    required String image,
     required VoidCallback onPressed,
     String? tooltip,
   }) {
     return Container(
-      width: 44.w,
-      height: 44.h,
+      width: 40.w,
+      height: 40.h,
       decoration: BoxDecoration(
-        color: fontColor.withOpacity(0.08),
+        color: widget.buttonBackgroundColor,
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(22.r),
-          splashColor: fontColor.withOpacity(0.1),
-          highlightColor: fontColor.withOpacity(0.05),
+          splashColor: widget.fontColor.withOpacity(0.1),
+          highlightColor: widget.fontColor.withOpacity(0.05),
           child: Center(
-            child: Icon(
-              icon,
-              color: fontColor,
-              size: 20.sp,
+            child: Image.asset(
+              image,
+              package: 'cosmos_epub',
+              fit: BoxFit.contain,
+              color: widget.buttonIconColor,
+              width: image == 'assets/images/font_logo.png' ? 24.sp : 15.sp,
+              height: image == 'assets/images/font_logo.png' ? 24.sp : 15.sp,
             ),
           ),
         ),
@@ -91,7 +101,7 @@ class EpubBottomNavWidget extends StatelessWidget {
       right: 0,
       bottom: 0,
       child: AnimatedContainer(
-        height: showHeader ? 70.h : 0,
+        height: widget.showHeader ? 70.h : 0,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
         child: SafeArea(
@@ -105,43 +115,60 @@ class EpubBottomNavWidget extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _buildNavButton(
-                  icon: Icons.menu,
-                  onPressed: onMenuPressed,
-                  tooltip: 'Table of Contents',
+                AnimatedOpacity(
+                  opacity: _isProgressLongPressed ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: _buildNavButton(
+                    image: 'assets/images/content_list.png',
+                    onPressed: widget.onMenuPressed,
+                    tooltip: 'Table of Contents',
+                  ),
                 ),
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4.w),
                     child: ProgressBarWidget(
-                      currentPage: currentPage,
-                      totalPages: totalPages,
-                      isCalculating: isCalculating,
-                      onNextPage: onNextPage,
-                      onPreviousPage: onPreviousPage,
-                      onJumpToPage: onJumpToPage,
-                      chapterTitle: chapterTitle,
-                      backgroundColor: backColor,
-                      textColor: fontColor,
+                      currentPage: widget.currentPage,
+                      totalPages: widget.totalPages,
+                      isCalculating: widget.isCalculating,
+                      onNextPage: widget.onNextPage,
+                      onPreviousPage: widget.onPreviousPage,
+                      onJumpToPage: widget.onJumpToPage,
+                      chapterTitle: widget.chapterTitle,
+                      backgroundColor: widget.backColor,
+                      textColor: widget.fontColor,
+                      onLongPressStateChanged: (isLongPressing) {
+                        setState(() {
+                          _isProgressLongPressed = isLongPressing;
+                        });
+                        widget.onProgressLongPressChanged?.call(isLongPressing);
+                      },
+                      staticThemeId: widget.staticThemeId,
+                      buttonBackgroundColor: widget.buttonBackgroundColor,
+                      buttonIconColor: widget.buttonIconColor,
                     ),
                   ),
                 ),
-                _buildNavButton(
-                  icon: Icons.text_fields_rounded,
-                  onPressed: () {
-                    updateFontSettings(
-                      context: context,
-                      backColor: backColor,
-                      fontColor: fontColor,
-                      brightnessLevel: brightnessLevel,
-                      staticThemeId: staticThemeId,
-                      setBrightness: setBrightness,
-                      updateTheme: updateTheme,
-                      fontSizeProgress: fontSize,
-                      onFontSizeChange: onFontSizeChange,
-                    );
-                  },
-                  tooltip: 'Font Settings',
+                AnimatedOpacity(
+                  opacity: _isProgressLongPressed ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: _buildNavButton(
+                    image: 'assets/images/font_logo.png',
+                    onPressed: () {
+                      updateFontSettings(
+                        context: context,
+                        backColor: widget.backColor,
+                        fontColor: widget.fontColor,
+                        brightnessLevel: widget.brightnessLevel,
+                        staticThemeId: widget.staticThemeId,
+                        setBrightness: widget.setBrightness,
+                        updateTheme: widget.updateTheme,
+                        fontSizeProgress: widget.fontSize,
+                        onFontSizeChange: widget.onFontSizeChange,
+                      );
+                    },
+                    tooltip: 'Font Settings',
+                  ),
                 ),
               ],
             ),

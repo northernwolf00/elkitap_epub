@@ -2,6 +2,7 @@ import 'package:cosmos_epub/translations/epub_translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:screen_brightness/screen_brightness.dart';
+import 'package:get/get.dart';
 import 'font_size_controls.dart';
 import 'brightness_slider.dart';
 import 'theme_grid.dart';
@@ -13,7 +14,7 @@ Future updateFontSettings({
   required double brightnessLevel,
   required int staticThemeId,
   required Function(double) setBrightness,
-  required Function(int) updateTheme,
+  required Function(int id, {bool? forceDarkMode}) updateTheme,
   required double fontSizeProgress,
   required Function(double) onFontSizeChange,
 }) {
@@ -21,7 +22,7 @@ Future updateFontSettings({
     context: context,
     elevation: 10,
     clipBehavior: Clip.antiAlias,
-    backgroundColor: backColor,
+    backgroundColor: Get.isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
     enableDrag: true,
     isScrollControlled: true,
     shape: RoundedRectangleBorder(
@@ -31,6 +32,8 @@ Future updateFontSettings({
       ),
     ),
     builder: (context) {
+      double localFontSize = fontSizeProgress;
+
       return StatefulBuilder(
         builder: (BuildContext context, setState) {
           return Container(
@@ -48,7 +51,7 @@ Future updateFontSettings({
                       style: TextStyle(
                         fontSize: 20.sp,
                         fontWeight: FontWeight.bold,
-                        color: fontColor,
+                        color: Get.isDarkMode ? fontColor.withOpacity(.8) : Colors.black,
                       ),
                     ),
                     IconButton(
@@ -61,7 +64,7 @@ Future updateFontSettings({
                         padding: const EdgeInsets.all(6), // adjust size of the circle
                         child: Icon(
                           Icons.close,
-                          color: fontColor,
+                          color: Get.isDarkMode ? fontColor.withOpacity(.6) : Colors.black,
                           size: 20,
                         ),
                       ),
@@ -72,9 +75,12 @@ Future updateFontSettings({
                 // Font Size Controls
                 FontSizeControls(
                   fontColor: fontColor,
-                  fontSizeProgress: fontSizeProgress,
-                  onFontSizeChange: (val) {
-                    setState(() => onFontSizeChange(val));
+                  fontSizeProgress: localFontSize,
+                  onFontSizeChange: (newSize) {
+                    setState(() {
+                      localFontSize = newSize;
+                    });
+                    onFontSizeChange(newSize);
                   },
                   staticThemeId: staticThemeId,
                   updateTheme: updateTheme,

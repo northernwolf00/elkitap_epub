@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../Model/chapter_model.dart';
+import '../models/chapter_model.dart';
 import '../show_epub.dart';
 import 'functions.dart';
 
@@ -13,13 +13,7 @@ class ChaptersList extends StatelessWidget {
   final Color accentColor;
   final String chapterListTitle;
 
-  ChaptersList(
-      {super.key,
-      required this.chapters,
-      required this.bookId,
-      this.leadingIcon,
-      required this.accentColor,
-      required this.chapterListTitle});
+  ChaptersList({super.key, required this.chapters, required this.bookId, this.leadingIcon, required this.accentColor, required this.chapterListTitle});
 
   @override
   Widget build(BuildContext context) {
@@ -46,10 +40,7 @@ class ChaptersList extends StatelessWidget {
           title: Text(
             chapterListTitle,
             textDirection: textDirection,
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: accentColor,
-                fontSize: 15.sp),
+            style: TextStyle(fontWeight: FontWeight.bold, color: accentColor, fontSize: 15.sp),
           ),
         ),
         body: SafeArea(
@@ -73,33 +64,15 @@ class ChaptersList extends StatelessWidget {
                         minLeadingWidth: 20.w,
                         title: Padding(
                           padding: EdgeInsets.only(
-                              left: chapters[i].isSubChapter &&
-                                      textDirection == TextDirection.ltr
-                                  ? 15.w
-                                  : 0,
-                              right: chapters[i].isSubChapter &&
-                                      textDirection == TextDirection.rtl
-                                  ? 15.w
-                                  : 0),
+                              left: chapters[i].isSubChapter && textDirection == TextDirection.ltr ? 15.w : 0, right: chapters[i].isSubChapter && textDirection == TextDirection.rtl ? 15.w : 0),
                           child: Text(chapters[i].chapter,
-                              textDirection: RTLHelper.getTextDirection(
-                                  chapters[i].chapter),
+                              textDirection: RTLHelper.getTextDirection(chapters[i].chapter),
                               style: TextStyle(
-                                  color: bookProgress
-                                              .getBookProgress(bookId)
-                                              .currentChapterIndex ==
-                                          i
-                                      ? accentColor
-                                      : fontColor,
-                                  fontFamily: fontNames
-                                      .where(
-                                          (element) => element == selectedFont)
-                                      .first,
+                                  color: bookProgress.getBookProgress(bookId).currentChapterIndex == i ? accentColor : fontColor,
+                                  fontFamily: fontNames.where((element) => element == selectedFont).first,
                                   package: 'cosmos_epub',
                                   fontSize: 15.sp,
-                                  fontWeight: chapters[i].isSubChapter
-                                      ? FontWeight.w400
-                                      : FontWeight.w600)),
+                                  fontWeight: chapters[i].isSubChapter ? FontWeight.w400 : FontWeight.w600)),
                         ),
                         dense: true,
                       ),

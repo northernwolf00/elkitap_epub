@@ -1,4 +1,4 @@
-import 'package:cosmos_epub/Model/book_progress_model.dart';
+import 'package:cosmos_epub/models/book_progress_model.dart';
 import 'package:isar_community/isar.dart';
 
 class BookProgressSingleton {
@@ -8,11 +8,7 @@ class BookProgressSingleton {
 
   Future<bool> setCurrentChapterIndex(String bookId, int chapterIndex) async {
     try {
-      BookProgressModel? oldBookProgressModel = await isar.bookProgressModels
-          .where()
-          .filter()
-          .bookIdEqualTo(bookId)
-          .findFirst();
+      BookProgressModel? oldBookProgressModel = await isar.bookProgressModels.where().filter().bookIdEqualTo(bookId).findFirst();
 
       if (oldBookProgressModel != null) {
         oldBookProgressModel.currentChapterIndex = chapterIndex;
@@ -20,10 +16,7 @@ class BookProgressSingleton {
           isar.bookProgressModels.put(oldBookProgressModel);
         });
       } else {
-        var newBookProgressModel = BookProgressModel(
-            currentPageIndex: 0,
-            currentChapterIndex: chapterIndex,
-            bookId: bookId);
+        var newBookProgressModel = BookProgressModel(currentPageIndex: 0, currentChapterIndex: chapterIndex, bookId: bookId);
         await isar.writeTxn(() async {
           isar.bookProgressModels.put(newBookProgressModel);
         });
@@ -36,11 +29,7 @@ class BookProgressSingleton {
 
   Future<bool> setCurrentPageIndex(String bookId, int pageIndex) async {
     try {
-      BookProgressModel? oldBookProgressModel = await isar.bookProgressModels
-          .where()
-          .filter()
-          .bookIdEqualTo(bookId)
-          .findFirst();
+      BookProgressModel? oldBookProgressModel = await isar.bookProgressModels.where().filter().bookIdEqualTo(bookId).findFirst();
 
       if (oldBookProgressModel != null) {
         oldBookProgressModel.currentPageIndex = pageIndex;
@@ -48,10 +37,7 @@ class BookProgressSingleton {
           isar.bookProgressModels.put(oldBookProgressModel);
         });
       } else {
-        var newBookProgressModel = BookProgressModel(
-            currentPageIndex: pageIndex,
-            currentChapterIndex: 0,
-            bookId: bookId);
+        var newBookProgressModel = BookProgressModel(currentPageIndex: pageIndex, currentChapterIndex: 0, bookId: bookId);
         await isar.writeTxn(() async {
           isar.bookProgressModels.put(newBookProgressModel);
         });
@@ -63,15 +49,10 @@ class BookProgressSingleton {
   }
 
   BookProgressModel getBookProgress(String bookId) {
-    var newBookProgressModel =
-        BookProgressModel(currentPageIndex: 0, currentChapterIndex: 0);
+    var newBookProgressModel = BookProgressModel(currentPageIndex: 0, currentChapterIndex: 0);
 
     try {
-      BookProgressModel? oldBookProgressModel = isar.bookProgressModels
-          .where()
-          .filter()
-          .bookIdEqualTo(bookId)
-          .findFirstSync();
+      BookProgressModel? oldBookProgressModel = isar.bookProgressModels.where().filter().bookIdEqualTo(bookId).findFirstSync();
       if (oldBookProgressModel != null) {
         return oldBookProgressModel;
       } else {
@@ -85,11 +66,7 @@ class BookProgressSingleton {
   Future<bool> deleteBookProgress(String bookId) async {
     try {
       await isar.writeTxn(() async {
-        await isar.bookProgressModels
-            .where()
-            .filter()
-            .bookIdEqualTo(bookId)
-            .deleteAll();
+        await isar.bookProgressModels.where().filter().bookIdEqualTo(bookId).deleteAll();
       });
       return true;
     } on Exception {

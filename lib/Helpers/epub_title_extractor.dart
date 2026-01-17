@@ -23,7 +23,6 @@ class EpubTitleExtractor {
         if (chapterNum != null && chapterTitle != null && chapterTitle.isNotEmpty) {
           final title = 'CHAPTER $chapterNum - $chapterTitle';
           if (!_isGenericTitle(title) && title.length > 10 && title.length < 100) {
-            print('🔧 Extracted from text: $title');
             return title;
           }
         }
@@ -42,7 +41,6 @@ class EpubTitleExtractor {
           final isRoman = _isValidRomanNumeral(chapterNum);
           if (isRoman || int.tryParse(chapterNum) != null) {
             final title = 'CHAPTER $chapterNum';
-            print('🔧 Extracted from text: $title');
             return title;
           }
         }
@@ -53,7 +51,6 @@ class EpubTitleExtractor {
       if (h1 != null) {
         final title = _cleanHtmlTitle(h1.text);
         if (title.isNotEmpty && !_isGenericTitle(title) && title.length > 3) {
-          print('🔧 Extracted from <h1>: $title');
           return title;
         }
       }
@@ -62,7 +59,6 @@ class EpubTitleExtractor {
       if (h2 != null) {
         final title = _cleanHtmlTitle(h2.text);
         if (title.isNotEmpty && !_isGenericTitle(title) && title.length > 3) {
-          print('🔧 Extracted from <h2>: $title');
           return title;
         }
       }
@@ -72,7 +68,6 @@ class EpubTitleExtractor {
       if (chapterPara != null) {
         final title = _cleanHtmlTitle(chapterPara.text);
         if (title.isNotEmpty && !_isGenericTitle(title) && title.length > 3) {
-          print('🔧 Extracted from <p.chapter>: $title');
           return title;
         }
       }
@@ -84,7 +79,6 @@ class EpubTitleExtractor {
         if (text.length >= 5 && text.length <= 100) {
           final containsChapter = text.toLowerCase().contains('chapter');
           if (containsChapter && !_isGenericTitle(text)) {
-            print('🔧 Extracted from <b>/<strong>: $text');
             return text;
           }
         }
@@ -97,14 +91,11 @@ class EpubTitleExtractor {
         if (match != null) {
           final title = _cleanHtmlTitle(match.group(0) ?? '');
           if (title.isNotEmpty && !_isGenericTitle(title) && title.length > 3) {
-            print('🔧 Extracted from <h3>: $title');
             return title;
           }
         }
       }
-    } catch (e) {
-      print('⚠️ Error extracting title from HTML: $e');
-    }
+    } catch (e) {}
 
     return null;
   }

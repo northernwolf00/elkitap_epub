@@ -1,11 +1,11 @@
 import 'dart:developer';
-import 'package:cosmos_epub/Helpers/epub_chapter_fixer.dart';
-import 'package:cosmos_epub/Helpers/functions.dart';
+import 'package:cosmos_epub/helpers/epub_chapter_fixer.dart';
+import 'package:cosmos_epub/helpers/functions.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart';
-import '../Model/chapter_model.dart';
-import '../Helpers/progress_singleton.dart';
+import '../models/chapter_model.dart';
+import '../helpers/progress_singleton.dart';
 
 /// Helper class for EPUB chapter loading and navigation
 class EpubChapterHelper {
@@ -107,6 +107,9 @@ class EpubChapterHelper {
         int subChapterCount = chapter.SubChapters!.length;
         int mainChapterPages = chapterPageCounts[i] ?? 0;
 
+        // Track which pages already have subchapters assigned
+        Set<int> usedPages = {};
+
         for (int subIdx = 0; subIdx < chapter.SubChapters!.length; subIdx++) {
           var subChapter = chapter.SubChapters![subIdx];
           String? subTitle = subChapter.Title;
@@ -114,19 +117,41 @@ class EpubChapterHelper {
             final subChapterIndex = chaptersList.length;
 
             // Calculate approximate page for this sub-chapter within the parent chapter
-            int subChapterStartPage = 0;
+            int subChapterStartPage = chapterStartPage;
             int pageInChapter = 0; // Page within the parent chapter (0-indexed)
 
             if (mainChapterPages > 0 && subChapterCount > 0) {
               // Each sub-chapter gets roughly equal portion of pages
+              // But ensure minimum 1 page difference between subchapters
               int pagesPerSubChapter = mainChapterPages ~/ (subChapterCount + 1);
+
+              // Ensure at least 1 page spacing between subchapters if possible
+              if (pagesPerSubChapter == 0 && mainChapterPages > subChapterCount) {
+                pagesPerSubChapter = 1;
+              }
+
               pageInChapter = pagesPerSubChapter * (subIdx + 1);
+
+              // If this pageInChapter is already used, try to find next available page
+              int attemptedPage = pageInChapter;
+              while (usedPages.contains(attemptedPage) && attemptedPage < mainChapterPages) {
+                attemptedPage++;
+              }
+
+              // If all pages after this are used, just use the calculated page
+              if (attemptedPage < mainChapterPages) {
+                pageInChapter = attemptedPage;
+              }
+
               subChapterStartPage = chapterStartPage + pageInChapter;
+
               // Ensure it doesn't exceed chapter bounds
               if (subChapterStartPage > chapterStartPage + mainChapterPages - 1) {
                 subChapterStartPage = chapterStartPage + mainChapterPages - 1;
                 pageInChapter = mainChapterPages - 1;
               }
+
+              usedPages.add(pageInChapter);
             }
 
             chaptersList.add(LocalChapterModel(
@@ -175,12 +200,9 @@ class EpubChapterHelper {
           }
         }
       } else {
-        print('⚠️ WARNING: Chapter index $originalChapterIndex out of range (0-${_chapters.length - 1})');
         content = '<html><body><p>Chapter not found</p></body></html>';
       }
     } catch (e, st) {
-      print('❌ Error loading chapter $originalChapterIndex: $e');
-      print('Stack trace: $st');
       content = '<html><body><p>Error loading chapter: $e</p></body></html>';
     }
 
@@ -233,18 +255,9 @@ class EpubChapterHelper {
 
       // Priority 1: Audio sync (starterPageInBook)
       if (starterPageInBook != null && chapterPageCounts.isNotEmpty && calculateChapterFromPage != null) {
-        print('');
-        print('🎵 ═══════════════════════════════════════════════════════');
-        print('🎵 AUDIO SYNC REQUESTED');
-        print('🎵 Target page in book: $starterPageInBook');
-        print('🎵 ═══════════════════════════════════════════════════════');
-        print('');
-
         try {
           targetIndex = calculateChapterFromPage(starterPageInBook);
-          print('🎵 Will start at Chapter $targetIndex');
         } catch (e) {
-          print('⚠️ Could not calculate chapter/page, falling back to saved progress');
           targetIndex = hasProgress ? savedChapter : 0;
         }
       }
