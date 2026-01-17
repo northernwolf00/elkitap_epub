@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,31 +15,38 @@ class ProgressBarWidget extends StatefulWidget {
     this.chapterTitle,
     this.backgroundColor,
     this.textColor,
+    this.onLongPressStateChanged,
+    required this.staticThemeId,
+    required this.buttonBackgroundColor,
+    required this.buttonIconColor,
   }) : super(key: key);
 
   final Function(int targetPage)? onJumpToPage;
   final Color? backgroundColor;
   final String? chapterTitle;
   final int currentPage;
+  final int staticThemeId;
+  final Color buttonBackgroundColor;
+  final Color buttonIconColor;
   final bool isCalculating;
   final VoidCallback? onNextPage;
   final VoidCallback? onPreviousPage;
   final Color? textColor;
   final int totalPages;
+  final Function(bool isLongPressing)? onLongPressStateChanged;
 
   @override
   State<ProgressBarWidget> createState() => _ProgressBarWidgetState();
 }
 
 class _ProgressBarWidgetState extends State<ProgressBarWidget> {
-  static const double _maxSwipeDistance = 200.0;
-
-  double _currentSwipeDelta = 0;
-  double _dragStartX = 0;
-  bool _isLongPressing = false;
+  bool _isDragging = false;
   int _lastHapticPage = -1;
   OverlayEntry? _overlayEntry;
   int _targetPage = 0;
+  double _progressBarWidth = 0;
+  double _dragStartX = 0;
+  bool _hasDraggedSignificantly = false;
 
   @override
   void dispose() {
@@ -59,61 +65,67 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
   }
 
   Widget _buildOverlayContent() {
-    final displayPage = _isLongPressing && _currentSwipeDelta.abs() > 10
-        ? _targetPage
-        : widget.currentPage;
+    final displayPage = _isDragging ? _targetPage : widget.currentPage;
 
     return Positioned(
-      bottom: 84.h,
-      left: 60.w,
-      right: 60.w,
-      child: Center(
-        child: Material(
-          color: Colors.transparent,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 14.h),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.65),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 0.5,
-                  ),
-                ),
-                child: Column(
+      bottom: 120.h,
+      left: 70.w,
+      right: 70.w,
+      child: Material(
+        color: Colors.transparent,
+        child: Center(
+          child: Container(
+            width: Get.size.width,
+            padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: widget.buttonBackgroundColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Page $displayPage',
+                      'Page'.tr + ' ' + '$displayPage / ${widget.totalPages}',
                       style: TextStyle(
-                        fontSize: 19.sp,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.bold,
+                        color: widget.buttonIconColor,
                         letterSpacing: -0.5,
                       ),
                     ),
-                    if (widget.chapterTitle != null &&
-                        widget.chapterTitle!.isNotEmpty) ...[
-                      SizedBox(height: 2.h),
-                      Text(
-                        widget.chapterTitle!,
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: Colors.black45,
-                          fontWeight: FontWeight.w500,
+                    if (widget.isCalculating) ...[
+                      SizedBox(width: 6.w),
+                      SizedBox(
+                        width: 12.w,
+                        height: 12.w,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            widget.buttonIconColor.withOpacity(0.6),
+                          ),
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
                 ),
-              ),
+                if (widget.chapterTitle != null && widget.chapterTitle!.isNotEmpty) ...[
+                  SizedBox(height: 2.h),
+                  Text(
+                    widget.chapterTitle!,
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: widget.buttonIconColor.withOpacity(0.6),
+                      fontWeight: FontWeight.w300,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -132,94 +144,147 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
     _overlayEntry = null;
   }
 
+  int _calculatePageFromPosition(double localX) {
+    if (_progressBarWidth <= 0) {
+      debugPrint('⚠️ _progressBarWidth <= 0, returning currentPage');
+      return widget.currentPage;
+    }
+
+    final progress = (localX / _progressBarWidth).clamp(0.0, 1.0);
+    final targetPage = (progress * widget.totalPages).round();
+    final clampedPage = targetPage.clamp(1, widget.totalPages);
+
+    debugPrint('📊 _calculatePageFromPosition:');
+    debugPrint('   localX: $localX');
+    debugPrint('   _progressBarWidth: $_progressBarWidth');
+    debugPrint('   progress: ${progress.toStringAsFixed(4)}');
+    debugPrint('   widget.totalPages: ${widget.totalPages}');
+    debugPrint('   targetPage (rounded): $targetPage');
+    debugPrint('   clampedPage: $clampedPage');
+
+    return clampedPage;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Debug prints for page calculation
+    debugPrint('=== ProgressBarWidget Debug ===');
+    debugPrint('currentPage: ${widget.currentPage}');
+    debugPrint('totalPages: ${widget.totalPages}');
+    debugPrint('isCalculating: ${widget.isCalculating}');
+    debugPrint('_isDragging: $_isDragging');
+    debugPrint('_targetPage: $_targetPage');
+    debugPrint('===============================');
+
     return GestureDetector(
-      onLongPressStart: (details) {
-        print('📍 Long press started on progress bar');
-        print(
-            '📊 Current state: Page ${widget.currentPage} / ${widget.totalPages}');
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _isLongPressing = true;
-          _dragStartX = details.globalPosition.dx;
-          _currentSwipeDelta = 0;
-          _targetPage = widget.currentPage;
-          _lastHapticPage = widget.currentPage;
-        });
-        _showOverlay();
-      },
-      onLongPressMoveUpdate: (details) {
-        if (_isLongPressing) {
-          final dx = details.globalPosition.dx - _dragStartX;
+        onHorizontalDragStart: (details) {
+          final RenderBox box = context.findRenderObject() as RenderBox;
+          final localPosition = box.globalToLocal(details.globalPosition);
+          _dragStartX = localPosition.dx;
+          _hasDraggedSignificantly = false;
 
+          HapticFeedback.mediumImpact();
           setState(() {
-            _currentSwipeDelta = dx;
-
-            final swipeRatio = (dx / _maxSwipeDistance).clamp(-1.0, 1.0);
-
-            final tenPercent = (widget.totalPages * 0.1).round();
-            final maxJump =
-                tenPercent < 10 ? 10 : (tenPercent > 50 ? 50 : tenPercent);
-
-            final pageJump = (swipeRatio * maxJump).round();
-
-            final newTarget = widget.currentPage + pageJump;
-            _targetPage = newTarget.clamp(1, widget.totalPages);
+            _isDragging = true;
+            _targetPage = widget.currentPage;
+            _lastHapticPage = widget.currentPage;
           });
+          widget.onLongPressStateChanged?.call(true);
+          _showOverlay();
+        },
+        onHorizontalDragUpdate: (details) {
+          if (_isDragging) {
+            final RenderBox box = context.findRenderObject() as RenderBox;
+            final localPosition = box.globalToLocal(details.globalPosition);
+            final progressBarPadding = 16.w;
+            final localX = localPosition.dx - progressBarPadding;
 
-          if (_targetPage != _lastHapticPage) {
-            HapticFeedback.selectionClick();
-            _lastHapticPage = _targetPage;
+            // Check if dragged significantly (more than 10 pixels)
+            if (!_hasDraggedSignificantly && (localPosition.dx - _dragStartX).abs() > 10) {
+              _hasDraggedSignificantly = true;
+            }
+
+            setState(() {
+              _progressBarWidth = box.size.width - (progressBarPadding * 2);
+              _targetPage = _calculatePageFromPosition(localX);
+            });
+
+            if (_targetPage != _lastHapticPage) {
+              HapticFeedback.selectionClick();
+              _lastHapticPage = _targetPage;
+            }
+
+            _updateOverlay();
+          }
+        },
+        onHorizontalDragEnd: (details) {
+          debugPrint('\n🏁 DRAG END EVENT:');
+          debugPrint('   _hasDraggedSignificantly: $_hasDraggedSignificantly');
+          debugPrint('   _targetPage: $_targetPage');
+          debugPrint('   widget.currentPage: ${widget.currentPage}');
+
+          _removeOverlay();
+
+          // Only process as drag if moved significantly
+          if (_hasDraggedSignificantly && _targetPage != widget.currentPage && widget.onJumpToPage != null) {
+            debugPrint('   ✅ Significant drag - Calling onJumpToPage($_targetPage)');
+            HapticFeedback.mediumImpact();
+            widget.onJumpToPage!(_targetPage);
+          } else if (!_hasDraggedSignificantly && _targetPage != widget.currentPage && widget.onJumpToPage != null) {
+            // Treat as tap if didn't drag significantly
+            debugPrint('   ✅ Small drag (treated as tap) - Calling onJumpToPage($_targetPage)');
+            HapticFeedback.mediumImpact();
+            widget.onJumpToPage!(_targetPage);
+          } else {
+            debugPrint('   ❌ No jump (same page or no callback)');
+            HapticFeedback.lightImpact();
           }
 
-          _updateOverlay();
-        }
-      },
-      onLongPressEnd: (details) {
-        print('📍 Long press ended on progress bar');
-        print(
-            '📍 Target page: $_targetPage, Current page: ${widget.currentPage}');
-
-        _removeOverlay();
-
-        if (_targetPage != widget.currentPage && widget.onJumpToPage != null) {
-          print('🎯 Calling onJumpToPage callback with page $_targetPage');
+          setState(() {
+            _isDragging = false;
+            _targetPage = widget.currentPage;
+            _lastHapticPage = -1;
+            _hasDraggedSignificantly = false;
+          });
+          widget.onLongPressStateChanged?.call(false);
+        },
+        onTapDown: (details) {
           HapticFeedback.mediumImpact();
+          final RenderBox box = context.findRenderObject() as RenderBox;
+          final localPosition = box.globalToLocal(details.globalPosition);
+          final progressBarPadding = 16.w;
+          final localX = localPosition.dx - progressBarPadding;
 
-          widget.onJumpToPage!(_targetPage);
-        } else {
-          HapticFeedback.lightImpact();
-          print('⏭️ No jump needed - same page');
-        }
+          debugPrint('\n👆 TAP DOWN EVENT:');
+          debugPrint('   globalPosition: ${details.globalPosition}');
+          debugPrint('   localPosition: $localPosition');
+          debugPrint('   progressBarPadding: $progressBarPadding');
+          debugPrint('   localX (after padding): $localX');
+          debugPrint('   box.size.width: ${box.size.width}');
 
-        setState(() {
-          _isLongPressing = false;
-          _currentSwipeDelta = 0;
-          _targetPage = widget.currentPage;
-          _lastHapticPage = -1;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        transform: Matrix4.identity()..scale(_isLongPressing ? 1.02 : 1.0),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          _progressBarWidth = box.size.width - (progressBarPadding * 2);
+          final targetPage = _calculatePageFromPosition(localX);
+
+          debugPrint('   🎯 Target Page: $targetPage');
+          debugPrint('   Current Page: ${widget.currentPage}');
+
+          if (targetPage != widget.currentPage && widget.onJumpToPage != null) {
+            debugPrint('   ✅ Calling onJumpToPage($targetPage)');
+            widget.onJumpToPage!(targetPage);
+          } else {
+            debugPrint('   ❌ Not jumping (same page or no callback)');
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          transform: Matrix4.identity()..scale(_isDragging ? 1.03 : 1.0),
           child: Container(
-            height: 44.h,
+            height: 40.h,
+            margin: EdgeInsets.symmetric(horizontal: 16.w),
             width: Get.size.width,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(100),
-              color: const Color(0xFF787880).withOpacity(.2),
-              boxShadow: _isLongPressing
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : [],
+              color: widget.buttonBackgroundColor,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(100),
@@ -227,91 +292,59 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
                 children: [
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final displayProgress = _isLongPressing
-                          ? (widget.totalPages > 0
-                              ? (_targetPage / widget.totalPages)
-                                  .clamp(0.0, 1.0)
-                              : 0.0)
-                          : (widget.totalPages > 0
-                              ? (widget.currentPage / widget.totalPages)
-                                  .clamp(0.0, 1.0)
-                              : 0.0);
+                      final progress = widget.totalPages > 0 ? (_isDragging ? (_targetPage / widget.totalPages).clamp(0.0, 1.0) : (widget.currentPage / widget.totalPages).clamp(0.0, 1.0)) : 0.0;
 
                       return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        width: constraints.maxWidth * displayProgress,
+                        duration: Duration(milliseconds: _isDragging ? 50 : 300),
+                        curve: Curves.easeOut,
+                        width: constraints.maxWidth * progress,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF636366).withOpacity(0.35),
+                          color: widget.isCalculating ? Colors.transparent : Color(0xFF8E8E93).withOpacity(.5),
                         ),
                       );
                     },
                   ),
-                  if (_isLongPressing)
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final targetProgress = widget.totalPages > 0
-                            ? (_targetPage / widget.totalPages).clamp(0.0, 1.0)
-                            : 0.0;
-                        return Positioned(
-                          left: (constraints.maxWidth * targetProgress) - 1,
-                          top: 10.h,
-                          bottom: 10.h,
-                          child: Container(
-                            width: 2.w,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
                   Center(
                     child: RichText(
                       text: TextSpan(
                         children: [
                           TextSpan(
-                            text: '${widget.currentPage}',
+                            text: widget.isCalculating ? '' : '${_isDragging ? _targetPage : widget.currentPage}',
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20.sp,
-                              fontFamily: 'Gilroy',
-                              color: Colors.black,
+                              fontSize: 16.sp,
+                              color: widget.buttonIconColor.withOpacity(0.6),
+                              letterSpacing: -0.5,
+                              height: 0.5,
+                            ),
+                          ),
+                          TextSpan(
+                            text: widget.isCalculating ? '' : ' /',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w400,
+                              fontSize: 16.sp,
+                              color: widget.buttonIconColor.withOpacity(0.6),
                               letterSpacing: -0.5,
                             ),
                           ),
                           TextSpan(
-                            text: ' /',
+                            text: widget.isCalculating ? '' : ' ${widget.totalPages}',
                             style: TextStyle(
-                              fontWeight: FontWeight.w400,
-                              fontSize: 20.sp,
-                              color: Colors.black.withOpacity(0.4),
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' ${widget.totalPages}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w400,
-                              fontSize: 20.sp,
-                              color: Colors.black.withOpacity(0.4),
+                              fontSize: 16.sp,
+                              color: widget.buttonIconColor.withOpacity(0.6),
                               letterSpacing: -0.5,
                             ),
                           ),
                           if (widget.isCalculating)
                             WidgetSpan(
                               alignment: PlaceholderAlignment.middle,
-                              child: Padding(
-                                padding: EdgeInsets.only(left: 8.w),
-                                child: SizedBox(
-                                  width: 14.w,
-                                  height: 14.w,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.black.withOpacity(0.4),
-                                    ),
+                              child: Container(
+                                margin: EdgeInsets.only(left: 8.w),
+                                width: 14.w,
+                                height: 14.w,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    widget.buttonIconColor,
                                   ),
                                 ),
                               ),
@@ -324,8 +357,6 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
               ),
             ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 }

@@ -1,4 +1,4 @@
-import 'package:cosmos_epub/Model/book_progress_model.dart';
+import 'package:cosmos_epub/models/book_progress_model.dart';
 import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
 

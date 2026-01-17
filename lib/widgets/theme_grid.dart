@@ -45,37 +45,31 @@ class _ThemeGridState extends State<ThemeGrid> {
                     id: 1,
                     title: 'Original',
                     isSelected: widget.staticThemeId == 1,
-                    backgroundColor:
-                        Get.isDarkMode ? Colors.black : Colors.white,
+                    backgroundColor: Get.isDarkMode ? Colors.black : Colors.white,
                     textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
-                    id: 4,
-                    title: 'Quiet',
-                    isSelected: widget.staticThemeId == 4,
+                    id: 2,
+                    title: 'Quite',
+                    isSelected: widget.staticThemeId == 2,
                     backgroundColor: const Color(0xFF1C1C1E),
-                    textColor: Get.isDarkMode
-                        ? const Color(0xFF8E8E93)
-                        : const Color(0xFFE5E5EA),
+                    textColor: Get.isDarkMode ? const Color(0xFF8E8E93) : const Color(0xFFE5E5EA),
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
                     id: 3,
                     title: 'Paper',
                     isSelected: widget.staticThemeId == 3,
-                    backgroundColor: Get.isDarkMode
-                        ? const Color(0xFF2C2C2E)
-                        : const Color(0xFFF2F2F7),
+                    backgroundColor: Get.isDarkMode ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
                     textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
-                    id: 2,
+                    id: 4,
                     title: 'Bold',
-                    isSelected: widget.staticThemeId == 2,
-                    backgroundColor:
-                        Get.isDarkMode ? Colors.black : Colors.white,
+                    isSelected: widget.staticThemeId == 4,
+                    backgroundColor: Get.isDarkMode ? Colors.black : Colors.white,
                     textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
                     fontWeight: FontWeight.bold,
@@ -84,20 +78,15 @@ class _ThemeGridState extends State<ThemeGrid> {
                     id: 5,
                     title: 'Calm',
                     isSelected: widget.staticThemeId == 5,
-                    backgroundColor: Get.isDarkMode
-                        ? const Color(0xFF3A2E2A)
-                        : const Color(0xFFFBF1E6),
-                    textColor:
-                        Get.isDarkMode ? const Color(0xFFD9C5B2) : Colors.black,
+                    backgroundColor: Get.isDarkMode ? const Color(0xFF3A2E2A) : const Color(0xFFFBF1E6),
+                    textColor: Get.isDarkMode ? const Color(0xFFD9C5B2) : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
                   ThemeCard(
                     id: 6,
                     title: 'Focus',
                     isSelected: widget.staticThemeId == 6,
-                    backgroundColor: Get.isDarkMode
-                        ? const Color(0xFF1C1C1E)
-                        : const Color(0xFFF8F8F8),
+                    backgroundColor: Get.isDarkMode ? const Color(0xFF1C1C1E) : const Color(0xFFF8F8F8),
                     textColor: Get.isDarkMode ? Colors.white : Colors.black,
                     updateTheme: _handleThemeChange,
                   ),
@@ -190,7 +179,13 @@ class ThemeCard extends StatelessWidget {
           color: backgroundColor,
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
-            color: isSelected ? Colors.grey.shade400 : Colors.grey.shade300,
+            color: isSelected
+                ? Get.isDarkMode
+                    ? Color(0xffa6a5a3).withOpacity(.9)
+                    : Colors.grey.shade400
+                : Get.isDarkMode
+                    ? Color(0xffa6a5a3).withOpacity(.4)
+                    : Colors.grey.shade300,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -203,7 +198,7 @@ class ThemeCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 22.sp,
                 fontWeight: fontWeight,
-                color: textColor,
+                color: Get.isDarkMode ? textColor.withOpacity(.6) : textColor,
                 height: 1,
               ),
             ),
@@ -213,7 +208,7 @@ class ThemeCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w500,
-                color: textColor,
+                color: Get.isDarkMode ? textColor.withOpacity(.6) : textColor,
               ),
             ),
           ],

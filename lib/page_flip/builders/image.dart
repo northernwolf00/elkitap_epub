@@ -1,4 +1,4 @@
-import 'package:cosmos_epub/PageFlip/effects/flip_effect.dart';
+import 'package:cosmos_epub/page_flip/effects/flip_effect.dart';
 import 'package:flutter/material.dart';
 
 class PageFlipImage extends StatefulWidget {
@@ -64,8 +64,7 @@ class _PageFlipImageState extends State<PageFlipImage> {
   }
 
   void _resolveImage() {
-    final ImageStream newStream =
-        widget.image!.resolve(createLocalImageConfiguration(context));
+    final ImageStream newStream = widget.image!.resolve(createLocalImageConfiguration(context));
     _updateSourceStream(newStream);
   }
 

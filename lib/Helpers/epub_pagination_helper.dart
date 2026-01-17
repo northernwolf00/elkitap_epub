@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:html/parser.dart';
 import 'package:html/dom.dart' as dom;
-import '../Model/chapter_model.dart';
+import '../models/chapter_model.dart';
 
 /// Helper class for EPUB pagination calculations
 class EpubPaginationHelper {
@@ -27,44 +27,40 @@ class EpubPaginationHelper {
     int targetPageInBook,
     Map<int, int> chapterPageCounts,
   ) {
-    print('');
-    print('🎯 ═══════════════════════════════════════════════════════');
-    print('🎯 CALCULATING CHAPTER AND PAGE FROM BOOK PAGE');
-    print('🎯 Target page in book: $targetPageInBook');
-    print('🎯 ═══════════════════════════════════════════════════════');
+    debugPrint('\n🔍 calculateChapterAndPageFromBookPage:');
+    debugPrint('   targetPageInBook: $targetPageInBook');
+    debugPrint('   chapterPageCounts: $chapterPageCounts');
+    debugPrint('   _chapters.length: ${_chapters.length}');
 
     if (chapterPageCounts.isEmpty) {
-      print('⚠️ No cached page counts available, cannot calculate chapter/page');
+      debugPrint('   ❌ chapterPageCounts is empty - returning null');
       return null;
     }
 
     int accumulatedPages = 0;
     for (int chapterIndex = 0; chapterIndex < _chapters.length; chapterIndex++) {
       if (!chapterPageCounts.containsKey(chapterIndex)) {
-        print('⚠️ Chapter $chapterIndex not yet calculated, cannot determine exact position');
+        debugPrint('   ⚠️ Chapter $chapterIndex not in chapterPageCounts - returning null');
         return null;
       }
 
       int pagesInChapter = chapterPageCounts[chapterIndex]!;
       int nextAccumulated = accumulatedPages + pagesInChapter;
 
-      print('📖 Chapter $chapterIndex: pages $accumulatedPages-${nextAccumulated - 1} ($pagesInChapter pages)');
+      debugPrint('   Chapter $chapterIndex: accumulated=$accumulatedPages, pagesInChapter=$pagesInChapter, nextAccumulated=$nextAccumulated');
 
       // Check if target page is in this chapter
       if (targetPageInBook >= accumulatedPages && targetPageInBook < nextAccumulated) {
         int pageInChapter = targetPageInBook - accumulatedPages;
-        print('✅ Found: Chapter $chapterIndex, Page $pageInChapter');
-        print('🎯 ═══════════════════════════════════════════════════════');
-        print('');
+
+        debugPrint('   ✅ FOUND! Chapter: $chapterIndex, Page in chapter: $pageInChapter');
         return {'chapter': chapterIndex, 'page': pageInChapter};
       }
 
       accumulatedPages = nextAccumulated;
     }
 
-    print('⚠️ Target page $targetPageInBook exceeds total pages $accumulatedPages');
-    print('🎯 ═══════════════════════════════════════════════════════');
-    print('');
+    debugPrint('   ❌ Target page not found in any chapter - returning null');
     return null;
   }
 
@@ -74,8 +70,6 @@ class EpubPaginationHelper {
     Map<int, int> chapterPageCounts,
     Map<int, int> filteredToOriginalIndex,
   ) {
-    print('📊 Updating chapter page numbers...');
-
     for (int i = 0; i < chaptersList.length; i++) {
       // Map filtered index back to original EPUB chapter index
       final originalIdx = filteredToOriginalIndex[i] ?? i;
@@ -110,10 +104,21 @@ class EpubPaginationHelper {
         int calculatedPageInChapter = 0;
 
         if (parentIdx >= 0 && parentIdx < chaptersList.length) {
-          final parentStart = chaptersList[parentIdx].startPage;
-          final parentPageCount = chaptersList[parentIdx].pageCount;
+          // Get parent's original EPUB index
+          final parentOriginalIdx = filteredToOriginalIndex[parentIdx] ?? parentIdx;
 
-          // Find this sub-chapter's index among all sub-chapters of the same parent
+          // Get parent's page count from chapterPageCounts (not from chaptersList which may be stale)
+          final parentPageCount = chapterPageCounts[parentOriginalIdx] ?? 0;
+
+          // Calculate parent's start page
+          int parentStart = 0;
+          for (int j = 0; j < parentOriginalIdx; j++) {
+            if (chapterPageCounts.containsKey(j)) {
+              parentStart += chapterPageCounts[j]!;
+            }
+          }
+          parentStart = parentPageCount > 0 ? parentStart + 1 : 0;
+
           int subIdx = 0;
           int subChapterCount = 0;
 
@@ -128,13 +133,63 @@ class EpubPaginationHelper {
           }
 
           // Calculate proportional position within parent's pages
-          if (parentStart > 0 && parentPageCount > 0 && subChapterCount > 0) {
-            calculatedPageInChapter = ((parentPageCount / (subChapterCount + 1)) * (subIdx + 1)).round();
+          if (parentStart > 0 && subChapterCount > 0) {
+            // CRITICAL FIX: If parent chapter's page count is too small to fit all subchapters,
+            // this means subchapter content is in separate EPUB chapters.
+            // In this case, calculate position based on the total pages of subsequent chapters.
+            if (parentPageCount <= 1 || parentPageCount < subChapterCount) {
+              // Find the next main chapter's start page to calculate the actual range
+              int nextMainChapterStart = 0;
+              for (int k = parentIdx + 1; k < chaptersList.length; k++) {
+                if (!chaptersList[k].isSubChapter) {
+                  nextMainChapterStart = chaptersList[k].startPage;
+                  break;
+                }
+              }
+
+              // Calculate the effective page range for subchapters
+              int effectiveRange = 0;
+              if (nextMainChapterStart > parentStart) {
+                effectiveRange = nextMainChapterStart - parentStart;
+              } else {
+                // If no next main chapter found, estimate based on subchapter count
+                effectiveRange = subChapterCount + 1;
+              }
+
+              // Distribute subchapters across the effective range
+              if (effectiveRange > 1) {
+                double pagesPerSub = effectiveRange / (subChapterCount + 1);
+                calculatedPageInChapter = (pagesPerSub * (subIdx + 1)).round();
+                if (calculatedPageInChapter >= effectiveRange) {
+                  calculatedPageInChapter = effectiveRange - 1;
+                }
+              } else {
+                // Fallback: just use subIdx
+                calculatedPageInChapter = subIdx;
+              }
+            } else if (parentPageCount > 0) {
+              // Normal case: parent has enough pages
+              double pagesPerSubChapter = parentPageCount / (subChapterCount + 1);
+
+              if (pagesPerSubChapter < 1 && parentPageCount > subChapterCount) {
+                pagesPerSubChapter = 1;
+              }
+
+              calculatedPageInChapter = (pagesPerSubChapter * (subIdx + 1)).round();
+
+              if (calculatedPageInChapter <= subIdx && parentPageCount > subIdx) {
+                calculatedPageInChapter = subIdx;
+              }
+
+              if (calculatedPageInChapter >= parentPageCount) {
+                calculatedPageInChapter = parentPageCount - 1;
+              }
+            } else {
+              calculatedPageInChapter = subIdx;
+            }
+
             startPage = parentStart + calculatedPageInChapter;
             endPage = startPage;
-
-            print(
-                '🔵 Sub-chapter "${chaptersList[i].chapter}": parent[$parentIdx].start=$parentStart, parentPages=$parentPageCount, subIdx=$subIdx, subCount=$subChapterCount → pageInChapter=$calculatedPageInChapter, startPage=$startPage');
           }
         }
 
@@ -149,30 +204,6 @@ class EpubPaginationHelper {
         );
       }
     }
-
-    // Print summary of chapters with page numbers
-    print('');
-    print('📖 ═══════════════════════════════════════════════════════');
-    print('📖 CHAPTER PAGE NUMBERS SUMMARY');
-    print('📖 ═══════════════════════════════════════════════════════');
-    for (int i = 0; i < chaptersList.length; i++) {
-      final ch = chaptersList[i];
-      if (!ch.isSubChapter) {
-        if (ch.startPage > 0) {
-          print('📖 Chapter $i: "${ch.chapter}" - Pages ${ch.startPage}-${ch.endPage} (${ch.pageCount} pages)');
-        } else {
-          print('📖 Chapter $i: "${ch.chapter}" - Not calculated yet');
-        }
-      } else {
-        if (ch.startPage > 0) {
-          print('📖   └─ Sub-chapter: "${ch.chapter}" - Page ${ch.startPage}');
-        } else {
-          print('📖   └─ Sub-chapter: "${ch.chapter}" - Not calculated yet');
-        }
-      }
-    }
-    print('📖 ═══════════════════════════════════════════════════════');
-    print('');
   }
 
   /// Build HTML content for a specific chapter including sub-chapters
@@ -354,14 +385,6 @@ class EpubPaginationHelper {
     required Function(int chapter, int pages) onChapterCalculated,
     required bool Function() shouldStop,
   }) async {
-    print('');
-    print('🧮 ═══════════════════════════════════════════════════════');
-    print('🧮 PRECALCULATING ALL CHAPTERS IN BACKGROUND');
-    print('🧮 Page area: ${pageSize.width} x ${pageSize.height}');
-    print('🧮 Known chapters before start: ${existingPageCounts.length}');
-    print('🧮 ═══════════════════════════════════════════════════════');
-    print('');
-
     final totalChapters = _chapters.length;
     final contentWidth = pageSize.width - 18.w;
     final contentHeight = pageSize.height - 100.h;
@@ -370,7 +393,6 @@ class EpubPaginationHelper {
     for (int i = 0; i < totalChapters; i++) {
       // Stop if widget is disposed
       if (shouldStop()) {
-        print('🛑 Precalc stopped - widget disposed');
         break;
       }
 
@@ -385,13 +407,7 @@ class EpubPaginationHelper {
 
         // Notify callback
         onChapterCalculated(i, pages);
-
-        // Only print progress every 20 chapters to reduce log spam
-        if (i % 20 == 0 || i == totalChapters - 1) {
-          print('🧮 Chapter $i precalculated: $pages pages');
-        }
       } catch (e, st) {
-        print('⚠️ Failed to precalculate chapter $i: $e');
         log('⚠️ Precalc error chapter $i: $e\n$st');
       }
 
@@ -400,13 +416,6 @@ class EpubPaginationHelper {
         await Future.delayed(Duration(milliseconds: 10));
       }
     }
-
-    print('');
-    print('✅ ═══════════════════════════════════════════════════════');
-    print('✅ PRECALC COMPLETE');
-    print('✅ Chapters processed: ${chapterPageCounts.length} / $totalChapters');
-    print('✅ ═══════════════════════════════════════════════════════');
-    print('');
 
     return chapterPageCounts;
   }

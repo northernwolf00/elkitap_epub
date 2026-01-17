@@ -11,12 +11,6 @@ class EpubChapterFixer {
       final images = epubBook.Content?.Images ?? {};
       final spine = epubBook.Schema?.Package?.Spine?.Items ?? [];
 
-      print('🔍 EPUB Structure Analysis:');
-      print('   Chapters: ${chapters.length}');
-      print('   HTML files: ${htmlFiles.length}');
-      print('   Images: ${images.length}');
-      print('   Spine items: ${spine.length}');
-
       // Validate basic EPUB structure
       if (htmlFiles.isEmpty && images.isEmpty) {
         _createDummyChapter(epubBook);
@@ -78,10 +72,7 @@ class EpubChapterFixer {
       if (chapters.isNotEmpty && _hasInvalidChapters(chapters)) {
         _repairChapterContent(epubBook);
       }
-    } catch (e, st) {
-      print('❌ Error in fixChaptersIfNeeded: $e');
-      print('Stack trace: $st');
-    }
+    } catch (e, st) {}
   }
 
   static void _createDummyChapter(EpubBook epubBook) {
@@ -460,7 +451,6 @@ class EpubChapterFixer {
 
       return chapters;
     } catch (e) {
-      print('⚠️ Error splitting HTML by chapters: $e');
       return [(fallbackTitle, htmlContent)];
     }
   }

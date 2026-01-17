@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import 'package:cosmos_epub/Helpers/selectable_text_with_addnote.dart';
-import 'package:cosmos_epub/PageFlip/page_flip_widget.dart';
-import 'package:cosmos_epub/Helpers/functions.dart';
+import 'package:cosmos_epub/helpers/selectable_text_with_addnote.dart';
+import 'package:cosmos_epub/page_flip/page_flip_widget.dart';
+import 'package:cosmos_epub/helpers/functions.dart';
 import 'package:cosmos_epub/widgets/loading_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -14,134 +14,80 @@ import 'package:html/dom.dart' as dom;
 import 'dart:ui' as ui;
 
 class PagingTextHandler extends GetxController {
-  final Function paginate;
-  final String bookId;
-  final _box = GetStorage();
-
-  late final RxInt currentPage;
-  late final RxInt totalPages;
-
-  // Reference to the PageFlipWidget controller for programmatic navigation
-  GlobalKey<PageFlipWidgetState>? _pageFlipController;
-
   PagingTextHandler({required this.paginate, required this.bookId}) {
     currentPage = (_box.read<int>('currentPage_$bookId') ?? 0).obs;
     totalPages = (_box.read<int>('totalPages_$bookId') ?? 0).obs;
 
-    ever(currentPage,
-        (_) => _box.write('currentPage_$bookId', currentPage.value));
+    ever(currentPage, (_) => _box.write('currentPage_$bookId', currentPage.value));
     ever(totalPages, (_) => _box.write('totalPages_$bookId', totalPages.value));
   }
 
-  // Set the page flip controller reference
+  final String bookId;
+  late final RxInt currentPage;
+  final Function paginate;
+  late final RxInt totalPages;
+
+  final _box = GetStorage();
+  GlobalKey<PageFlipWidgetState>? _pageFlipController;
+
   void setPageFlipController(GlobalKey<PageFlipWidgetState> controller) {
     _pageFlipController = controller;
   }
 
-  // Navigate to next page
   Future<void> goToNextPage() async {
-    print('🔄 goToNextPage called');
     final state = _pageFlipController?.currentState;
     if (state == null) {
-      print('❌ PageFlipController state is null!');
       return;
     }
 
     final currentPageNum = state.pageNumber;
     final totalPages = state.pages.length;
-    print('📄 Current: $currentPageNum, Total: $totalPages');
 
-    // Check if not on last page
     if (currentPageNum < totalPages - 1) {
-      print('✅ Navigating to next page...');
       final targetPage = currentPageNum + 1;
 
-      // Use goToPage for proper animation and state management
       await state.goToPage(targetPage);
 
-      // Trigger the onPageFlip callback after navigation
       state.widget.onPageFlip(targetPage);
-      print('✅ Navigation complete. New page: $targetPage');
-    } else {
-      print('⚠️ Already on last page');
     }
   }
 
-  // Navigate to previous page
   Future<void> goToPreviousPage() async {
-    print('🔄 goToPreviousPage called');
     final state = _pageFlipController?.currentState;
     if (state == null) {
-      print('❌ PageFlipController state is null!');
       return;
     }
 
     final currentPageNum = state.pageNumber;
-    print('📄 Current page: $currentPageNum');
 
-    // Check if not on first page
     if (currentPageNum > 0) {
-      print('✅ Navigating to previous page...');
       final targetPage = currentPageNum - 1;
 
-      // Use goToPage for proper animation and state management
       await state.goToPage(targetPage);
 
-      // Trigger the onPageFlip callback after navigation
       state.widget.onPageFlip(targetPage);
-      print('✅ Navigation complete. New page: $targetPage');
-    } else {
-      print('⚠️ Already on first page');
     }
   }
 
-  // Navigate to specific page (for sub-chapter navigation)
   Future<bool> goToPage(int pageIndex) async {
-    print('🔄 goToPage called: $pageIndex');
     final state = _pageFlipController?.currentState;
     if (state == null) {
-      print('❌ PageFlipController state is null!');
       return false;
     }
 
     final totalPagesCount = state.pages.length;
-    print('📄 Target: $pageIndex, Total: $totalPagesCount');
 
-    // Validate page index
     if (pageIndex >= 0 && pageIndex < totalPagesCount) {
-      print('✅ Navigating to page $pageIndex...');
-
-      // Use goToPage for proper animation and state management
       await state.goToPage(pageIndex);
-
-      // Trigger the onPageFlip callback after navigation
       state.widget.onPageFlip(pageIndex);
-      print('✅ Navigation complete. New page: $pageIndex');
       return true;
     } else {
-      print('⚠️ Invalid page index: $pageIndex (total: $totalPagesCount)');
       return false;
     }
   }
 }
 
 class PagingWidget extends StatefulWidget {
-  final String textContent;
-  final String? innerHtmlContent;
-  final String chapterTitle;
-  final int totalChapters;
-  final int starterPageIndex;
-  final TextStyle style;
-  final Function handlerCallback;
-  final VoidCallback onTextTap;
-  final Function(int, int) onPageFlip;
-  final Function(int, int) onLastPage;
-  final Widget? lastWidget;
-  final String bookId;
-  final bool showNavBar;
-  final int linesPerPage;
-  final EpubBook? epubBook;
-
   const PagingWidget(
     this.textContent,
     this.innerHtmlContent, {
@@ -164,29 +110,55 @@ class PagingWidget extends StatefulWidget {
     this.epubBook,
   });
 
+  final String bookId;
+  final String chapterTitle;
+  final EpubBook? epubBook;
+  final Function handlerCallback;
+  final String? innerHtmlContent;
+  final Widget? lastWidget;
+  final int linesPerPage;
+  final Function(int, int) onLastPage;
+  final Function(int, int) onPageFlip;
+  final VoidCallback onTextTap;
+  final bool showNavBar;
+  final int starterPageIndex;
+  final TextStyle style;
+  final String textContent;
+  final int totalChapters;
+
   @override
   _PagingWidgetState createState() => _PagingWidgetState();
 }
 
 class _PagingWidgetState extends State<PagingWidget> {
-  final List<TextSpan> _pageSpans = [];
   List<Widget> pages = [];
-  int _currentPageIndex = 0;
   Future<void> paginateFuture = Future.value(true);
-  late RenderBox _initializedRenderBox;
 
-  final _pageKey = GlobalKey();
-  final _pageController = GlobalKey<PageFlipWidgetState>();
-
+  int _currentPageIndex = 0;
   late PagingTextHandler _handler;
+  late RenderBox _initializedRenderBox;
+  final _pageController = GlobalKey<PageFlipWidgetState>();
+  final _pageKey = GlobalKey();
+  final List<TextSpan> _pageSpans = [];
+  bool _isFrontMatter = false;
+  late TextStyle _contentStyle;
 
-  @override
-  void initState() {
-    super.initState();
-    _handler = PagingTextHandler(paginate: rePaginate, bookId: widget.bookId);
-    _handler.setPageFlipController(_pageController);
-    widget.handlerCallback(_handler);
-    rePaginate();
+  bool _spanHasRealContent(InlineSpan span) {
+    if (span is WidgetSpan) return true;
+
+    if (span is TextSpan) {
+      final text = span.text ?? '';
+      if (text.replaceAll(RegExp(r'\s+'), '').isNotEmpty) {
+        return true;
+      }
+      if (span.children != null && span.children!.isNotEmpty) {
+        for (final child in span.children!) {
+          if (_spanHasRealContent(child)) return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   @override
@@ -199,26 +171,27 @@ class _PagingWidgetState extends State<PagingWidget> {
         widget.style.height != oldWidget.style.height ||
         widget.innerHtmlContent != oldWidget.innerHtmlContent ||
         widget.textContent != oldWidget.textContent) {
-      print('🔄 Style or content changed - triggering re-pagination');
-      print(
-          '   Old Size: ${oldWidget.style.fontSize}, New Size: ${widget.style.fontSize}');
-      print(
-          '   Old Background: ${oldWidget.style.backgroundColor}, New Background: ${widget.style.backgroundColor}');
       rePaginate();
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _handler = PagingTextHandler(paginate: rePaginate, bookId: widget.bookId);
+    _handler.setPageFlipController(_pageController);
+    widget.handlerCallback(_handler);
+    rePaginate();
   }
 
   rePaginate() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
-        print('⚠️ Widget not mounted, skipping pagination');
         return;
       }
 
       final renderObject = context.findRenderObject();
       if (renderObject == null) {
-        print('⚠️ RenderObject is null, retrying pagination...');
-        // Retry after a short delay
         Future.delayed(Duration(milliseconds: 100), () {
           if (mounted) rePaginate();
         });
@@ -227,13 +200,11 @@ class _PagingWidgetState extends State<PagingWidget> {
 
       setState(() {
         _initializedRenderBox = renderObject as RenderBox;
-        print('✅ RenderBox initialized: ${_initializedRenderBox.size}');
         paginateFuture = _paginate();
       });
     });
   }
 
-  // Helper function to extract ONLY text from a node, excluding cite elements
   String _extractTextOnly(dom.Element element, {bool excludeCite = false}) {
     StringBuffer buffer = StringBuffer();
 
@@ -241,11 +212,10 @@ class _PagingWidgetState extends State<PagingWidget> {
       if (child is dom.Text) {
         buffer.write(child.text);
       } else if (child is dom.Element) {
-        // Skip cite elements completely if excludeCite is true
         if (excludeCite && child.localName == 'cite') {
           continue;
         }
-        // Recursively get text from other elements
+
         buffer.write(_extractTextOnly(child, excludeCite: excludeCite));
       }
     }
@@ -253,29 +223,189 @@ class _PagingWidgetState extends State<PagingWidget> {
     return buffer.toString();
   }
 
+  /// Check if text is a section divider (Roman numerals, "* * *", numbers, etc.)
+  bool _isSectionDividerText(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return false;
+
+    // Must be reasonably short (section dividers are typically short)
+    // Increased limit for multiple Roman numerals like "XXXIX. XL. XLI"
+    if (trimmed.length > 50) return false;
+
+    // Common section divider patterns
+    if (trimmed == '* * *' ||
+        trimmed == '***' ||
+        trimmed == '---' ||
+        trimmed == '* * * *' ||
+        trimmed == '----' ||
+        trimmed == '————' ||
+        trimmed == '• • •' ||
+        trimmed == '...' ||
+        RegExp(r'^[\*\-•\.—–\s]+$').hasMatch(trimmed)) {
+      return true;
+    }
+
+    // Single Roman numeral (I, II, III, IV, V, VI, VII, VIII, IX, X, XI, XII, XXXVIII, etc.)
+    if (RegExp(r'^[IVXLCDM]+\.?$', caseSensitive: false).hasMatch(trimmed) ||
+        RegExp(r'^\([IVXLCDM]+\)$', caseSensitive: false).hasMatch(trimmed) ||
+        RegExp(r'^[IVXLCDM]+\)$', caseSensitive: false).hasMatch(trimmed)) {
+      return true;
+    }
+
+    // Multiple Roman numerals separated by dots, spaces, or commas
+    // Examples: "XXXIX. XL. XLI", "I II III", "X, XI, XII"
+    if (RegExp(r'^[IVXLCDM]+[\.\s,]+[IVXLCDM\.\s,]+$', caseSensitive: false).hasMatch(trimmed)) {
+      return true;
+    }
+
+    // Arabic numerals as section dividers (1, 2, 3, etc. or 1., 2., 3., etc.)
+    if (RegExp(r'^\d+\.?$').hasMatch(trimmed) || RegExp(r'^\(\d+\)$').hasMatch(trimmed) || RegExp(r'^\d+\)$').hasMatch(trimmed)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Check if element contains poetry/verse
+  /// Poetry characteristics:
+  /// - Multiple <br> tags (line breaks) OR
+  /// - Multiple child <div>/<p> elements with short text
+  bool _isPoeticElement(dom.Element element) {
+    // Count <br> tags
+    final brCount = element.querySelectorAll('br').length;
+
+    // Count child div/p elements (paragraph-like)
+    final childDivCount = element.querySelectorAll('div, p').length;
+
+    // If element has multiple line breaks OR multiple child divs, check for poetry
+    if (brCount >= 3 || childDivCount >= 3) {
+      // Extract text segments from child elements
+      List<String> textSegments = [];
+
+      void extractTextSegments(dom.Node node) {
+        if (node is dom.Text) {
+          final text = node.text.trim();
+          if (text.isNotEmpty) {
+            textSegments.add(text);
+          }
+        } else if (node is dom.Element) {
+          if (node.localName == 'br') {
+            return;
+          }
+          // For div/p elements, get their direct text content
+          if (node.localName == 'div' || node.localName == 'p') {
+            final text = node.text.trim();
+            if (text.isNotEmpty && text.length < 100) {
+              textSegments.add(text);
+            }
+          }
+          for (var child in node.nodes) {
+            extractTextSegments(child);
+          }
+        }
+      }
+
+      for (var child in element.nodes) {
+        extractTextSegments(child);
+      }
+
+      if (textSegments.length >= 3) {
+        // Check if most segments are short (typical poetry lines)
+        int shortSegments = 0;
+        for (var i = 0; i < textSegments.length && i < 5; i++) {
+          final seg = textSegments[i];
+          final segLength = seg.length;
+          if (segLength < 80 && segLength > 5) {
+            shortSegments++;
+          }
+        }
+
+        // If at least 60% of segments are short, it's poetry
+        if (shortSegments >= (textSegments.take(5).length * 0.6).ceil()) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  bool _shouldCenterPoetry(List<String> lines) {
+    if (lines.isEmpty) return false;
+    final lengths = lines.map((l) => l.trim().length).where((l) => l > 0).toList();
+    if (lengths.isEmpty) return false;
+    final maxLen = lengths.reduce((a, b) => a > b ? a : b);
+    final avgLen = lengths.reduce((a, b) => a + b) / lengths.length;
+    return avgLen <= 50 && maxLen <= 80;
+  }
+
+  bool _isFrontMatterContent(String rawText, String chapterTitle) {
+    final cleaned = rawText.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (cleaned.isEmpty) return false;
+
+    final lower = cleaned.toLowerCase();
+    final titleLower = chapterTitle.trim().toLowerCase();
+
+    final lengthOk = cleaned.length <= 2000;
+    final shortLines = rawText.split(RegExp(r'\r?\n')).map((l) => l.trim()).where((l) => l.isNotEmpty).length;
+
+    final looksLikeFrontMatter = shortLines <= 14;
+    final containsTitle = titleLower.isNotEmpty && lower.contains(titleLower);
+
+    return lengthOk && looksLikeFrontMatter && containsTitle;
+  }
+
+  TextStyle _resolveContentStyle() {
+    if (!_isFrontMatter) return widget.style;
+
+    final baseFontSize = widget.style.fontSize ?? 12;
+    return widget.style.copyWith(
+      fontSize: baseFontSize * 0.9,
+      height: 1.2,
+      letterSpacing: 0.0,
+      wordSpacing: 0.0,
+    );
+  }
+
   Future<void> _paginate() async {
-    print('📖 Starting pagination...');
     final pageSize = _initializedRenderBox.size;
     _pageSpans.clear();
 
     String contentToParse = widget.innerHtmlContent ?? widget.textContent;
 
-    print(
-        '📄 Content to parse (first 200 chars): ${contentToParse.substring(0, contentToParse.length > 200 ? 200 : contentToParse.length)}');
+    if (contentToParse.isEmpty) {
+      throw Exception('No content available to display. Content is empty.');
+    }
 
-    var document = html_parser.parse(contentToParse);
+    contentToParse = contentToParse.trim();
+
+    _isFrontMatter = _isFrontMatterContent(widget.textContent, widget.chapterTitle);
+    _contentStyle = _resolveContentStyle();
+
+    contentToParse = contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
+
+    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true).firstMatch(contentToParse);
+    if (bodyMatch != null) {
+      contentToParse = bodyMatch.group(1) ?? contentToParse;
+    }
+
+    var document = html_parser.parseFragment(contentToParse);
+
     List<InlineSpan> spans = [];
 
     double maxWidth = pageSize.width - 32.w;
 
-    // Prepare chapter title for matching
+    List<dom.Node> nodesToParse = document.nodes.toList();
+    if (nodesToParse.isEmpty && widget.textContent.trim().isNotEmpty) {
+      final textNode = dom.Text(widget.textContent);
+      nodesToParse = [textNode];
+    }
+
     final chapterTitleLower = widget.chapterTitle.trim().toLowerCase();
-    print('📌 Chapter title to skip: "$chapterTitleLower"');
 
-    for (var i = 0; i < document.body!.nodes.length; i++) {
-      final node = document.body!.nodes[i];
+    for (var i = 0; i < nodesToParse.length; i++) {
+      final node = nodesToParse[i];
 
-      // Check if this node is just the chapter title - skip it
       String nodeText = '';
       if (node is dom.Element) {
         nodeText = node.text.trim();
@@ -283,52 +413,92 @@ class _PagingWidgetState extends State<PagingWidget> {
         nodeText = node.text.trim();
       }
 
-      // Skip if node text matches chapter title exactly or is contained in it
       if (chapterTitleLower.isNotEmpty && nodeText.isNotEmpty) {
         final nodeTextLower = nodeText.toLowerCase();
-        if (nodeTextLower == chapterTitleLower ||
-            chapterTitleLower.contains(nodeTextLower) && nodeText.length > 2) {
-          print('🗑️ Skipping duplicate chapter title node: "$nodeText"');
+        if (nodeTextLower == chapterTitleLower || chapterTitleLower.contains(nodeTextLower) && nodeText.length > 2) {
           continue;
         }
       }
 
-      spans.add(await _parseNode(node, maxWidth));
+      spans.add(await _parseNode(node, maxWidth, isPoetry: false));
     }
 
-    print('✅ Parsed ${spans.length} top-level spans');
+    // Recursive function to check if a span has real content
+    bool hasRealContent(InlineSpan span) {
+      if (span is WidgetSpan) return true;
+
+      if (span is TextSpan) {
+        // Check direct text
+        if (span.text != null && span.text!.trim().isNotEmpty) {
+          return true;
+        }
+
+        // Check children recursively
+        if (span.children != null && span.children!.isNotEmpty) {
+          for (var child in span.children!) {
+            if (hasRealContent(child)) {
+              return true;
+            }
+          }
+        }
+      }
+
+      return false;
+    }
+
+    bool hasContent = spans.any((span) => hasRealContent(span));
+
+    if (!hasContent) {
+      _pageSpans.clear();
+      _pageSpans.add(const TextSpan(text: ''));
+
+      _finalizePages();
+      return;
+    }
 
     await _paginateFlattened(spans, pageSize);
   }
 
-  Future<InlineSpan> _parseNode(dom.Node node, double maxWidth) async {
+  Future<InlineSpan> _parseNode(dom.Node node, double maxWidth, {bool isPoetry = false}) async {
+    if (node is dom.Element) {
+    } else if (node is dom.Text) {
+      final preview = node.text.trim().length > 50 ? node.text.trim().substring(0, 50) + '...' : node.text.trim();
+    }
+
     if (node is dom.Text) {
       String text = node.text;
 
-      // Remove all types of excessive whitespace BUT preserve newlines
-      text = text.replaceAll('\u00A0', ' '); // Non-breaking space
-      text = text.replaceAll('\u200B', ''); // Zero-width space
-      text = text.replaceAll('\u2009', ' '); // Thin space
-      text = text.replaceAll('\u202F', ' '); // Narrow no-break space
-      // Replace ALL whitespace (including newlines) with single space for continuous text flow
-      text = text.replaceAll(RegExp(r'\s+'), ' ');
+      text = text.replaceAll('\u00A0', ' ');
+      text = text.replaceAll('\u200B', '');
+      text = text.replaceAll('\u2009', ' ');
+      text = text.replaceAll('\u202F', ' ');
+
+      // For poetry, preserve line breaks and multiple spaces
+      // For prose, flatten all whitespace to single spaces
+      if (!isPoetry) {
+        text = text.replaceAll(RegExp(r'\s+'), ' ');
+        // Ensure a space after punctuation when missing (e.g., ";Word" -> "; Word")
+        text = text.replaceAllMapped(
+          RegExp(r'([\.,;:!?])([A-Za-z\u0400-\u04FF])'),
+          (match) => '${match.group(1)} ${match.group(2)}',
+        );
+      }
 
       if (text.trim().isEmpty) {
         return const TextSpan(text: '');
       }
 
-      // Clean up punctuation spacing
       text = text.replaceAll(RegExp(r'\s+([.,;:!?\)\]»])'), '\$1');
       text = text.replaceAll(RegExp(r'([([«])\s+'), '\$1');
 
       return TextSpan(
         text: text,
-        style: widget.style.copyWith(
+        style: _contentStyle.copyWith(
+          color: _contentStyle.color,
           fontFamily: 'SFPro',
-          height: 1.5,
-          letterSpacing: 0.1,
-          wordSpacing: 0.5,
-          // Enable word breaking for long words in Turkmen/Russian
+          height: _isFrontMatter ? 1.25 : 1.5,
+          letterSpacing: _isFrontMatter ? 0.0 : 0.1,
+          wordSpacing: _isFrontMatter ? 0.0 : 0.5,
           overflow: TextOverflow.visible,
         ),
       );
@@ -338,111 +508,189 @@ class _PagingWidgetState extends State<PagingWidget> {
       } else if (node.localName == 'br') {
         return const TextSpan(text: "\n");
       } else if (node.localName == 'p' || node.localName == 'div') {
-        // Normal paragraph
-        List<InlineSpan> children = [];
-
-        // Add paragraph indent using non-breaking spaces
-        children.add(TextSpan(
-          text:
-              '\u00A0\u00A0\u00A0\u00A0\u00A0', // 5 non-breaking spaces for indent
-          style: widget.style,
-        ));
-
-        for (var child in node.nodes) {
-          final span = await _parseNode(child, maxWidth);
-          children.add(span);
+        // DEBUG: Check if this paragraph has italic children (em, i)
+        bool hasItalicChild = false;
+        String childrenDebug = '';
+        for (var child in node.children) {
+          if (child.localName == 'em' || child.localName == 'i') {
+            hasItalicChild = true;
+          }
+          childrenDebug += '<${child.localName}> ';
         }
 
-        // Add single line paragraph break like Apple Books
-        children.add(const TextSpan(text: '\n'));
+        // Check if this element contains poetry/verse
+        final isPoetry = _isPoeticElement(node);
 
-        return TextSpan(children: children);
-      } else if (node.localName == 'h1' ||
-          node.localName == 'h2' ||
-          node.localName == 'h3') {
+        if (isPoetry) {
+          // For poetry, extract text from each child div/p as separate lines
+
+          // Find all paragraph/div elements and extract their text as lines
+          List<String> poetryLines = [];
+          Set<String> addedLines = {}; // Avoid duplicates
+
+          void extractPoetryLines(dom.Element element) {
+            // First check direct children
+            for (var child in element.children) {
+              if (child.localName == 'div' || child.localName == 'p') {
+                // Check if this div has class="paragraph" or similar
+                String lineText = child.text.trim();
+                if (lineText.isNotEmpty && lineText.length < 100 && !addedLines.contains(lineText)) {
+                  poetryLines.add(lineText);
+                  addedLines.add(lineText);
+                }
+              } else if (child.localName == 'blockquote') {
+                // Handle blockquote - extract its child paragraphs
+                extractPoetryLines(child);
+              }
+            }
+          }
+
+          extractPoetryLines(node);
+
+          // If no child divs found, try splitting by <br> or just use full text
+          if (poetryLines.isEmpty) {
+            String poetryHtml = node.innerHtml;
+            poetryHtml = poetryHtml.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+            poetryHtml = poetryHtml.replaceAll(RegExp(r'<[^>]+>'), '');
+            poetryHtml = poetryHtml.replaceAll('&nbsp;', ' ');
+            poetryLines = poetryHtml.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+          }
+
+          String poetryText = poetryLines.join('\n');
+          final centerPoetry = _shouldCenterPoetry(poetryLines);
+
+          return WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: Container(
+              width: maxWidth,
+              padding: EdgeInsets.only(bottom: _isFrontMatter ? 4.h : 8.h, top: _isFrontMatter ? 2.h : 4.h),
+              child: Text(
+                poetryText,
+                textAlign: centerPoetry ? TextAlign.center : TextAlign.left,
+                style: _contentStyle.copyWith(
+                  color: _contentStyle.color,
+                  fontFamily: 'SFPro',
+                  height: _isFrontMatter ? 1.3 : 1.6,
+                  letterSpacing: _isFrontMatter ? 0.0 : 0.1,
+                  wordSpacing: _isFrontMatter ? 0.0 : 0.5,
+                ),
+              ),
+            ),
+          );
+        } else {
+          // Check if this paragraph is a section divider (Roman numerals, "* * *", etc.)
+          final paragraphText = node.text.trim();
+          final isSectionDivider = _isSectionDividerText(paragraphText);
+
+          if (isSectionDivider) {
+            // Center section dividers (Roman numerals, "* * *", etc.)
+            return WidgetSpan(
+              alignment: PlaceholderAlignment.baseline,
+              baseline: TextBaseline.alphabetic,
+              child: Container(
+                width: maxWidth,
+                padding: EdgeInsets.symmetric(vertical: _isFrontMatter ? 4.h : 8.h),
+                alignment: Alignment.center,
+                child: Text(
+                  paragraphText,
+                  textAlign: TextAlign.center,
+                  style: _contentStyle.copyWith(
+                    color: _contentStyle.color,
+                    fontFamily: 'SFPro',
+                    height: _isFrontMatter ? 1.25 : 1.5,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // For prose, use regular indented paragraph
+          List<InlineSpan> children = [];
+
+          if (!_isFrontMatter) {
+            children.add(TextSpan(
+              text: '\u00A0\u00A0\u00A0\u00A0\u00A0',
+              style: _contentStyle,
+            ));
+          }
+
+          for (var child in node.nodes) {
+            final span = await _parseNode(child, maxWidth, isPoetry: false);
+            children.add(span);
+          }
+
+          children.add(const TextSpan(text: '\n'));
+
+          return TextSpan(
+            children: children,
+          );
+        }
+      } else if (node.localName == 'h1' || node.localName == 'h2' || node.localName == 'h3') {
         List<InlineSpan> children = [];
 
-        // Add spacing before heading
         children.add(const TextSpan(text: '\n'));
 
         for (var child in node.nodes) {
-          children.add(await _parseNode(child, maxWidth));
+          children.add(await _parseNode(child, maxWidth, isPoetry: false));
         }
 
-        // Add spacing after heading
         children.add(const TextSpan(text: '\n\n'));
 
         return TextSpan(
           children: children,
-          style: widget.style.copyWith(
-            fontSize: (widget.style.fontSize ?? 16) + 4,
+          style: _contentStyle.copyWith(
+            color: _contentStyle.color,
+            fontSize: (_contentStyle.fontSize ?? 16) + 4,
             fontWeight: FontWeight.w500,
-            fontStyle: FontStyle.italic,
-            height: 1.5,
+            fontStyle: FontStyle.normal,
+            height: _isFrontMatter ? 1.25 : 1.5,
           ),
         );
       } else if (node.localName == 'blockquote') {
-        // Epigraph/quote - right aligned, italic like Apple Books
-        // ONLY extract text, completely ignore ALL child elements (including cite)
-        String fullText = _extractTextOnly(node, excludeCite: true);
+        // Check if this is a nested blockquote with author (common pattern in EPUBs)
+        String? authorName;
+        String? quoteText;
 
-        fullText = fullText.trim();
-        if (fullText.isEmpty) {
-          return const TextSpan(text: '');
+        // Pattern 1: Nested blockquote with italic author
+        // <blockquote class="epigraph">
+        //   <div><div class="paragraph">Quote text</div>
+        //   <blockquote><i>Author</i></blockquote></div>
+        // </blockquote>
+
+        // Find nested blockquote with italic element
+        for (var child in node.querySelectorAll('blockquote')) {
+          var italicElement = child.querySelector('i') ?? child.querySelector('em');
+          if (italicElement != null) {
+            authorName = italicElement.text.trim();
+            break;
+          }
         }
 
-        print('📝 Blockquote full text: "$fullText"');
-
-        // Try to detect author name at the end
-        // Simple approach: Last 2-4 capitalized words without ending punctuation
-        String? authorName;
-        String quoteText = fullText;
-
-        // Split into words
-        List<String> words = fullText.split(RegExp(r'\s+'));
-
-        // Check last 2-4 words
-        if (words.length >= 4) {
-          // Try last 2 words
-          String lastTwo = words.sublist(words.length - 2).join(' ');
-          bool allCaps = words.sublist(words.length - 2).every((w) {
-            if (w.isEmpty) return false;
-            return w[0] == w[0].toUpperCase() && w[0] != w[0].toLowerCase();
-          });
-
-          // No punctuation at end
-          bool noPunct = !lastTwo.endsWith('.') &&
-              !lastTwo.endsWith('!') &&
-              !lastTwo.endsWith('?') &&
-              !lastTwo.endsWith(',');
-
-          if (allCaps && noPunct) {
-            print('🔍 Detected 2-word author: "$lastTwo"');
-            authorName = lastTwo;
-            quoteText = words.sublist(0, words.length - 2).join(' ');
-          } else {
-            // Try last 3 words
-            if (words.length >= 5) {
-              String lastThree = words.sublist(words.length - 3).join(' ');
-              bool allCaps3 = words.sublist(words.length - 3).every((w) {
-                if (w.isEmpty) return false;
-                return w[0] == w[0].toUpperCase() && w[0] != w[0].toLowerCase();
-              });
-              bool noPunct3 = !lastThree.endsWith('.') &&
-                  !lastThree.endsWith('!') &&
-                  !lastThree.endsWith('?') &&
-                  !lastThree.endsWith(',');
-
-              if (allCaps3 && noPunct3) {
-                print('🔍 Detected 3-word author: "$lastThree"');
-                authorName = lastThree;
-                quoteText = words.sublist(0, words.length - 3).join(' ');
+        // Extract quote text (exclude nested blockquotes)
+        StringBuffer textBuffer = StringBuffer();
+        void extractQuoteText(dom.Element element, {bool skipNestedBlockquote = false}) {
+          for (var child in element.nodes) {
+            if (child is dom.Element) {
+              // Skip nested blockquotes (they contain the author)
+              if (child.localName == 'blockquote' && skipNestedBlockquote) {
+                continue;
               }
+              extractQuoteText(child, skipNestedBlockquote: true);
+            } else if (child is dom.Text) {
+              textBuffer.write(child.text);
             }
           }
         }
 
-        // Clean up whitespace and punctuation
+        extractQuoteText(node, skipNestedBlockquote: true);
+        quoteText = textBuffer.toString().trim();
+
+        if (quoteText.isEmpty) {
+          return const TextSpan(text: '');
+        }
+
+        // Clean up the quote text
         quoteText = quoteText.replaceAll('\u00A0', ' ');
         quoteText = quoteText.replaceAll('\u200B', '');
         quoteText = quoteText.replaceAll('\u2009', ' ');
@@ -452,73 +700,69 @@ class _PagingWidgetState extends State<PagingWidget> {
         quoteText = quoteText.replaceAll(RegExp(r'([([«])\s+'), '\$1');
         quoteText = quoteText.trim();
 
-        print('📖 Final quote text: "$quoteText"');
-        if (authorName != null) {
-          print('✍️ Final author name: "$authorName"');
-        }
-
-        // ALWAYS show quote text, even if empty after author detection
-        if (quoteText.isEmpty && authorName != null) {
-          // If we accidentally removed all text, restore it
-          quoteText = fullText;
-          authorName = null;
-          print(
-              '⚠️ Quote was empty after author detection - restoring full text');
-        }
-
-        // Build the widget - quote only (author will be separate)
         List<InlineSpan> spans = [];
 
-        // Add quote
+        // Add top spacing
+        spans.add(WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: SizedBox(height: 20.h),
+        ));
+
+        // Add quote text (Apple Books style: centered, elegant)
         spans.add(WidgetSpan(
           alignment: PlaceholderAlignment.baseline,
           baseline: TextBaseline.alphabetic,
           child: Container(
-            padding: EdgeInsets.fromLTRB(maxWidth / 2.5, 0.h, 0.w, 8.h),
-            child: RichText(
-              textAlign: TextAlign.justify,
-              text: TextSpan(
-                style: widget.style.copyWith(
-                  fontStyle: FontStyle.italic,
-                  height: 1.5,
-                ),
-                children: [
-                  TextSpan(text: '\u00A0\u00A0\u00A0\u00A0\u00A0'),
-                  TextSpan(text: quoteText),
-                ],
+            width: maxWidth,
+            alignment: Alignment.centerRight,
+            margin: EdgeInsets.only(left: maxWidth / 4),
+            padding: EdgeInsets.symmetric(vertical: 4.h),
+            child: Text(
+              quoteText,
+              textAlign: TextAlign.left,
+              style: _contentStyle.copyWith(
+                color: _contentStyle.color,
+                fontStyle: FontStyle.normal,
+                fontSize: (_contentStyle.fontSize ?? 12) - 2,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
         ));
 
-        // Add author if detected
+        // Add author name if found (Apple Books style: centered)
         if (authorName != null && authorName.isNotEmpty) {
-          print('✅ Adding author widget: "$authorName"');
           spans.add(WidgetSpan(
             alignment: PlaceholderAlignment.baseline,
             baseline: TextBaseline.alphabetic,
             child: Container(
-              padding: EdgeInsets.fromLTRB(maxWidth / 3, 3.h, 0.w, 4.h),
-              child: Center(
-                child: Text(
-                  authorName,
-                  textAlign: TextAlign.center,
-                  style: widget.style.copyWith(
-                    fontStyle: FontStyle.normal,
-                    fontWeight: FontWeight.bold,
-                    height: 1.0,
-                  ),
+              width: maxWidth,
+              padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
+              child: Text(
+                authorName,
+                textAlign: TextAlign.center,
+                style: _contentStyle.copyWith(
+                  color: _contentStyle.color,
+                  fontStyle: FontStyle.normal,
+                  fontWeight: FontWeight.bold,
+                  fontSize: (_contentStyle.fontSize ?? 12) * 0.95,
+                  letterSpacing: 0.2,
                 ),
               ),
             ),
           ));
         } else {
-          print('⚠️ No author detected in blockquote');
+          // Add minimal bottom spacing if no author
+          spans.add(WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: SizedBox(height: 8.h),
+          ));
         }
 
         return TextSpan(children: spans);
       } else if (node.localName == 'cite') {
-        // Author/citation - centered below quote like Apple Books
         String authorText = '';
         for (var child in node.nodes) {
           if (child is dom.Text) {
@@ -533,51 +777,141 @@ class _PagingWidgetState extends State<PagingWidget> {
           return const TextSpan(text: '');
         }
 
+        // Check if previous sibling was a long italic (quote) - if so, skip (already rendered with quote)
+        var prevSibling = node.previousElementSibling;
+        if (prevSibling == null && node.parent != null) {
+          prevSibling = node.parent!.previousElementSibling;
+        }
+
+        if (prevSibling != null && (prevSibling.localName == 'em' || prevSibling.localName == 'i') && prevSibling.text.trim().length > 80) {
+          // Already shown with the quote above, skip
+          return const TextSpan(text: '');
+        }
+
+        // If cite is standalone (not after quote), show it like Apple Books
         return WidgetSpan(
           alignment: PlaceholderAlignment.baseline,
           baseline: TextBaseline.alphabetic,
           child: Container(
-            width: maxWidth,
-            padding: EdgeInsets.fromLTRB(0.w, 16.h, 0.w, 24.h),
-            child: Text(
-              authorText,
-              textAlign: TextAlign.center,
-              style: widget.style.copyWith(
-                fontStyle: FontStyle.normal,
-                fontWeight: FontWeight.bold,
-                height: 1.3,
+            padding: EdgeInsets.fromLTRB(maxWidth / 2.5, 4.h, 0.w, 16.h),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                authorText,
+                textAlign: TextAlign.right,
+                style: _contentStyle.copyWith(
+                  color: _contentStyle.color,
+                  fontStyle: FontStyle.normal,
+                  fontWeight: FontWeight.w600,
+                  height: _isFrontMatter ? 1.2 : 1.3,
+                ),
               ),
             ),
           ),
         );
       } else if (node.localName == 'em' || node.localName == 'i') {
-        // Italic text
         List<InlineSpan> children = [];
         for (var child in node.nodes) {
-          children.add(await _parseNode(child, maxWidth));
+          children.add(await _parseNode(child, maxWidth, isPoetry: isPoetry));
         }
+
+        // Check if this is a long italic text (likely a quote)
+        final text = node.text.trim();
+        final isLongQuote = text.length > 80; // Reduced threshold
+
+        if (isLongQuote) {
+          // Check for following author/cite element
+          String? authorText;
+          var nextSibling = node.nextElementSibling;
+
+          // Look for author in next sibling or parent's next sibling
+          if (nextSibling == null && node.parent != null) {
+            nextSibling = node.parent!.nextElementSibling;
+          }
+
+          if (nextSibling != null) {
+            // Check if next sibling is <cite>, <em> with short text, or <p> with italic
+            if (nextSibling.localName == 'cite' ||
+                (nextSibling.localName == 'em' && nextSibling.text.trim().length < 50) ||
+                (nextSibling.localName == 'i' && nextSibling.text.trim().length < 50) ||
+                (nextSibling.localName == 'p' && nextSibling.querySelector('em') != null)) {
+              authorText = nextSibling.text.trim();
+            }
+          }
+
+          // Render as centered quote with optional author
+          List<Widget> quoteWidgets = [
+            Container(
+              width: maxWidth,
+              padding: EdgeInsets.fromLTRB(maxWidth * 0.1, 12.h, maxWidth * 0.1, 8.h),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: _contentStyle.copyWith(
+                  color: _contentStyle.color,
+                  fontStyle: FontStyle.normal,
+                  height: _isFrontMatter ? 1.25 : 1.5,
+                  fontSize: _contentStyle.fontSize,
+                ),
+              ),
+            ),
+          ];
+
+          // Add author if found
+          if (authorText != null && authorText.isNotEmpty) {
+            quoteWidgets.add(
+              Container(
+                width: maxWidth,
+                padding: EdgeInsets.fromLTRB(maxWidth * 0.1, 0.h, maxWidth * 0.1, 12.h),
+                child: Text(
+                  authorText,
+                  textAlign: TextAlign.center,
+                  style: _contentStyle.copyWith(
+                    color: _contentStyle.color,
+                    fontStyle: FontStyle.normal,
+                    fontWeight: FontWeight.w500,
+                    height: _isFrontMatter ? 1.2 : 1.3,
+                    fontSize: _contentStyle.fontSize,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: quoteWidgets,
+            ),
+          );
+        }
+
         return TextSpan(
           children: children,
-          style: widget.style.copyWith(
-            fontStyle: FontStyle.italic,
+          style: _contentStyle.copyWith(
+            color: _contentStyle.color,
+            fontStyle: FontStyle.normal,
           ),
         );
       } else if (node.localName == 'strong' || node.localName == 'b') {
-        // Bold text
         List<InlineSpan> children = [];
         for (var child in node.nodes) {
-          children.add(await _parseNode(child, maxWidth));
+          children.add(await _parseNode(child, maxWidth, isPoetry: isPoetry));
         }
         return TextSpan(
           children: children,
-          style: widget.style.copyWith(
+          style: _contentStyle.copyWith(
+            color: _contentStyle.color,
             fontWeight: FontWeight.bold,
           ),
         );
       } else {
         List<InlineSpan> children = [];
         for (var child in node.nodes) {
-          children.add(await _parseNode(child, maxWidth));
+          children.add(await _parseNode(child, maxWidth, isPoetry: isPoetry));
         }
         return TextSpan(children: children);
       }
@@ -587,7 +921,6 @@ class _PagingWidgetState extends State<PagingWidget> {
 
   Future<InlineSpan> _handleImageNode(dom.Element node, double maxWidth) async {
     String? src = node.attributes['src'];
-    print('📷 Found img tag with src: "$src"');
 
     if (src == null || widget.epubBook == null) {
       return const TextSpan(text: "");
@@ -596,23 +929,16 @@ class _PagingWidgetState extends State<PagingWidget> {
     final imageContent = _findImage(src);
 
     if (imageContent == null) {
-      print('⚠️ Image not found in EPUB: $src');
       return _createNotFoundWidget(src);
     }
 
     try {
       final bytes = imageContent.Content as List<int>;
       final uint8list = Uint8List.fromList(bytes);
-
-      print('🖼️ Decoding image, size: ${bytes.length} bytes');
-
       final codec = await ui.instantiateImageCodec(uint8list);
       final frameInfo = await codec.getNextFrame();
       final imageWidth = frameInfo.image.width.toDouble();
       final imageHeight = frameInfo.image.height.toDouble();
-
-      print('📐 Image dimensions: ${imageWidth}x${imageHeight}');
-
       double availableWidth = maxWidth * 0.95;
       double displayWidth = imageWidth;
       double displayHeight = imageHeight;
@@ -628,8 +954,6 @@ class _PagingWidgetState extends State<PagingWidget> {
         displayWidth = (displayHeight / imageHeight) * imageWidth;
       }
 
-      print('✅ Rendering image at: ${displayWidth}x${displayHeight}');
-
       return WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: Padding(
@@ -643,7 +967,6 @@ class _PagingWidgetState extends State<PagingWidget> {
                 height: displayHeight,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
-                  print('❌ Error rendering image: $error');
                   return _buildImageError(displayWidth);
                 },
               ),
@@ -652,7 +975,6 @@ class _PagingWidgetState extends State<PagingWidget> {
         ),
       );
     } catch (e) {
-      print('❌ Error decoding image "$src": $e');
       return _createErrorWidget(src, maxWidth);
     }
   }
@@ -694,8 +1016,7 @@ class _PagingWidgetState extends State<PagingWidget> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.warning_amber_rounded,
-                size: 24, color: Colors.orange[700]),
+            Icon(Icons.warning_amber_rounded, size: 24, color: Colors.orange[700]),
             SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -756,43 +1077,29 @@ class _PagingWidgetState extends State<PagingWidget> {
 
   EpubByteContentFile? _findImage(String src) {
     if (widget.epubBook?.Content?.Images == null) {
-      print('❌ No images in EPUB');
       return null;
     }
 
     final images = widget.epubBook!.Content!.Images!;
-    print('🔍 Looking for image: "$src"');
-
-    // Exact match
     if (images.containsKey(src)) {
-      print('✅ Found exact match: $src');
       return images[src];
     }
 
-    // Decode URL-encoded paths
     try {
       final decoded = Uri.decodeFull(src);
       if (images.containsKey(decoded)) {
-        print('✅ Found decoded match: $decoded');
         return images[decoded];
       }
     } catch (_) {}
 
-    // Remove leading slash
     final noLeading = src.startsWith('/') ? src.substring(1) : src;
     if (images.containsKey(noLeading)) {
-      print('✅ Found no-leading-slash match: $noLeading');
       return images[noLeading];
     }
 
-    String cleanSrc = src
-        .replaceAll('../', '')
-        .replaceAll('./', '')
-        .replaceAll('\\', '/')
-        .trim();
+    String cleanSrc = src.replaceAll('../', '').replaceAll('./', '').replaceAll('\\', '/').trim();
 
     if (images.containsKey(cleanSrc)) {
-      print('✅ Found cleaned match: $cleanSrc');
       return images[cleanSrc];
     }
 
@@ -801,29 +1108,22 @@ class _PagingWidgetState extends State<PagingWidget> {
     for (var key in images.keys) {
       final cleanKey = key.replaceAll('\\', '/');
 
-      if (cleanKey == cleanSrc ||
-          cleanKey.endsWith(filename) ||
-          cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
-        print('✅ Found via matching: $key');
+      if (cleanKey == cleanSrc || cleanKey.endsWith(filename) || cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
         return images[key];
       }
     }
 
-    // Case-insensitive full-key match
     final lowerSrc = cleanSrc.toLowerCase();
     for (var key in images.keys) {
       if (key.toLowerCase() == lowerSrc) {
-        print('✅ Found via case-insensitive key: $key');
         return images[key];
       }
     }
 
-    print('❌ Image not found');
     return null;
   }
 
-  Future<void> _paginateFlattened(
-      List<InlineSpan> allSpans, Size pageSize) async {
+  Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async {
     List<InlineSpan> flatSpans = [];
 
     void flatten(InlineSpan span) {
@@ -840,58 +1140,26 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     for (var s in allSpans) flatten(s);
 
-    print('📚 Flattened to ${flatSpans.length} spans');
-
-    List<InlineSpan> currentPageSpans = [];
-    double currentHeight = 0;
-
-    double horizontalPadding = 10.w; // Consistent minimal padding
+    double horizontalPadding = 10.w;
     if (pageSize.width >= 600) {
-      horizontalPadding =
-          20.w; // Slightly more for tablets but still much less than before
+      horizontalPadding = 20.w;
     }
     double maxWidth = pageSize.width - horizontalPadding;
 
-    // Calculate available height for content to prevent text cutoff
-    // Account for all UI elements that take up space:
-    // - Header: ~56.h (app bar)
-    // - Top padding: 8.h (from buildBookPageSpan)
-    // - Bottom padding: 16.h (from buildBookPageSpan)
-    // - Chapter title: ~40-50.h (when present)
-    // - Bottom navigation: 60-80.h (when shown)
-    // - Safe area insets: variable (for notched devices)
-    // - Extra safety margin: 20.h
+    // Container padding'leri ile senkronize olmalı (selectable_text_with_addnote.dart)
+    // Increased reserved space to prevent text from being cut off at bottom
+    double containerPadding = _isFrontMatter ? 14.h : 24.h;
+    double chapterHeaderSpace = _isFrontMatter ? 8.h : 20.h;
+    double bottomSafeArea = _isFrontMatter ? 8.h : 16.h; // Extra space for bottom navigation area
 
-    double baseReservedSpace =
-        56.h + 8.h + 16.h + 20.h; // Header + paddings + safety (100.h)
-    double chapterTitleSpace = 45.h; // Space for chapter title
-    double bottomNavSpace =
-        widget.showNavBar ? 40.h : 0.h; // Bottom nav if shown
-
-    double reservedSpace =
-        baseReservedSpace + chapterTitleSpace + bottomNavSpace;
-
-    // Adjust for different screen sizes to ensure text never gets cut off
-    if (pageSize.height < 600) {
-      // Small phones - be more conservative with space
-      reservedSpace = reservedSpace * 0.95;
-    } else if (pageSize.height > 900) {
-      // Tablets/large phones - add more space for better readability
-      reservedSpace = reservedSpace * 1.15;
-    }
+    double reservedSpace = containerPadding + chapterHeaderSpace + bottomSafeArea;
 
     double maxHeight = pageSize.height - reservedSpace;
 
-    print('📏 Page size: ${pageSize.width} x ${pageSize.height}');
-    print(
-        '📏 Reserved: $reservedSpace | Available: $maxHeight (${((maxHeight / pageSize.height) * 100).toStringAsFixed(0)}% of page)');
-
-    for (int i = 0; i < flatSpans.length; i++) {
-      final span = flatSpans[i];
-
+    // FIRST PASS: Calculate total content height to see if it fits in one page
+    double totalContentHeight = 0;
+    for (var span in flatSpans) {
       if (span is WidgetSpan) {
-        double spanHeight = 0;
-
         try {
           TextPainter painter = TextPainter(
             text: TextSpan(children: [span]),
@@ -899,150 +1167,95 @@ class _PagingWidgetState extends State<PagingWidget> {
             textScaleFactor: 1.0,
           );
           painter.layout(maxWidth: maxWidth);
-          spanHeight = painter.height;
+          totalContentHeight += painter.height;
           painter.dispose();
-          print('✅ Measured WidgetSpan: $spanHeight');
         } catch (e) {
-          // Much smaller estimate for quotes/author names
-          // Quote typically: padding + text (~80-120h)
-          // Author name: padding + text (~40-60h)
-          spanHeight = 100.h; // Realistic estimate instead of 300!
-          print(
-              '⚠️ Could not measure WidgetSpan, using REDUCED estimate: $spanHeight');
+          totalContentHeight += 100.h;
         }
-
-        print(
-            '🖼️ Widget span height: $spanHeight, current: $currentHeight/$maxHeight');
-
-        // Aggressive page filling: Try to fit widget on current page
-        // Only create new page if widget + current content significantly exceeds limit
-        // Use 20% tolerance to fill pages better and reduce empty space
-        // FIX: strict check, no overflow allowed
-        if (currentHeight + spanHeight > maxHeight &&
-            currentPageSpans.isNotEmpty) {
-          // Only create new page if we really need it
-          _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-          currentPageSpans.clear();
-          currentHeight = 0;
-          print(
-              '📄 New page created before widget (would significantly exceed)');
-        }
-
-        currentPageSpans.add(span);
-        currentHeight += spanHeight;
-
-        // IMPORTANT: Don't create new page immediately after widget!
-        // Allow text to continue filling the page to maximum capacity
       } else if (span is TextSpan && span.text != null) {
-        String text = span.text!;
         TextPainter painter = TextPainter(
-          text: TextSpan(text: text, style: span.style),
+          text: TextSpan(text: span.text, style: span.style),
           textDirection: TextDirection.ltr,
           textScaleFactor: 1.0,
         );
         painter.layout(maxWidth: maxWidth);
-
-        // Allow 10% overflow to fill pages completely (like real books)
-        // FIX: strict check, no overflow allowed
-        if (currentHeight + painter.height <= maxHeight) {
-          // Fits on current page (with tolerance)
-          currentPageSpans.add(span);
-          currentHeight += painter.height;
-        } else {
-          List<LineMetrics> lines = painter.computeLineMetrics();
-          StringBuffer currentChunk = StringBuffer();
-          double chunkHeight = 0;
-
-          int charIndex = 0;
-          for (var line in lines) {
-            // Allow overflow per line for maximum page filling
-            // FIX: strict check per line
-            if (currentHeight + chunkHeight + line.height > maxHeight) {
-              if (currentChunk.isNotEmpty) {
-                currentPageSpans.add(
-                  TextSpan(text: currentChunk.toString(), style: span.style),
-                );
-              }
-
-              // Create new page
-              _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-              currentPageSpans.clear();
-              currentHeight = 0;
-              currentChunk.clear();
-              chunkHeight = 0;
-            }
-
-            // Add line to chunk
-            int endOffset = line.width > 0
-                ? painter
-                    .getPositionForOffset(Offset(line.width, line.baseline))
-                    .offset
-                : charIndex + 1;
-            endOffset = endOffset.clamp(charIndex, text.length);
-
-            String lineText = text.substring(charIndex, endOffset);
-
-            // Check if line breaks mid-word and add hyphen if needed
-            lineText = _addHyphenIfLineBreaksMidWord(lineText, text, endOffset);
-
-            currentChunk.write(lineText);
-            chunkHeight += line.height;
-            charIndex = endOffset;
-          }
-
-          // Add remaining chunk
-          if (currentChunk.isNotEmpty) {
-            currentPageSpans.add(
-              TextSpan(text: currentChunk.toString(), style: span.style),
-            );
-            currentHeight += chunkHeight;
-          }
-          if (charIndex < text.length) {
-            String remaining = text.substring(charIndex);
-            TextPainter remainingPainter = TextPainter(
-              text: TextSpan(text: remaining, style: span.style),
-              textDirection: TextDirection.ltr,
-              textScaleFactor: 1.0,
-            );
-            remainingPainter.layout(maxWidth: maxWidth);
-
-            // Allow 10% overflow for remaining text too
-            // FIX: strict remaining check
-            if (currentHeight + remainingPainter.height > maxHeight) {
-              _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-              currentPageSpans.clear();
-              currentHeight = 0;
-            }
-
-            currentPageSpans.add(TextSpan(text: remaining, style: span.style));
-            currentHeight += remainingPainter.height;
-            remainingPainter.dispose();
-          }
-        }
-
+        totalContentHeight += painter.height;
         painter.dispose();
       }
     }
 
-    // Add final page
-    if (currentPageSpans.isNotEmpty) {
-      _pageSpans.add(TextSpan(children: List.from(currentPageSpans)));
-      print('📄 Created final page ${_pageSpans.length}');
+    double pageRatio = totalContentHeight / maxHeight;
+    int estimatedPages = pageRatio.ceil();
+
+    // AGGRESSIVE: If content fits in 1 page (with extra overflow allowed for front matter), force single page
+    final singlePageThreshold = _isFrontMatter ? 2.4 : 1.5;
+    if (pageRatio <= singlePageThreshold) {
+      List<InlineSpan> allSpansForPage = List.from(flatSpans);
+      _pageSpans.add(TextSpan(children: allSpansForPage));
+      _finalizePages();
+      return;
     }
 
-    print('✅ Pagination complete: ${_pageSpans.length} pages');
+    // For all content, distribute evenly across pages (Apple Books style)
+    // Calculate target height per page for even distribution
+    double targetHeightPerPage = totalContentHeight / estimatedPages;
+
+    // Use slightly less than maxHeight to ensure content fits comfortably
+    double safeMaxHeight = maxHeight * 0.95;
+    if (targetHeightPerPage > safeMaxHeight) {
+      targetHeightPerPage = safeMaxHeight;
+    }
+
+    List<List<InlineSpan>> allPages = [];
+    List<InlineSpan> currentPageList = [];
+    double currentPageHeight = 0;
+
+    for (var span in flatSpans) {
+      double spanH = 0;
+      if (span is WidgetSpan) {
+        try {
+          TextPainter p = TextPainter(text: TextSpan(children: [span]), textDirection: TextDirection.ltr);
+          p.layout(maxWidth: maxWidth);
+          spanH = p.height;
+          p.dispose();
+        } catch (e) {
+          spanH = 50;
+        }
+      } else if (span is TextSpan && span.text != null) {
+        TextPainter p = TextPainter(text: TextSpan(text: span.text, style: span.style), textDirection: TextDirection.ltr);
+        p.layout(maxWidth: maxWidth);
+        spanH = p.height;
+        p.dispose();
+      }
+
+      // Check if adding this span would exceed target height
+      if (currentPageHeight + spanH > targetHeightPerPage && currentPageList.isNotEmpty) {
+        // Save current page and start new one
+        allPages.add(List.from(currentPageList));
+        currentPageList.clear();
+        currentPageHeight = 0;
+      }
+
+      currentPageList.add(span);
+      currentPageHeight += spanH;
+    }
+
+    // Add remaining content as last page
+    if (currentPageList.isNotEmpty) {
+      allPages.add(currentPageList);
+    }
+
+    // Convert to TextSpans
+    for (var pageSpans in allPages) {
+      _pageSpans.add(TextSpan(children: pageSpans));
+    }
 
     _finalizePages();
   }
 
-  // Function to detect if line breaks mid-word and add hyphen ONLY there
-  // Improved for English, Russian, and Turkmen word breaking
-  String _addHyphenIfLineBreaksMidWord(
-      String lineText, String fullText, int endOffset) {
-    // Check if we're at end of full text
+  String _addHyphenIfLineBreaksMidWord(String lineText, String fullText, int endOffset) {
     if (endOffset >= fullText.length) return lineText;
 
-    // Don't add hyphen if line is empty or already ends with whitespace/punctuation
     if (lineText.isEmpty ||
         lineText.endsWith(' ') ||
         lineText.endsWith('\n') ||
@@ -1054,50 +1267,34 @@ class _PagingWidgetState extends State<PagingWidget> {
       return lineText;
     }
 
-    // Check if next character in full text is whitespace or punctuation (natural word boundary)
     if (endOffset < fullText.length) {
       final nextChar = fullText[endOffset];
-      if (nextChar == ' ' ||
-          nextChar == '\n' ||
-          nextChar == '.' ||
-          nextChar == ',' ||
-          nextChar == '!' ||
-          nextChar == '?') {
-        return lineText; // Natural word boundary, no hyphen needed
+      if (nextChar == ' ' || nextChar == '\n' || nextChar == '.' || nextChar == ',' || nextChar == '!' || nextChar == '?') {
+        return lineText;
       }
     }
 
-    // Word is actually broken mid-word!
-    // Check if it contains alphabetic characters (English/Russian/Turkmen)
-    // Minimum 6 characters to avoid breaking short words
-    // Supports:
-    // - Latin (English): a-z, A-Z
-    // - Cyrillic (Russian): U+0400-04FF
-    // - Cyrillic Extended (Turkmen): U+0500-052F
-    final match =
-        RegExp(r'[a-zA-Z\u0400-\u04FF\u0500-\u052F]{6,}$').firstMatch(lineText);
+    final match = RegExp(r'[a-zA-Z\u0400-\u04FF\u0500-\u052F]{6,}$').firstMatch(lineText);
     if (match == null) return lineText;
 
-    // Extract the word that's being broken
     final brokenWord = match.group(0);
     if (brokenWord == null || brokenWord.length < 6) return lineText;
 
-    // Make sure we're not breaking too close to the beginning
-    // At least 3 characters should remain on first line
-    final remainingChars =
-        lineText.length - lineText.lastIndexOf(RegExp(r'\s')) - 1;
+    final remainingChars = lineText.length - lineText.lastIndexOf(RegExp(r'\s')) - 1;
     if (remainingChars < 3) return lineText;
 
-    // Add hyphen at line break for better readability
-    // Examples:
-    // English: "instructions" → "instruc-" + "tions"
-    // Russian: "инструкция" → "инстру-" + "кция"
-    // Turkmen: "kitaphanasy" → "kitap-" + "hanasy"
     return lineText + '-';
   }
 
   void _finalizePages() {
     final bottomNavHeight = widget.showNavBar ? 10.0 : 0.0;
+
+    // Remove leading empty pages so chapter jumps don't land on blank pages
+    if (_pageSpans.length > 1) {
+      while (_pageSpans.isNotEmpty && !_spanHasRealContent(_pageSpans.first)) {
+        _pageSpans.removeAt(0);
+      }
+    }
 
     pages = _pageSpans.asMap().entries.map((entry) {
       int index = entry.key;
@@ -1108,13 +1305,12 @@ class _PagingWidgetState extends State<PagingWidget> {
       return BookPageBuilder.buildBookPageSpan(
         context: context,
         contentSpan: contentSpan,
-        style: widget.style,
+        style: _contentStyle,
         textDirection: RTLHelper.getTextDirection(widget.textContent),
         bookId: widget.bookId,
         onTextTap: widget.onTextTap,
         isFirstPage: isFirstPageOfChapter,
-        chapterTitle:
-            widget.chapterTitle, // Always show chapter title on every page
+        chapterTitle: widget.chapterTitle,
         pageNumber: index + 1,
         totalPages: _pageSpans.length,
         backgroundColor: widget.style.backgroundColor,
@@ -1122,15 +1318,10 @@ class _PagingWidgetState extends State<PagingWidget> {
       );
     }).toList();
 
-    // Note: totalPages is managed by show_epub.dart to preserve book-level total
-    print('✅ Finalized ${pages.length} page widgets');
-
-    // Trigger initial onPageFlip for the starting page so progress bar updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (pages.isNotEmpty) {
-        final startIndex = widget.starterPageIndex < pages.length
-            ? widget.starterPageIndex
-            : 0;
+        final startIndex = widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0;
+        // Notify initial page so outer widgets (progress bar/theme) update immediately
         widget.onPageFlip(startIndex, pages.length);
       }
     });
@@ -1177,10 +1368,47 @@ class _PagingWidgetState extends State<PagingWidget> {
         }
 
         if (pages.isEmpty) {
+          final isTitlePage = widget.textContent.trim().length < 200 && widget.textContent.toLowerCase().contains(widget.chapterTitle.toLowerCase());
+
           return Center(
-            child: Text(
-              'No content to display',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+            child: Padding(
+              padding: EdgeInsets.all(24.w),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isTitlePage ? Icons.auto_stories : Icons.warning_amber_rounded, size: 64, color: isTitlePage ? Colors.blue : Colors.orange),
+                  SizedBox(height: 16.h),
+                  Text(
+                    isTitlePage ? widget.chapterTitle : 'Içerik görüntülenemiyor',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      color: widget.style.color ?? Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    isTitlePage ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.' : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: (widget.style.color ?? Colors.black).withOpacity(0.6),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 24.h),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      rePaginate();
+                    },
+                    icon: Icon(Icons.refresh),
+                    label: Text('Tekrar dene'),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -1194,24 +1422,21 @@ class _PagingWidgetState extends State<PagingWidget> {
                     key: _pageKey,
                     child: PageFlipWidget(
                       key: _pageController,
-                      initialIndex: widget.starterPageIndex != 0
-                          ? (pages.isNotEmpty &&
-                                  widget.starterPageIndex < pages.length
-                              ? widget.starterPageIndex
-                              : 0)
-                          : widget.starterPageIndex,
+                      initialIndex: widget.starterPageIndex != 0 ? (pages.isNotEmpty && widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0) : widget.starterPageIndex,
                       onPageFlip: (pageIndex) {
                         _currentPageIndex = pageIndex;
                         _handler.currentPage.value = pageIndex + 1;
-                        // Note: totalPages is managed by show_epub.dart to preserve book-level total
 
+                        // Pass the actual chapter page count (pages.length), NOT the book total
+                        // show_epub.dart will handle converting this to book-wide page numbers
                         widget.onPageFlip(pageIndex, pages.length);
-                        if (_currentPageIndex == pages.length - 1) {
-                          widget.onLastPage(pageIndex, pages.length);
-                        }
+                        // Don't auto-trigger onLastPage here - let PageFlipWidget handle it
+                        // when user actually tries to swipe beyond last page
                       },
-                      backgroundColor:
-                          widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
+                      onLastPageSwipe: () {
+                        widget.onLastPage(_currentPageIndex, pages.length);
+                      },
+                      backgroundColor: widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
                       lastPage: widget.lastWidget,
                       children: pages,
                     ),
@@ -1224,6 +1449,4 @@ class _PagingWidgetState extends State<PagingWidget> {
       },
     );
   }
-
-  /// Add soft hyphens to long words for better text breaking in justified text
 }

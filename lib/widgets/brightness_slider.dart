@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 class BrightnessSlider extends StatefulWidget {
   final Color fontColor;
@@ -44,7 +45,7 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
       width: double.infinity,
       margin: EdgeInsets.only(bottom: 24.h, left: 10.w, top: 10, right: 10.w),
       decoration: BoxDecoration(
-        color: widget.backColor.withOpacity(0.9),
+        // color: widget.backColor.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(
@@ -65,10 +66,10 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
             child: Padding(
               padding: EdgeInsets.only(right: 15.w),
               child: Container(
-                height: 10,
-                width: 10,
+                height: 12,
+                width: 12,
                 decoration: BoxDecoration(
-                  border: Border.all(color: widget.fontColor, width: 2),
+                  border: Border.all(color: Get.isDarkMode ? widget.fontColor.withOpacity(.6) : Colors.black, width: 2),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -77,12 +78,11 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
           Expanded(
             child: SliderTheme(
               data: SliderThemeData(
-                trackHeight: 18.0,
-                activeTrackColor: Colors.grey.shade500,
-                inactiveTrackColor: Colors.grey.shade300,
-                thumbShape: RoundSliderThumbShape(
-                  enabledThumbRadius: 0, // Hidden thumb
-                ),
+                trackHeight: 15.0,
+                activeTrackColor: Get.isDarkMode ? Color(0xff69696e) : Colors.grey.shade500,
+                inactiveTrackColor: Get.isDarkMode ? Color(0xff444448) : Colors.grey.shade300,
+                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 0 // Hidden thumb
+                    ),
                 overlayShape: RoundSliderOverlayShape(overlayRadius: 0),
                 trackShape: RoundedRectSliderTrackShape(),
               ),
@@ -122,8 +122,8 @@ class _BrightnessSliderState extends State<BrightnessSlider> {
               padding: EdgeInsets.only(left: 15.w),
               child: Icon(
                 Icons.wb_sunny_outlined,
-                size: 20.sp,
-                color: widget.fontColor,
+                size: 22.sp,
+                color: Get.isDarkMode ? widget.fontColor.withOpacity(.6) : Colors.black,
               ),
             ),
           ),

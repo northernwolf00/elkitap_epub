@@ -9,6 +9,9 @@ class BookOptionsMenu extends StatefulWidget {
   final String bookTitle;
   final String bookImage;
   final String bookId;
+  final int staticThemeId;
+  final Color buttonBackgroundColor;
+  final Color buttonIconColor;
 
   const BookOptionsMenu({
     Key? key,
@@ -17,6 +20,9 @@ class BookOptionsMenu extends StatefulWidget {
     required this.bookTitle,
     required this.bookImage,
     required this.bookId,
+    required this.staticThemeId,
+    required this.buttonBackgroundColor,
+    required this.buttonIconColor,
   }) : super(key: key);
 
   @override
@@ -30,16 +36,16 @@ class _BookOptionsMenuState extends State<BookOptionsMenu> {
       width: 34.w,
       height: 34.h,
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.2),
+        color: widget.buttonBackgroundColor,
         shape: BoxShape.circle,
       ),
       child: PopupMenuButton<String>(
         icon: Icon(
           Icons.more_horiz,
-          color: widget.fontColor,
+          color: widget.buttonIconColor,
           size: 20.sp,
         ),
-        color: widget.backColor.withOpacity(0.95),
+        color: widget.backColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14.r),
         ),

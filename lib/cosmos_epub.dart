@@ -2,10 +2,10 @@ library cosmos_epub;
 
 import 'dart:io';
 
-import 'package:cosmos_epub/Component/constants.dart';
-import 'package:cosmos_epub/Helpers/isar_service.dart';
-import 'package:cosmos_epub/Helpers/progress_singleton.dart';
-import 'package:cosmos_epub/Model/book_progress_model.dart';
+import 'package:cosmos_epub/components/constants.dart';
+import 'package:cosmos_epub/helpers/isar_service.dart';
+import 'package:cosmos_epub/helpers/progress_singleton.dart';
+import 'package:cosmos_epub/models/book_progress_model.dart';
 import 'package:cosmos_epub/show_epub.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
@@ -78,9 +78,64 @@ class CosmosEpub {
   static Future<EpubBook> parseLocalBook({required String localPath}) async {
     debugPrint('📚 Pre-parsing book from path: $localPath');
     var bytes = await File(localPath).readAsBytes();
-    EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
-    debugPrint('✅ Book parsed successfully');
-    return epubBook;
+
+    try {
+      EpubBook epubBook = await EpubReader.readBook(bytes.buffer.asUint8List());
+      debugPrint('✅ Book parsed successfully');
+      return epubBook;
+    } catch (e) {
+      // If there's an error (like missing cover), try alternative parsing
+      if (e.toString().contains('cover') || e.toString().contains('manifest')) {
+        debugPrint('⚠️ Error parsing with cover: $e');
+        debugPrint('⚠️ Trying alternative parsing method...');
+
+        try {
+          // Use openBook which doesn't require cover
+          final bookRef = await EpubReader.openBook(bytes.buffer.asUint8List());
+
+          // Create basic EpubBook structure
+          final epubBook = EpubBook();
+          epubBook.Title = await bookRef.Title;
+          epubBook.Author = await bookRef.Author;
+          epubBook.Schema = bookRef.Schema;
+          epubBook.Chapters = [];
+
+          // Important: Keep bookRef reference for reading content later
+          // Content will be read on-demand from Schema/Spine
+          epubBook.Content = null;
+
+          debugPrint('✅ Book parsed without cover (will read from Spine)');
+          return epubBook;
+        } catch (e2) {
+          debugPrint('❌ Alternative parsing also failed: $e2');
+
+          // Last resort: create minimal book structure from BookRef
+          try {
+            final bookRef = await EpubReader.openBook(bytes.buffer.asUint8List());
+
+            final epubBook = EpubBook();
+            epubBook.Title = await bookRef.Title;
+            epubBook.Author = await bookRef.Author;
+            epubBook.Schema = bookRef.Schema;
+            // Don't cast Content - it may be EpubContentRef, let it be null
+            epubBook.Content = null;
+
+            // Try to get chapters from content
+            if (bookRef.Schema?.Package?.Spine?.Items != null) {
+              epubBook.Chapters = [];
+              debugPrint('✅ Book structure created (minimal mode)');
+              return epubBook;
+            }
+
+            throw Exception('Could not create book structure');
+          } catch (e3) {
+            debugPrint('❌ Minimal book creation failed: $e3');
+            rethrow;
+          }
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Precalculate page counts for all chapters BEFORE opening the book
@@ -354,13 +409,14 @@ class CosmosEpub {
     BuildContext? context,
   }) async {
     _checkInitialization();
+    print(
+        '0------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------Note added for $bookId: $selectedText');
 
     if (_onAddNoteHandler != null) {
       // ✅ Use the registered custom handler
       await _onAddNoteHandler!(bookId, selectedText);
     } else {
       // ⚙️ Default fallback if no handler is registered
-      debugPrint('Note added for $bookId: $selectedText');
 
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

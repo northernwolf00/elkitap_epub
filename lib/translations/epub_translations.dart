@@ -25,6 +25,9 @@ class CosmosEpubLocalization {
       'sharing': 'Paýlaşylýar',
       'copy': 'Nusga',
       'end_of_book': 'Kitap gutardy',
+      'done': 'Bolýar',
+      'add_note_hint': 'Bellik ýaz...',
+      'note': 'Bellik',
     },
     'en': {
       'themes': 'Themes',
@@ -47,6 +50,9 @@ class CosmosEpubLocalization {
       'sharing': 'Sharing',
       'copy': 'Copy',
       'end_of_book': 'End of book',
+      'done': 'Done',
+      'add_note_hint': 'Add a note...',
+      'note': 'Note',
     },
     'ru': {
       'themes': 'Темы',
@@ -69,6 +75,9 @@ class CosmosEpubLocalization {
       'sharing': 'Поделиться',
       'copy': 'Копировать',
       'end_of_book': 'Конец книги',
+      'done': 'Готово',
+      'add_note_hint': 'Добавить заметку...',
+      'note': 'Заметка',
     },
   };
 
