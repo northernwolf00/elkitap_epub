@@ -18,7 +18,8 @@ class PagingTextHandler extends GetxController {
     currentPage = (_box.read<int>('currentPage_$bookId') ?? 0).obs;
     totalPages = (_box.read<int>('totalPages_$bookId') ?? 0).obs;
 
-    ever(currentPage, (_) => _box.write('currentPage_$bookId', currentPage.value));
+    ever(currentPage,
+        (_) => _box.write('currentPage_$bookId', currentPage.value));
     ever(totalPages, (_) => _box.write('totalPages_$bookId', totalPages.value));
   }
 
@@ -205,7 +206,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     });
   }
 
-  String _extractTextOnly(dom.Element element, {bool excludeCite = false}) {
+  String extractTextOnly(dom.Element element, {bool excludeCite = false}) {
     StringBuffer buffer = StringBuffer();
 
     for (var child in element.nodes) {
@@ -216,7 +217,7 @@ class _PagingWidgetState extends State<PagingWidget> {
           continue;
         }
 
-        buffer.write(_extractTextOnly(child, excludeCite: excludeCite));
+        buffer.write(extractTextOnly(child, excludeCite: excludeCite));
       }
     }
 
@@ -254,12 +255,15 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     // Multiple Roman numerals separated by dots, spaces, or commas
     // Examples: "XXXIX. XL. XLI", "I II III", "X, XI, XII"
-    if (RegExp(r'^[IVXLCDM]+[\.\s,]+[IVXLCDM\.\s,]+$', caseSensitive: false).hasMatch(trimmed)) {
+    if (RegExp(r'^[IVXLCDM]+[\.\s,]+[IVXLCDM\.\s,]+$', caseSensitive: false)
+        .hasMatch(trimmed)) {
       return true;
     }
 
     // Arabic numerals as section dividers (1, 2, 3, etc. or 1., 2., 3., etc.)
-    if (RegExp(r'^\d+\.?$').hasMatch(trimmed) || RegExp(r'^\(\d+\)$').hasMatch(trimmed) || RegExp(r'^\d+\)$').hasMatch(trimmed)) {
+    if (RegExp(r'^\d+\.?$').hasMatch(trimmed) ||
+        RegExp(r'^\(\d+\)$').hasMatch(trimmed) ||
+        RegExp(r'^\d+\)$').hasMatch(trimmed)) {
       return true;
     }
 
@@ -332,7 +336,8 @@ class _PagingWidgetState extends State<PagingWidget> {
 
   bool _shouldCenterPoetry(List<String> lines) {
     if (lines.isEmpty) return false;
-    final lengths = lines.map((l) => l.trim().length).where((l) => l > 0).toList();
+    final lengths =
+        lines.map((l) => l.trim().length).where((l) => l > 0).toList();
     if (lengths.isEmpty) return false;
     final maxLen = lengths.reduce((a, b) => a > b ? a : b);
     final avgLen = lengths.reduce((a, b) => a + b) / lengths.length;
@@ -347,7 +352,11 @@ class _PagingWidgetState extends State<PagingWidget> {
     final titleLower = chapterTitle.trim().toLowerCase();
 
     final lengthOk = cleaned.length <= 2000;
-    final shortLines = rawText.split(RegExp(r'\r?\n')).map((l) => l.trim()).where((l) => l.isNotEmpty).length;
+    final shortLines = rawText
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .length;
 
     final looksLikeFrontMatter = shortLines <= 14;
     final containsTitle = titleLower.isNotEmpty && lower.contains(titleLower);
@@ -379,12 +388,15 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     contentToParse = contentToParse.trim();
 
-    _isFrontMatter = _isFrontMatterContent(widget.textContent, widget.chapterTitle);
+    _isFrontMatter =
+        _isFrontMatterContent(widget.textContent, widget.chapterTitle);
     _contentStyle = _resolveContentStyle();
 
-    contentToParse = contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
+    contentToParse =
+        contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
 
-    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true).firstMatch(contentToParse);
+    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true)
+        .firstMatch(contentToParse);
     if (bodyMatch != null) {
       contentToParse = bodyMatch.group(1) ?? contentToParse;
     }
@@ -415,7 +427,8 @@ class _PagingWidgetState extends State<PagingWidget> {
 
       if (chapterTitleLower.isNotEmpty && nodeText.isNotEmpty) {
         final nodeTextLower = nodeText.toLowerCase();
-        if (nodeTextLower == chapterTitleLower || chapterTitleLower.contains(nodeTextLower) && nodeText.length > 2) {
+        if (nodeTextLower == chapterTitleLower ||
+            chapterTitleLower.contains(nodeTextLower) && nodeText.length > 2) {
           continue;
         }
       }
@@ -459,10 +472,13 @@ class _PagingWidgetState extends State<PagingWidget> {
     await _paginateFlattened(spans, pageSize);
   }
 
-  Future<InlineSpan> _parseNode(dom.Node node, double maxWidth, {bool isPoetry = false}) async {
+  Future<InlineSpan> _parseNode(dom.Node node, double maxWidth,
+      {bool isPoetry = false}) async {
     if (node is dom.Element) {
     } else if (node is dom.Text) {
-      final preview = node.text.trim().length > 50 ? node.text.trim().substring(0, 50) + '...' : node.text.trim();
+      final preview = node.text.trim().length > 50
+          ? node.text.trim().substring(0, 50) + '...'
+          : node.text.trim();
     }
 
     if (node is dom.Text) {
@@ -534,7 +550,9 @@ class _PagingWidgetState extends State<PagingWidget> {
               if (child.localName == 'div' || child.localName == 'p') {
                 // Check if this div has class="paragraph" or similar
                 String lineText = child.text.trim();
-                if (lineText.isNotEmpty && lineText.length < 100 && !addedLines.contains(lineText)) {
+                if (lineText.isNotEmpty &&
+                    lineText.length < 100 &&
+                    !addedLines.contains(lineText)) {
                   poetryLines.add(lineText);
                   addedLines.add(lineText);
                 }
@@ -550,10 +568,15 @@ class _PagingWidgetState extends State<PagingWidget> {
           // If no child divs found, try splitting by <br> or just use full text
           if (poetryLines.isEmpty) {
             String poetryHtml = node.innerHtml;
-            poetryHtml = poetryHtml.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+            poetryHtml = poetryHtml.replaceAll(
+                RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
             poetryHtml = poetryHtml.replaceAll(RegExp(r'<[^>]+>'), '');
             poetryHtml = poetryHtml.replaceAll('&nbsp;', ' ');
-            poetryLines = poetryHtml.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+            poetryLines = poetryHtml
+                .split('\n')
+                .map((l) => l.trim())
+                .where((l) => l.isNotEmpty)
+                .toList();
           }
 
           String poetryText = poetryLines.join('\n');
@@ -564,14 +587,16 @@ class _PagingWidgetState extends State<PagingWidget> {
             baseline: TextBaseline.alphabetic,
             child: Container(
               width: maxWidth,
-              padding: EdgeInsets.only(bottom: _isFrontMatter ? 4.h : 8.h, top: _isFrontMatter ? 2.h : 4.h),
+              padding: EdgeInsets.only(
+                  bottom: _isFrontMatter ? 4.h : 6.h,
+                  top: _isFrontMatter ? 2.h : 4.h),
               child: Text(
                 poetryText,
                 textAlign: centerPoetry ? TextAlign.center : TextAlign.left,
                 style: _contentStyle.copyWith(
                   color: _contentStyle.color,
                   fontFamily: 'SFPro',
-                  height: _isFrontMatter ? 1.3 : 1.6,
+                  height: _isFrontMatter ? 1.3 : 1.4,
                   letterSpacing: _isFrontMatter ? 0.0 : 0.1,
                   wordSpacing: _isFrontMatter ? 0.0 : 0.5,
                 ),
@@ -590,7 +615,8 @@ class _PagingWidgetState extends State<PagingWidget> {
               baseline: TextBaseline.alphabetic,
               child: Container(
                 width: maxWidth,
-                padding: EdgeInsets.symmetric(vertical: _isFrontMatter ? 4.h : 8.h),
+                padding:
+                    EdgeInsets.symmetric(vertical: _isFrontMatter ? 4.h : 8.h),
                 alignment: Alignment.center,
                 child: Text(
                   paragraphText,
@@ -626,7 +652,9 @@ class _PagingWidgetState extends State<PagingWidget> {
             children: children,
           );
         }
-      } else if (node.localName == 'h1' || node.localName == 'h2' || node.localName == 'h3') {
+      } else if (node.localName == 'h1' ||
+          node.localName == 'h2' ||
+          node.localName == 'h3') {
         List<InlineSpan> children = [];
 
         children.add(const TextSpan(text: '\n'));
@@ -660,7 +688,8 @@ class _PagingWidgetState extends State<PagingWidget> {
 
         // Find nested blockquote with italic element
         for (var child in node.querySelectorAll('blockquote')) {
-          var italicElement = child.querySelector('i') ?? child.querySelector('em');
+          var italicElement =
+              child.querySelector('i') ?? child.querySelector('em');
           if (italicElement != null) {
             authorName = italicElement.text.trim();
             break;
@@ -669,7 +698,8 @@ class _PagingWidgetState extends State<PagingWidget> {
 
         // Extract quote text (exclude nested blockquotes)
         StringBuffer textBuffer = StringBuffer();
-        void extractQuoteText(dom.Element element, {bool skipNestedBlockquote = false}) {
+        void extractQuoteText(dom.Element element,
+            {bool skipNestedBlockquote = false}) {
           for (var child in element.nodes) {
             if (child is dom.Element) {
               // Skip nested blockquotes (they contain the author)
@@ -783,7 +813,9 @@ class _PagingWidgetState extends State<PagingWidget> {
           prevSibling = node.parent!.previousElementSibling;
         }
 
-        if (prevSibling != null && (prevSibling.localName == 'em' || prevSibling.localName == 'i') && prevSibling.text.trim().length > 80) {
+        if (prevSibling != null &&
+            (prevSibling.localName == 'em' || prevSibling.localName == 'i') &&
+            prevSibling.text.trim().length > 80) {
           // Already shown with the quote above, skip
           return const TextSpan(text: '');
         }
@@ -832,9 +864,12 @@ class _PagingWidgetState extends State<PagingWidget> {
           if (nextSibling != null) {
             // Check if next sibling is <cite>, <em> with short text, or <p> with italic
             if (nextSibling.localName == 'cite' ||
-                (nextSibling.localName == 'em' && nextSibling.text.trim().length < 50) ||
-                (nextSibling.localName == 'i' && nextSibling.text.trim().length < 50) ||
-                (nextSibling.localName == 'p' && nextSibling.querySelector('em') != null)) {
+                (nextSibling.localName == 'em' &&
+                    nextSibling.text.trim().length < 50) ||
+                (nextSibling.localName == 'i' &&
+                    nextSibling.text.trim().length < 50) ||
+                (nextSibling.localName == 'p' &&
+                    nextSibling.querySelector('em') != null)) {
               authorText = nextSibling.text.trim();
             }
           }
@@ -843,7 +878,8 @@ class _PagingWidgetState extends State<PagingWidget> {
           List<Widget> quoteWidgets = [
             Container(
               width: maxWidth,
-              padding: EdgeInsets.fromLTRB(maxWidth * 0.1, 12.h, maxWidth * 0.1, 8.h),
+              padding: EdgeInsets.fromLTRB(
+                  maxWidth * 0.1, 12.h, maxWidth * 0.1, 8.h),
               child: Text(
                 text,
                 textAlign: TextAlign.center,
@@ -862,7 +898,8 @@ class _PagingWidgetState extends State<PagingWidget> {
             quoteWidgets.add(
               Container(
                 width: maxWidth,
-                padding: EdgeInsets.fromLTRB(maxWidth * 0.1, 0.h, maxWidth * 0.1, 12.h),
+                padding: EdgeInsets.fromLTRB(
+                    maxWidth * 0.1, 0.h, maxWidth * 0.1, 12.h),
                 child: Text(
                   authorText,
                   textAlign: TextAlign.center,
@@ -877,16 +914,35 @@ class _PagingWidgetState extends State<PagingWidget> {
               ),
             );
           }
-
           return WidgetSpan(
             alignment: PlaceholderAlignment.baseline,
             baseline: TextBaseline.alphabetic,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: quoteWidgets,
+            child: Container(
+              width: maxWidth,
+              padding: EdgeInsets.symmetric(
+                vertical: _isFrontMatter ? 6.h : 10.h, // Reduced from 12.h/20.h
+              ),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: _contentStyle.copyWith(
+                  color: _contentStyle.color,
+                  fontStyle: FontStyle.normal,
+                  height: 1.4, // Consistent line height
+                  fontSize: _contentStyle.fontSize,
+                ),
+              ),
             ),
           );
+          // return WidgetSpan(
+          //   alignment: PlaceholderAlignment.baseline,
+          //   baseline: TextBaseline.alphabetic,
+          //   child: Column(
+          //     crossAxisAlignment: CrossAxisAlignment.center,
+          //     mainAxisSize: MainAxisSize.min,
+          //     children: quoteWidgets,
+          //   ),
+          // );
         }
 
         return TextSpan(
@@ -1016,7 +1072,8 @@ class _PagingWidgetState extends State<PagingWidget> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.warning_amber_rounded, size: 24, color: Colors.orange[700]),
+            Icon(Icons.warning_amber_rounded,
+                size: 24, color: Colors.orange[700]),
             SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1097,7 +1154,11 @@ class _PagingWidgetState extends State<PagingWidget> {
       return images[noLeading];
     }
 
-    String cleanSrc = src.replaceAll('../', '').replaceAll('./', '').replaceAll('\\', '/').trim();
+    String cleanSrc = src
+        .replaceAll('../', '')
+        .replaceAll('./', '')
+        .replaceAll('\\', '/')
+        .trim();
 
     if (images.containsKey(cleanSrc)) {
       return images[cleanSrc];
@@ -1108,7 +1169,9 @@ class _PagingWidgetState extends State<PagingWidget> {
     for (var key in images.keys) {
       final cleanKey = key.replaceAll('\\', '/');
 
-      if (cleanKey == cleanSrc || cleanKey.endsWith(filename) || cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
+      if (cleanKey == cleanSrc ||
+          cleanKey.endsWith(filename) ||
+          cleanKey.toLowerCase().endsWith(filename.toLowerCase())) {
         return images[key];
       }
     }
@@ -1123,7 +1186,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     return null;
   }
 
-  Future<void> _paginateFlattened(List<InlineSpan> allSpans, Size pageSize) async {
+  Future<void> _paginateFlattened(
+      List<InlineSpan> allSpans, Size pageSize) async {
     List<InlineSpan> flatSpans = [];
 
     void flatten(InlineSpan span) {
@@ -1150,9 +1214,11 @@ class _PagingWidgetState extends State<PagingWidget> {
     // Increased reserved space to prevent text from being cut off at bottom
     double containerPadding = _isFrontMatter ? 14.h : 24.h;
     double chapterHeaderSpace = _isFrontMatter ? 8.h : 20.h;
-    double bottomSafeArea = _isFrontMatter ? 8.h : 16.h; // Extra space for bottom navigation area
+    double bottomSafeArea =
+        _isFrontMatter ? 8.h : 16.h; // Extra space for bottom navigation area
 
-    double reservedSpace = containerPadding + chapterHeaderSpace + bottomSafeArea;
+    double reservedSpace =
+        containerPadding + chapterHeaderSpace + bottomSafeArea;
 
     double maxHeight = pageSize.height - reservedSpace;
 
@@ -1206,38 +1272,145 @@ class _PagingWidgetState extends State<PagingWidget> {
       targetHeightPerPage = safeMaxHeight;
     }
 
-    List<List<InlineSpan>> allPages = [];
-    List<InlineSpan> currentPageList = [];
-    double currentPageHeight = 0;
+    // Dynamic character limits based on font size
+    // Base values for 16px font size
+    const double baseFontSize = 16.0;
+    const int baseMinChars = 700;
+    const int baseMaxChars = 900;
+
+    // Get current font size
+    final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
+
+    // Calculate scaling factor (inverse relationship)
+    // If font is larger, we need fewer characters
+    // If font is smaller, we can fit more characters
+    final scaleFactor = baseFontSize / currentFontSize;
+
+    // Calculate dynamic limits
+    // Calculate dynamic limits with a hard cap to prevent overflow
+    int minCharsPerPage = (baseMinChars * scaleFactor).round();
+    int maxCharsPerPage = (baseMaxChars * scaleFactor).round();
+
+    // Safety: Strictly limit to 800 chars per page as requested
+    // This ensures text is never cut off and pagination always splits cleanly
+    if (maxCharsPerPage > 800) maxCharsPerPage = 800;
+    if (minCharsPerPage > 600) minCharsPerPage = 600;
+
+    print(
+        '📏 Font size: $currentFontSize, Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
+
+    // Calculate total character count and track each span's character count
+    List<int> spanCharCounts = [];
 
     for (var span in flatSpans) {
-      double spanH = 0;
-      if (span is WidgetSpan) {
-        try {
-          TextPainter p = TextPainter(text: TextSpan(children: [span]), textDirection: TextDirection.ltr);
-          p.layout(maxWidth: maxWidth);
-          spanH = p.height;
-          p.dispose();
-        } catch (e) {
-          spanH = 50;
+      int charCount = 0;
+      if (span is TextSpan && span.text != null) {
+        charCount = span.text!.length;
+      }
+      spanCharCounts.add(charCount);
+    }
+
+    // REMOVED optimization: We ALWAYS want to run the distribution loop
+    // to ensure splitting works correctly for single large paragraphs.
+
+    // Distribute content across pages based on character count
+    List<List<InlineSpan>> allPages = [];
+    List<InlineSpan> currentPageList = [];
+    int currentPageChars = 0;
+
+    for (int i = 0; i < flatSpans.length; i++) {
+      final span = flatSpans[i];
+      final spanChars = spanCharCounts[i];
+
+      // Check if adding this span would exceed the max character limit
+      if (currentPageChars + spanChars > maxCharsPerPage) {
+        // If we have content on the current page, and it's substantial, break page first
+        if (currentPageList.isNotEmpty && currentPageChars >= minCharsPerPage) {
+          allPages.add(List.from(currentPageList));
+          currentPageList.clear();
+          currentPageChars = 0;
         }
-      } else if (span is TextSpan && span.text != null) {
-        TextPainter p = TextPainter(text: TextSpan(text: span.text, style: span.style), textDirection: TextDirection.ltr);
-        p.layout(maxWidth: maxWidth);
-        spanH = p.height;
-        p.dispose();
-      }
 
-      // Check if adding this span would exceed target height
-      if (currentPageHeight + spanH > targetHeightPerPage && currentPageList.isNotEmpty) {
-        // Save current page and start new one
-        allPages.add(List.from(currentPageList));
-        currentPageList.clear();
-        currentPageHeight = 0;
-      }
+        // If the span itself fits now (on fresh page), just add it
+        if (spanChars <= maxCharsPerPage) {
+          currentPageList.add(span);
+          currentPageChars += spanChars;
+          continue;
+        }
 
-      currentPageList.add(span);
-      currentPageHeight += spanH;
+        // The span is too large for a single page (even a fresh one) -> We MUST split it
+        if (span is TextSpan && span.text != null) {
+          String remainingText = span.text!;
+          TextStyle? style = span.style;
+
+          while (remainingText.isNotEmpty) {
+            // How much space do we have left on current page?
+            int spaceLeft = maxCharsPerPage - currentPageChars;
+
+            // If space is too small (e.g. < 100 chars), just break page to start fresh
+            if (spaceLeft < 100 && currentPageList.isNotEmpty) {
+              allPages.add(List.from(currentPageList));
+              currentPageList.clear();
+              currentPageChars = 0;
+              spaceLeft = maxCharsPerPage;
+            }
+
+            if (remainingText.length <= spaceLeft) {
+              // Fits completely
+              currentPageList.add(TextSpan(text: remainingText, style: style));
+              currentPageChars += remainingText.length;
+              remainingText = '';
+            } else {
+              // Need to split. Find last space before limit
+              int splitIndex = remainingText.lastIndexOf(' ', spaceLeft);
+              if (splitIndex == -1 || splitIndex < spaceLeft * 0.7) {
+                // If no space found nearby, just hard split at limit
+                splitIndex = spaceLeft;
+              }
+
+              String textPart = remainingText.substring(0, splitIndex);
+              remainingText = remainingText.substring(
+                  splitIndex); // Keep space or not? usually keep space at start of next line or drop it?
+              // Better: trimmed textPart? No, preserve spacing.
+              // Let's drop the leading space of the next part if it's a space split
+              if (remainingText.startsWith(' ')) {
+                remainingText = remainingText.substring(1);
+              }
+
+              currentPageList.add(TextSpan(text: textPart, style: style));
+              currentPageChars += textPart.length;
+
+              // Force new page
+              allPages.add(List.from(currentPageList));
+              currentPageList.clear();
+              currentPageChars = 0;
+            }
+          }
+        } else {
+          // Non-text span (widget) that is supposedly huge? Rare, but just add it to avoid loop
+          // Or if it's a widget, we can't really split it.
+          // If we just cleared the page, add it anyway even if it exceeds
+          if (currentPageList.isEmpty) {
+            currentPageList.add(span);
+            currentPageChars += spanChars;
+            // Force break after this huge widget
+            allPages.add(List.from(currentPageList));
+            currentPageList.clear();
+            currentPageChars = 0;
+          } else {
+            // Should have been handled by first check (break page), but if it falls here:
+            // Break page and add to next
+            allPages.add(List.from(currentPageList));
+            currentPageList.clear();
+            currentPageList.add(span);
+            currentPageChars += spanChars;
+          }
+        }
+      } else {
+        // Fits normally
+        currentPageList.add(span);
+        currentPageChars += spanChars;
+      }
     }
 
     // Add remaining content as last page
@@ -1253,7 +1426,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     _finalizePages();
   }
 
-  String _addHyphenIfLineBreaksMidWord(String lineText, String fullText, int endOffset) {
+  String _addHyphenIfLineBreaksMidWord(
+      String lineText, String fullText, int endOffset) {
     if (endOffset >= fullText.length) return lineText;
 
     if (lineText.isEmpty ||
@@ -1269,21 +1443,49 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     if (endOffset < fullText.length) {
       final nextChar = fullText[endOffset];
-      if (nextChar == ' ' || nextChar == '\n' || nextChar == '.' || nextChar == ',' || nextChar == '!' || nextChar == '?') {
+      if (nextChar == ' ' ||
+          nextChar == '\n' ||
+          nextChar == '.' ||
+          nextChar == ',' ||
+          nextChar == '!' ||
+          nextChar == '?') {
         return lineText;
       }
     }
 
-    final match = RegExp(r'[a-zA-Z\u0400-\u04FF\u0500-\u052F]{6,}$').firstMatch(lineText);
+    final match =
+        RegExp(r'[a-zA-Z\u0400-\u04FF\u0500-\u052F]{6,}$').firstMatch(lineText);
     if (match == null) return lineText;
 
     final brokenWord = match.group(0);
     if (brokenWord == null || brokenWord.length < 6) return lineText;
 
-    final remainingChars = lineText.length - lineText.lastIndexOf(RegExp(r'\s')) - 1;
+    final remainingChars =
+        lineText.length - lineText.lastIndexOf(RegExp(r'\s')) - 1;
     if (remainingChars < 3) return lineText;
 
     return lineText + '-';
+  }
+
+  String _extractTextFromSpan(InlineSpan span) {
+    StringBuffer buffer = StringBuffer();
+
+    void extractText(InlineSpan s) {
+      if (s is TextSpan) {
+        if (s.text != null) {
+          buffer.write(s.text);
+        }
+        if (s.children != null) {
+          for (var child in s.children!) {
+            extractText(child);
+          }
+        }
+      }
+      // WidgetSpans don't contain text we can easily extract
+    }
+
+    extractText(span);
+    return buffer.toString();
   }
 
   void _finalizePages() {
@@ -1301,6 +1503,18 @@ class _PagingWidgetState extends State<PagingWidget> {
       TextSpan contentSpan = entry.value;
 
       final isFirstPageOfChapter = index == 0;
+
+      // Extract and log page text
+      String pageText = _extractTextFromSpan(contentSpan);
+      print('═══════════════════════════════════════════════════════');
+      print('📖 Page ${index + 1} of ${_pageSpans.length}');
+      print('Chapter: ${widget.chapterTitle}');
+      print('Text length: ${pageText.length} characters');
+      print('───────────────────────────────────────────────────────');
+      print(pageText.length > 500
+          ? '${pageText.substring(0, 500)}...'
+          : pageText);
+      print('═══════════════════════════════════════════════════════\n');
 
       return BookPageBuilder.buildBookPageSpan(
         context: context,
@@ -1320,7 +1534,9 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (pages.isNotEmpty) {
-        final startIndex = widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0;
+        final startIndex = widget.starterPageIndex < pages.length
+            ? widget.starterPageIndex
+            : 0;
         // Notify initial page so outer widgets (progress bar/theme) update immediately
         widget.onPageFlip(startIndex, pages.length);
       }
@@ -1368,7 +1584,10 @@ class _PagingWidgetState extends State<PagingWidget> {
         }
 
         if (pages.isEmpty) {
-          final isTitlePage = widget.textContent.trim().length < 200 && widget.textContent.toLowerCase().contains(widget.chapterTitle.toLowerCase());
+          final isTitlePage = widget.textContent.trim().length < 200 &&
+              widget.textContent
+                  .toLowerCase()
+                  .contains(widget.chapterTitle.toLowerCase());
 
           return Center(
             child: Padding(
@@ -1376,10 +1595,17 @@ class _PagingWidgetState extends State<PagingWidget> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(isTitlePage ? Icons.auto_stories : Icons.warning_amber_rounded, size: 64, color: isTitlePage ? Colors.blue : Colors.orange),
+                  Icon(
+                      isTitlePage
+                          ? Icons.auto_stories
+                          : Icons.warning_amber_rounded,
+                      size: 64,
+                      color: isTitlePage ? Colors.blue : Colors.orange),
                   SizedBox(height: 16.h),
                   Text(
-                    isTitlePage ? widget.chapterTitle : 'Içerik görüntülenemiyor',
+                    isTitlePage
+                        ? widget.chapterTitle
+                        : 'Içerik görüntülenemiyor',
                     style: TextStyle(
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
@@ -1389,10 +1615,13 @@ class _PagingWidgetState extends State<PagingWidget> {
                   ),
                   SizedBox(height: 8.h),
                   Text(
-                    isTitlePage ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.' : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
+                    isTitlePage
+                        ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.'
+                        : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
                     style: TextStyle(
                       fontSize: 14.sp,
-                      color: (widget.style.color ?? Colors.black).withOpacity(0.6),
+                      color:
+                          (widget.style.color ?? Colors.black).withOpacity(0.6),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1404,7 +1633,8 @@ class _PagingWidgetState extends State<PagingWidget> {
                     icon: Icon(Icons.refresh),
                     label: Text('Tekrar dene'),
                     style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 24.w, vertical: 12.h),
                     ),
                   ),
                 ],
@@ -1422,7 +1652,12 @@ class _PagingWidgetState extends State<PagingWidget> {
                     key: _pageKey,
                     child: PageFlipWidget(
                       key: _pageController,
-                      initialIndex: widget.starterPageIndex != 0 ? (pages.isNotEmpty && widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0) : widget.starterPageIndex,
+                      initialIndex: widget.starterPageIndex != 0
+                          ? (pages.isNotEmpty &&
+                                  widget.starterPageIndex < pages.length
+                              ? widget.starterPageIndex
+                              : 0)
+                          : widget.starterPageIndex,
                       onPageFlip: (pageIndex) {
                         _currentPageIndex = pageIndex;
                         _handler.currentPage.value = pageIndex + 1;
@@ -1436,7 +1671,8 @@ class _PagingWidgetState extends State<PagingWidget> {
                       onLastPageSwipe: () {
                         widget.onLastPage(_currentPageIndex, pages.length);
                       },
-                      backgroundColor: widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
+                      backgroundColor: widget.style.backgroundColor ??
+                          const Color(0xFFFFFFFF),
                       lastPage: widget.lastWidget,
                       children: pages,
                     ),

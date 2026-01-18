@@ -91,7 +91,8 @@ class ShowEpubState extends State<ShowEpub> {
   String chapterTitle = '';
   List<LocalChapterModel> chaptersList = [];
   final controller = ScrollController();
-  PagingTextHandler controllerPaging = PagingTextHandler(paginate: () {}, bookId: '');
+  PagingTextHandler controllerPaging =
+      PagingTextHandler(paginate: () {}, bookId: '');
   TextDirection currentTextDirection = TextDirection.ltr;
   var dropDownFontItems;
   late EpubBook epubBook;
@@ -206,7 +207,8 @@ class ShowEpubState extends State<ShowEpub> {
   reLoadChapter({bool init = false, int index = -1, int startPage = 0}) async {
     if (_isLoadingChapter) return;
     _isLoadingChapter = true;
-    int currentIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    int currentIndex =
+        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
     int targetIndex = index == -1 ? currentIndex : index;
     lastSwipe = 0;
     prevSwipe = 0;
@@ -219,14 +221,20 @@ class ShowEpubState extends State<ShowEpub> {
     }
     final isCalculatingUi = isCalculatingTotalPages;
     setState(() {
-      loadChapterFuture = loadChapter(init: init, index: targetIndex).then((_) => _isLoadingChapter = false).catchError((e, _) => _isLoadingChapter = false);
+      loadChapterFuture = loadChapter(init: init, index: targetIndex)
+          .then((_) => _isLoadingChapter = false)
+          .catchError((e, _) => _isLoadingChapter = false);
     });
   }
 
   loadChapter({int index = -1, bool init = false}) async {
-    final result = EpubChapterListBuilder.buildChaptersList(chapters: _chapters, epubBook: epubBook, chapterPageCounts: chapterPageCounts);
+    final result = EpubChapterListBuilder.buildChaptersList(
+        chapters: _chapters,
+        epubBook: epubBook,
+        chapterPageCounts: chapterPageCounts);
     chaptersList = result['chaptersList'] as List<LocalChapterModel>;
-    _filteredToOriginalIndex = result['filteredToOriginalIndex'] as Map<int, int>;
+    _filteredToOriginalIndex =
+        result['filteredToOriginalIndex'] as Map<int, int>;
     _updateChapterPageNumbers();
     // No background calculation - pages are calculated as chapters are read
 
@@ -238,7 +246,8 @@ class ShowEpubState extends State<ShowEpub> {
     int targetIndex = index;
     if (init) {
       if (widget.starterPageInBook != null && chapterPageCounts.isNotEmpty) {
-        final calcResult = _calculateChapterAndPageFromBookPage(widget.starterPageInBook!);
+        final calcResult =
+            _calculateChapterAndPageFromBookPage(widget.starterPageInBook!);
         if (calcResult != null) {
           targetIndex = calcResult['chapter']!;
           _targetChapterFromAudioSync = calcResult['chapter'];
@@ -248,7 +257,8 @@ class ShowEpubState extends State<ShowEpub> {
         }
       } else if (hasProgress) {
         targetIndex = savedChapter;
-      } else if (widget.starterChapter >= 0 && widget.starterChapter < chaptersList.length) {
+      } else if (widget.starterChapter >= 0 &&
+          widget.starterChapter < chaptersList.length) {
         targetIndex = widget.starterChapter;
       } else {
         targetIndex = 0;
@@ -260,7 +270,8 @@ class ShowEpubState extends State<ShowEpub> {
   }
 
   updateContentAccordingChapter(int chapterIndex) async {
-    final currentSavedIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    final currentSavedIndex =
+        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
     if (currentSavedIndex != chapterIndex) {
       await bookProgress.setCurrentChapterIndex(bookId, chapterIndex);
     }
@@ -280,7 +291,8 @@ class ShowEpubState extends State<ShowEpub> {
     innerHtmlContent = htmlContent;
     textContent = result['textContent'];
     currentTextDirection = result['textDirection'];
-    accumulatedPagesBeforeCurrentChapter = result['accumulatedPagesBeforeCurrentChapter'];
+    accumulatedPagesBeforeCurrentChapter =
+        result['accumulatedPagesBeforeCurrentChapter'];
 
     final currentPageInBook = result['currentPageInBook'] as int;
     final displayTotalPages = result['displayTotalPages'] as int;
@@ -293,13 +305,16 @@ class ShowEpubState extends State<ShowEpub> {
       _pendingTotalPages = displayTotalPages;
     }
 
-    controllerPaging.currentPage.value = _pendingCurrentPageInBook ?? currentPageInBook;
+    controllerPaging.currentPage.value =
+        _pendingCurrentPageInBook ?? currentPageInBook;
     controllerPaging.totalPages.value = _pendingTotalPages ?? displayTotalPages;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      controllerPaging.currentPage.value = _pendingCurrentPageInBook ?? currentPageInBook;
-      controllerPaging.totalPages.value = _pendingTotalPages ?? displayTotalPages;
+      controllerPaging.currentPage.value =
+          _pendingCurrentPageInBook ?? currentPageInBook;
+      controllerPaging.totalPages.value =
+          _pendingTotalPages ?? displayTotalPages;
     });
 
     setupNavButtons();
@@ -319,8 +334,13 @@ class ShowEpubState extends State<ShowEpub> {
 
   void _clearPageCountsCache() {
     // Save current total from controller (most accurate source) before clearing
-    final oldTotal = controllerPaging.totalPages.value > 0 ? controllerPaging.totalPages.value : (totalPagesInBook > 0 ? totalPagesInBook : chapterPageCounts.values.fold(0, (s, c) => s + c));
-    _preservedTotalPages = oldTotal; // Preserve for display during recalculation
+    final oldTotal = controllerPaging.totalPages.value > 0
+        ? controllerPaging.totalPages.value
+        : (totalPagesInBook > 0
+            ? totalPagesInBook
+            : chapterPageCounts.values.fold(0, (s, c) => s + c));
+    _preservedTotalPages =
+        oldTotal; // Preserve for display during recalculation
     // Keep existing counts as a fallback so TOC can still show start pages
     // but mark them as stale until recalculated.
     _cachedKnownPagesTotal = chapterPageCounts.values.fold(0, (s, c) => s + c);
@@ -334,24 +354,66 @@ class ShowEpubState extends State<ShowEpub> {
     // Kick off background calculation so loading can finish
     _startBackgroundCalculation();
   }
-
-  void changeFontSize(double newSize) {
-    fontSizeProgress = newSize;
-    _fontSize = newSize;
-    gs.write(libFontSize, _fontSize);
-    _clearPageCountsCache();
-    final currentChapterIdx = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    final currentPageIdx = bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
-    setState(() {});
-    reLoadChapter(index: currentChapterIdx, startPage: currentPageIdx);
+void changeFontSize(double newSize) {
+  fontSizeProgress = newSize;
+  _fontSize = newSize;
+  gs.write(libFontSize, _fontSize);
+  
+  // CRITICAL: Clear cache and force full repagination
+  _clearPageCountsCache();
+  
+  // Get current position BEFORE repagination
+  final currentPageInBook = controllerPaging.currentPage.value;
+  final currentChapterIdx = 
+      bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+  
+  // Calculate chapter-relative page from book page
+  int accumulatedPages = 0;
+  final originalChapterIdx = 
+      _filteredToOriginalIndex[currentChapterIdx] ?? currentChapterIdx;
+  
+  for (int i = 0; i < originalChapterIdx; i++) {
+    accumulatedPages += chapterPageCounts[i] ?? 0;
   }
+  
+  int pageInChapter = (currentPageInBook - accumulatedPages - 1)
+      .clamp(0, (chapterPageCounts[originalChapterIdx] ?? 1) - 1);
+  
+  // Lock to preserve position during repagination
+  _setJumpLock(
+    pageInBook: currentPageInBook,
+    totalPages: totalPagesInBook,
+    chapterIndex: currentChapterIdx,
+    pageInChapter: pageInChapter,
+  );
+  
+  setState(() {});
+  
+  // Reload with preserved position
+  reLoadChapter(index: currentChapterIdx, startPage: pageInChapter);
+}
+  // void changeFontSize(double newSize) {
+  //   fontSizeProgress = newSize;
+  //   _fontSize = newSize;
+  //   gs.write(libFontSize, _fontSize);
+  //   _clearPageCountsCache();
+  //   final currentChapterIdx =
+  //       bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+  //   final currentPageIdx =
+  //       bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+  //   setState(() {});
+  //   reLoadChapter(index: currentChapterIdx, startPage: currentPageIdx);
+  // }
 
   openTableOfContents() async {
-    final originalChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    final originalChapterIndex =
+        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
     final currentPageInBook = controllerPaging.currentPage.value;
 
     // Calculate total pages in book from chapterPageCounts
-    final bookTotalPages = totalPagesInBook > 0 ? totalPagesInBook : chapterPageCounts.values.fold(0, (sum, count) => sum + count);
+    final bookTotalPages = totalPagesInBook > 0
+        ? totalPagesInBook
+        : chapterPageCounts.values.fold(0, (sum, count) => sum + count);
 
     final result = await EpubTocHelper.showTocBottomSheet(
       context: context,
@@ -363,7 +425,8 @@ class ShowEpubState extends State<ShowEpub> {
       chapterListTitle: widget.chapterListTitle,
       currentPage: currentPageInBook,
       totalPages: bookTotalPages,
-      currentPageInChapter: currentPageInBook, // Show page in book, not in chapter
+      currentPageInChapter:
+          currentPageInBook, // Show page in book, not in chapter
       currentSubchapterTitle: _currentSubchapterTitle,
       isCalculating: isCalculatingTotalPages,
     );
@@ -376,7 +439,8 @@ class ShowEpubState extends State<ShowEpub> {
       chaptersList: chaptersList,
       filteredToOriginalIndex: _filteredToOriginalIndex,
       calculateChapterAndPage: _calculateChapterAndPageFromBookPage,
-      reloadChapter: (index, startPage) async => reLoadChapter(index: index, startPage: startPage),
+      reloadChapter: (index, startPage) async =>
+          reLoadChapter(index: index, startPage: startPage),
       setCurrentSubchapterTitle: (title) => _currentSubchapterTitle = title,
     );
   }
@@ -412,7 +476,8 @@ class ShowEpubState extends State<ShowEpub> {
 
   updateTheme(int id, {bool isInit = false, bool? forceDarkMode}) {
     staticThemeId = id;
-    final themeConfig = EpubThemeHelper.getThemeConfig(id, forceDarkMode: forceDarkMode);
+    final themeConfig =
+        EpubThemeHelper.getThemeConfig(id, forceDarkMode: forceDarkMode);
     backColor = themeConfig.backColor;
     fontColor = themeConfig.fontColor;
     buttonBackgroundColor = themeConfig.buttonBackgroundColor;
@@ -428,13 +493,16 @@ class ShowEpubState extends State<ShowEpub> {
       Navigator.of(context).pop();
       _clearPageCountsCache();
       setState(() => _isChangingTheme = true);
-      final currentChapterIdx = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-      final currentPageIdx = bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+      final currentChapterIdx =
+          bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+      final currentPageIdx =
+          bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
 
       // Set pending to restore book-wide page after reload
       _pendingCurrentPageInBook = bookWideCurrentPage;
 
-      reLoadChapter(index: currentChapterIdx, startPage: currentPageIdx).then((_) async {
+      reLoadChapter(index: currentChapterIdx, startPage: currentPageIdx)
+          .then((_) async {
         await Future.delayed(const Duration(milliseconds: 100));
         if (mounted) setState(() => _isChangingTheme = false);
       });
@@ -462,7 +530,8 @@ class ShowEpubState extends State<ShowEpub> {
 
   int _originalToFilteredIndex(int originalChapterIdx) {
     for (final entry in _filteredToOriginalIndex.entries) {
-      if (entry.value == originalChapterIdx && !chaptersList[entry.key].isSubChapter) {
+      if (entry.value == originalChapterIdx &&
+          !chaptersList[entry.key].isSubChapter) {
         return entry.key;
       }
     }
@@ -482,8 +551,10 @@ class ShowEpubState extends State<ShowEpub> {
 
   /// Handle page flip callback from PagingWidget
   Future<void> _handlePageFlip(int currentPage, int totalPages) async {
-    var currentChapterIdx = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    var originalChapterIdx = _filteredToOriginalIndex[currentChapterIdx] ?? currentChapterIdx;
+    var currentChapterIdx =
+        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    var originalChapterIdx =
+        _filteredToOriginalIndex[currentChapterIdx] ?? currentChapterIdx;
     _currentChapterPageCount = totalPages;
 
     if (_isJumpLockActive) {
@@ -499,7 +570,9 @@ class ShowEpubState extends State<ShowEpub> {
       chapterPageCounts[originalChapterIdx] = totalPages;
       _cachedKnownPagesTotal += diff;
       // During recalculation, don't set totalPagesInBook lower than preserved value
-      if (_preservedTotalPages > 0 && _cachedKnownPagesTotal < _preservedTotalPages && !allChaptersCalculated.value) {
+      if (_preservedTotalPages > 0 &&
+          _cachedKnownPagesTotal < _preservedTotalPages &&
+          !allChaptersCalculated.value) {
         // Keep preserved total during partial recalculation
         totalPagesInBook = _preservedTotalPages;
       } else {
@@ -529,29 +602,45 @@ class ShowEpubState extends State<ShowEpub> {
       accumulatedBefore += chapterPageCounts[i] ?? 0;
     }
     int currentPageInBook = accumulatedBefore + currentPage + 1;
-    if (_isJumpLockActive && _jumpLockedChapterIndex == currentChapterIdx && _jumpLockedOffsetInBook != null) {
+    if (_isJumpLockActive &&
+        _jumpLockedChapterIndex == currentChapterIdx &&
+        _jumpLockedOffsetInBook != null) {
       currentPageInBook = _jumpLockedOffsetInBook! + currentPage + 1;
     }
 
-    final effectiveCurrentPage = _isJumpLockActive ? (_jumpLockedPageInBook ?? _pendingCurrentPageInBook ?? currentPageInBook) : (_pendingCurrentPageInBook ?? currentPageInBook);
+    final effectiveCurrentPage = _isJumpLockActive
+        ? (_jumpLockedPageInBook ??
+            _pendingCurrentPageInBook ??
+            currentPageInBook)
+        : (_pendingCurrentPageInBook ?? currentPageInBook);
 
     // Update controller values
     if (!_isChangingTheme) {
       controllerPaging.currentPage.value = effectiveCurrentPage;
       // Use locked total (during jump) or pending total; keep preserved total during recalculation
-      final preservedTotal = _preservedTotalPages > 0 ? _preservedTotalPages : null;
+      final preservedTotal =
+          _preservedTotalPages > 0 ? _preservedTotalPages : null;
       final displayTotal = _isJumpLockActive
           ? (_jumpLockedTotalPages ??
               _pendingTotalPages ??
-              (isCalculatingTotalPages ? (preservedTotal ?? totalPagesInBook) : ((_preservedTotalPages > 0 && !allChaptersCalculated.value) ? _preservedTotalPages : totalPagesInBook)))
+              (isCalculatingTotalPages
+                  ? (preservedTotal ?? totalPagesInBook)
+                  : ((_preservedTotalPages > 0 && !allChaptersCalculated.value)
+                      ? _preservedTotalPages
+                      : totalPagesInBook)))
           : (_pendingTotalPages ??
-              (isCalculatingTotalPages ? (preservedTotal ?? totalPagesInBook) : ((_preservedTotalPages > 0 && !allChaptersCalculated.value) ? _preservedTotalPages : totalPagesInBook)));
+              (isCalculatingTotalPages
+                  ? (preservedTotal ?? totalPagesInBook)
+                  : ((_preservedTotalPages > 0 && !allChaptersCalculated.value)
+                      ? _preservedTotalPages
+                      : totalPagesInBook)));
       controllerPaging.totalPages.value = displayTotal;
     }
 
     _updateSubchapterTitleForPage(currentChapterIdx, currentPage);
     widget.onPageFlip?.call(currentPageInBook, totalPagesInBook);
-    bookProgress.setCurrentPageIndex(bookId, currentPage == totalPages - 1 ? 0 : currentPage);
+    bookProgress.setCurrentPageIndex(
+        bookId, currentPage == totalPages - 1 ? 0 : currentPage);
 
     isLastPage ? showHeader = true : lastSwipe = 0;
     isLastPage = false;
@@ -565,7 +654,10 @@ class ShowEpubState extends State<ShowEpub> {
         var idx = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
         if (idx > 0) {
           final prevOrigIdx = _filteredToOriginalIndex[idx - 1];
-          int lastPage = (prevOrigIdx != null && chapterPageCounts.containsKey(prevOrigIdx)) ? chapterPageCounts[prevOrigIdx]! - 1 : 0;
+          int lastPage = (prevOrigIdx != null &&
+                  chapterPageCounts.containsKey(prevOrigIdx))
+              ? chapterPageCounts[prevOrigIdx]! - 1
+              : 0;
           await bookProgress.setCurrentPageIndex(bookId, lastPage);
           prevChapter();
         }
@@ -604,7 +696,10 @@ class ShowEpubState extends State<ShowEpub> {
       reLoadChapter(index: index + 1);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('end_of_book'.tr), duration: const Duration(seconds: 2), behavior: SnackBarBehavior.floating),
+        SnackBar(
+            content: Text('end_of_book'.tr),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -617,7 +712,8 @@ class ShowEpubState extends State<ShowEpub> {
 
     if (index > 0) {
       _updateCacheBeforeChapterChange(index);
-      final currentPageIndex = bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+      final currentPageIndex =
+          bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
       reLoadChapter(index: index - 1, startPage: currentPageIndex);
     }
   }
@@ -625,7 +721,9 @@ class ShowEpubState extends State<ShowEpub> {
   void _updateCacheBeforeChapterChange(int index) {
     var originalIdx = _filteredToOriginalIndex[index] ?? index;
     var currentTotal = _currentChapterPageCount;
-    if (!allChaptersCalculated.value && currentTotal > 0 && chapterPageCounts[originalIdx] != currentTotal) {
+    if (!allChaptersCalculated.value &&
+        currentTotal > 0 &&
+        chapterPageCounts[originalIdx] != currentTotal) {
       int oldCount = chapterPageCounts[originalIdx] ?? 0;
       chapterPageCounts[originalIdx] = currentTotal;
       _cachedKnownPagesTotal = _cachedKnownPagesTotal - oldCount + currentTotal;
@@ -643,7 +741,8 @@ class ShowEpubState extends State<ShowEpub> {
     );
   }
 
-  void _updateSubchapterTitleForPage(int currentChapterIndex, int pageInChapter) {
+  void _updateSubchapterTitleForPage(
+      int currentChapterIndex, int pageInChapter) {
     _currentSubchapterTitle = _chapterHelper.updateSubchapterTitleForPage(
       currentChapterIndex: currentChapterIndex,
       pageInChapter: pageInChapter,
@@ -667,7 +766,8 @@ class ShowEpubState extends State<ShowEpub> {
       themeId: staticThemeId,
     );
     // Calculate total from whatever we have cached
-    _cachedKnownPagesTotal = chapterPageCounts.values.fold(0, (sum, c) => sum + c);
+    _cachedKnownPagesTotal =
+        chapterPageCounts.values.fold(0, (sum, c) => sum + c);
     totalPagesInBook = _cachedKnownPagesTotal;
     allChaptersCalculated.value = chapterPageCounts.length == _chapters.length;
     isCalculatingTotalPages = !allChaptersCalculated.value;
@@ -688,7 +788,8 @@ class ShowEpubState extends State<ShowEpub> {
     _isBackgroundCalcRunning = true;
     isCalculatingTotalPages = true;
 
-    final results = await EpubBackgroundCalculator.calculateAllChaptersInBackground(
+    final results =
+        await EpubBackgroundCalculator.calculateAllChaptersInBackground(
       chapters: _chapters,
       fontSize: _fontSize,
       existingPageCounts: chapterPageCounts,
@@ -697,7 +798,8 @@ class ShowEpubState extends State<ShowEpub> {
         // Only update if not already calculated with real pagination
         if (!chapterPageCounts.containsKey(chapterIndex)) {
           chapterPageCounts[chapterIndex] = pages;
-          _cachedKnownPagesTotal = chapterPageCounts.values.fold(0, (sum, c) => sum + c);
+          _cachedKnownPagesTotal =
+              chapterPageCounts.values.fold(0, (sum, c) => sum + c);
           totalPagesInBook = _cachedKnownPagesTotal;
           _updateChapterPageNumbers();
         }
@@ -715,7 +817,8 @@ class ShowEpubState extends State<ShowEpub> {
       }
     }
 
-    _cachedKnownPagesTotal = chapterPageCounts.values.fold(0, (sum, c) => sum + c);
+    _cachedKnownPagesTotal =
+        chapterPageCounts.values.fold(0, (sum, c) => sum + c);
     totalPagesInBook = _cachedKnownPagesTotal;
     allChaptersCalculated.value = chapterPageCounts.length == _chapters.length;
 
@@ -727,7 +830,8 @@ class ShowEpubState extends State<ShowEpub> {
     _updateChapterPageNumbers();
 
     _isBackgroundCalcRunning = false;
-    isCalculatingTotalPages = !allChaptersCalculated.value && _isBackgroundCalcRunning;
+    isCalculatingTotalPages =
+        !allChaptersCalculated.value && _isBackgroundCalcRunning;
   }
 
   void _saveCachedPageCounts() {
@@ -753,7 +857,8 @@ class ShowEpubState extends State<ShowEpub> {
 
   @override
   Widget build(BuildContext context) {
-    ScreenUtil.init(context, designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
+    ScreenUtil.init(context,
+        designSize: const Size(DESIGN_WIDTH, DESIGN_HEIGHT));
     return WillPopScope(
       onWillPop: backPress,
       child: Scaffold(
@@ -763,7 +868,10 @@ class ShowEpubState extends State<ShowEpub> {
             Column(children: [
               Expanded(
                   child: Stack(children: [
-                FutureBuilder<void>(future: loadChapterFuture, builder: (context, snapshot) => _buildChapterContent(snapshot)),
+                FutureBuilder<void>(
+                    future: loadChapterFuture,
+                    builder: (context, snapshot) =>
+                        _buildChapterContent(snapshot)),
               ])),
             ]),
             _buildHeaderWidget(),
@@ -777,11 +885,14 @@ class ShowEpubState extends State<ShowEpub> {
   /// Build chapter content based on FutureBuilder snapshot
   Widget _buildChapterContent(AsyncSnapshot<void> snapshot) {
     if (_isChangingTheme) return _buildLoadingWidget();
-    if (snapshot.connectionState == ConnectionState.none || snapshot.connectionState == ConnectionState.waiting) return _buildLoadingWidget();
+    if (snapshot.connectionState == ConnectionState.none ||
+        snapshot.connectionState == ConnectionState.waiting)
+      return _buildLoadingWidget();
     if (snapshot.hasError) return _buildErrorWidget(snapshot.error);
     if (snapshot.connectionState == ConnectionState.done) {
       if (shouldOpenDrawer) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => openTableOfContents());
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => openTableOfContents());
         shouldOpenDrawer = false;
       }
       return _buildPagingWidget();
@@ -789,23 +900,32 @@ class ShowEpubState extends State<ShowEpub> {
     return _buildLoadingWidget();
   }
 
-  Widget _buildLoadingWidget() => Center(child: LoadingWidget(height: 100, animationWidth: 50, animationHeight: 50));
+  Widget _buildLoadingWidget() => Center(
+      child:
+          LoadingWidget(height: 100, animationWidth: 50, animationHeight: 50));
 
   Widget _buildErrorWidget(Object? error) => Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.error_outline, size: 48, color: Colors.red),
           SizedBox(height: 16),
-          Text('Error loading chapter', style: TextStyle(fontSize: 16, color: fontColor)),
+          Text('Error loading chapter',
+              style: TextStyle(fontSize: 16, color: fontColor)),
           SizedBox(height: 8),
-          Text('$error', style: TextStyle(fontSize: 12, color: fontColor.withOpacity(0.7)), textAlign: TextAlign.center),
+          Text('$error',
+              style: TextStyle(fontSize: 12, color: fontColor.withOpacity(0.7)),
+              textAlign: TextAlign.center),
         ]),
       );
 
   /// Build paging widget for chapter content
   Widget _buildPagingWidget() {
-    var currentChapterIndex = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    int startPageIndex = bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
-    if (_targetChapterFromAudioSync == currentChapterIndex && _targetPageFromAudioSync != null && !_hasAppliedAudioSync) {
+    var currentChapterIndex =
+        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+    int startPageIndex =
+        bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+    if (_targetChapterFromAudioSync == currentChapterIndex &&
+        _targetPageFromAudioSync != null &&
+        !_hasAppliedAudioSync) {
       startPageIndex = _targetPageFromAudioSync!;
       _hasAppliedAudioSync = true;
     }
@@ -840,29 +960,48 @@ class ShowEpubState extends State<ShowEpub> {
   void _handlePagingCallback(PagingTextHandler ctrl) {
     controllerPaging = ctrl;
     int calculatedTotal = chapterPageCounts.values.fold(0, (s, c) => s + c);
-    int bookTotal = _pendingTotalPages ?? (allChaptersCalculated.value ? totalPagesInBook : (calculatedTotal > 0 ? calculatedTotal : totalPagesInBook));
+    int bookTotal = _pendingTotalPages ??
+        (allChaptersCalculated.value
+            ? totalPagesInBook
+            : (calculatedTotal > 0 ? calculatedTotal : totalPagesInBook));
     final currentTotal = controllerPaging.totalPages.value;
 
     // During recalculation, use preserved totalPagesInBook instead of partial calculation
     // If we have a pending total (from jump), use it; otherwise use calculated
-    final preservedTotal = _preservedTotalPages > 0 ? _preservedTotalPages : null;
+    final preservedTotal =
+        _preservedTotalPages > 0 ? _preservedTotalPages : null;
     final displayTotal = _isJumpLockActive
         ? (_jumpLockedTotalPages ??
             _pendingTotalPages ??
-            (isCalculatingTotalPages ? (preservedTotal ?? bookTotal) : (allChaptersCalculated.value ? bookTotal : (totalPagesInBook > 0 ? totalPagesInBook : bookTotal))))
-        : (_pendingTotalPages ?? (isCalculatingTotalPages ? (preservedTotal ?? bookTotal) : (allChaptersCalculated.value ? bookTotal : (totalPagesInBook > 0 ? totalPagesInBook : bookTotal))));
-    final shouldUpdate = _isJumpLockActive || _pendingTotalPages != null || allChaptersCalculated.value || currentTotal == 0 || (displayTotal > currentTotal && (displayTotal - currentTotal) > 5);
+            (isCalculatingTotalPages
+                ? (preservedTotal ?? bookTotal)
+                : (allChaptersCalculated.value
+                    ? bookTotal
+                    : (totalPagesInBook > 0 ? totalPagesInBook : bookTotal))))
+        : (_pendingTotalPages ??
+            (isCalculatingTotalPages
+                ? (preservedTotal ?? bookTotal)
+                : (allChaptersCalculated.value
+                    ? bookTotal
+                    : (totalPagesInBook > 0 ? totalPagesInBook : bookTotal))));
+    final shouldUpdate = _isJumpLockActive ||
+        _pendingTotalPages != null ||
+        allChaptersCalculated.value ||
+        currentTotal == 0 ||
+        (displayTotal > currentTotal && (displayTotal - currentTotal) > 5);
 
     if (shouldUpdate) {
       controllerPaging.totalPages.value = displayTotal;
     }
 
     if (_pendingCurrentPageInBook != null || _jumpLockedPageInBook != null) {
-      controllerPaging.currentPage.value = _jumpLockedPageInBook ?? _pendingCurrentPageInBook!;
+      controllerPaging.currentPage.value =
+          _jumpLockedPageInBook ?? _pendingCurrentPageInBook!;
       if (!_isJumpLockActive) _pendingCurrentPageInBook = null;
     }
     // Only clear pending total after it's been applied and not locked
-    if (_pendingTotalPages != null && !_isJumpLockActive) _pendingTotalPages = null;
+    if (_pendingTotalPages != null && !_isJumpLockActive)
+      _pendingTotalPages = null;
   }
 
   /// Build header widget
@@ -882,10 +1021,16 @@ class ShowEpubState extends State<ShowEpub> {
   /// Build bottom navigation widget
   Widget _buildBottomNavWidget() {
     return Obx(() {
-      final currentChapterIdx = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-      final currentChapterTitle = currentChapterIdx >= 0 && currentChapterIdx < chaptersList.length ? chaptersList[currentChapterIdx].chapter : '';
-      final originalChapterIdx = _filteredToOriginalIndex[currentChapterIdx] ?? currentChapterIdx;
-      final isCurrentChapterCalculated = chapterPageCounts.containsKey(originalChapterIdx);
+      final currentChapterIdx =
+          bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+      final currentChapterTitle =
+          currentChapterIdx >= 0 && currentChapterIdx < chaptersList.length
+              ? chaptersList[currentChapterIdx].chapter
+              : '';
+      final originalChapterIdx =
+          _filteredToOriginalIndex[currentChapterIdx] ?? currentChapterIdx;
+      final isCurrentChapterCalculated =
+          chapterPageCounts.containsKey(originalChapterIdx);
       final isCalculatingUi = isCalculatingTotalPages;
 
       return EpubBottomNavWidget(
@@ -902,11 +1047,13 @@ class ShowEpubState extends State<ShowEpub> {
         onJumpToPage: (targetPageInBook) {
           debugPrint('\n📖 onJumpToPage callback:');
           debugPrint('   targetPageInBook: $targetPageInBook');
-          debugPrint('   current totalPages: ${controllerPaging.totalPages.value}');
+          debugPrint(
+              '   current totalPages: ${controllerPaging.totalPages.value}');
           final result = _calculateChapterAndPageFromBookPage(targetPageInBook);
           debugPrint('   result: $result');
           if (result != null) {
-            debugPrint('   ✅ Calling reLoadChapter(index: ${result['chapter']}, startPage: ${result['page']})');
+            debugPrint(
+                '   ✅ Calling reLoadChapter(index: ${result['chapter']}, startPage: ${result['page']})');
             // Preserve the target page and total pages so they're displayed after chapter loads
             final filteredIndex = _originalToFilteredIndex(result['chapter']!);
             _setJumpLock(
@@ -929,7 +1076,8 @@ class ShowEpubState extends State<ShowEpub> {
         onFontSizeChange: changeFontSize,
         buttonBackgroundColor: buttonBackgroundColor,
         buttonIconColor: buttonIconColor,
-        onProgressLongPressChanged: (isLongPressing) => setState(() => _isProgressBarLongPressed = isLongPressing),
+        onProgressLongPressChanged: (isLongPressing) =>
+            setState(() => _isProgressBarLongPressed = isLongPressing),
       );
     });
   }
