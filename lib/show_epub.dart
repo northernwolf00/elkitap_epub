@@ -354,19 +354,56 @@ class ShowEpubState extends State<ShowEpub> {
     // Kick off background calculation so loading can finish
     _startBackgroundCalculation();
   }
-
-  void changeFontSize(double newSize) {
-    fontSizeProgress = newSize;
-    _fontSize = newSize;
-    gs.write(libFontSize, _fontSize);
-    _clearPageCountsCache();
-    final currentChapterIdx =
-        bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
-    final currentPageIdx =
-        bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
-    setState(() {});
-    reLoadChapter(index: currentChapterIdx, startPage: currentPageIdx);
+void changeFontSize(double newSize) {
+  fontSizeProgress = newSize;
+  _fontSize = newSize;
+  gs.write(libFontSize, _fontSize);
+  
+  // CRITICAL: Clear cache and force full repagination
+  _clearPageCountsCache();
+  
+  // Get current position BEFORE repagination
+  final currentPageInBook = controllerPaging.currentPage.value;
+  final currentChapterIdx = 
+      bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+  
+  // Calculate chapter-relative page from book page
+  int accumulatedPages = 0;
+  final originalChapterIdx = 
+      _filteredToOriginalIndex[currentChapterIdx] ?? currentChapterIdx;
+  
+  for (int i = 0; i < originalChapterIdx; i++) {
+    accumulatedPages += chapterPageCounts[i] ?? 0;
   }
+  
+  int pageInChapter = (currentPageInBook - accumulatedPages - 1)
+      .clamp(0, (chapterPageCounts[originalChapterIdx] ?? 1) - 1);
+  
+  // Lock to preserve position during repagination
+  _setJumpLock(
+    pageInBook: currentPageInBook,
+    totalPages: totalPagesInBook,
+    chapterIndex: currentChapterIdx,
+    pageInChapter: pageInChapter,
+  );
+  
+  setState(() {});
+  
+  // Reload with preserved position
+  reLoadChapter(index: currentChapterIdx, startPage: pageInChapter);
+}
+  // void changeFontSize(double newSize) {
+  //   fontSizeProgress = newSize;
+  //   _fontSize = newSize;
+  //   gs.write(libFontSize, _fontSize);
+  //   _clearPageCountsCache();
+  //   final currentChapterIdx =
+  //       bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
+  //   final currentPageIdx =
+  //       bookProgress.getBookProgress(bookId).currentPageIndex ?? 0;
+  //   setState(() {});
+  //   reLoadChapter(index: currentChapterIdx, startPage: currentPageIdx);
+  // }
 
   openTableOfContents() async {
     final originalChapterIndex =
