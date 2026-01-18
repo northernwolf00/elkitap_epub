@@ -205,7 +205,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     });
   }
 
-  String _extractTextOnly(dom.Element element, {bool excludeCite = false}) {
+  String extractTextOnly(dom.Element element, {bool excludeCite = false}) {
     StringBuffer buffer = StringBuffer();
 
     for (var child in element.nodes) {
@@ -216,7 +216,7 @@ class _PagingWidgetState extends State<PagingWidget> {
           continue;
         }
 
-        buffer.write(_extractTextOnly(child, excludeCite: excludeCite));
+        buffer.write(extractTextOnly(child, excludeCite: excludeCite));
       }
     }
 

@@ -72,7 +72,7 @@ class EpubChapterFixer {
       if (chapters.isNotEmpty && _hasInvalidChapters(chapters)) {
         _repairChapterContent(epubBook);
       }
-    } catch (e, st) {}
+    } catch (e) {}
   }
 
   static void _createDummyChapter(EpubBook epubBook) {

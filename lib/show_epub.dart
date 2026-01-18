@@ -102,7 +102,6 @@ class ShowEpubState extends State<ShowEpub> {
   String? innerHtmlContent;
   bool isCalculatingTotalPages = false;
   bool isLastPage = false;
-  int _lastReportedPage = -1;
   int lastSwipe = 0;
   Future<void> loadChapterFuture = Future.value(true);
   int prevSwipe = 0;
@@ -302,19 +301,6 @@ class ShowEpubState extends State<ShowEpub> {
     if (_pendingCurrentPageInBook == null) {
       _pendingCurrentPageInBook = currentPageInBook;
     }
-
-    // Set initial tracking state
-    // If we are starting at page 0, treat it as if we just arrived there (transition complete)
-    // so the NEXT backward swipe will trigger chapter change.
-    // Equivalent to "boundary hit" state.
-    final startPageInChapter = result['currentPageInChapter'] ?? 0;
-    if (startPageInChapter == 0) {
-      prevSwipe = 1;
-    } else {
-      prevSwipe = 0;
-    }
-    _lastReportedPage = startPageInChapter;
-
     if (_pendingTotalPages == null) {
       _pendingTotalPages = displayTotalPages;
     }
@@ -624,28 +610,9 @@ class ShowEpubState extends State<ShowEpub> {
     updateUI();
 
     // Handle swipe to previous chapter
-    // Logic:
-    // 1. If we just moved TO page 0 (page change), we set a flag (prevSwipe = 1).
-    // 2. If we are AT page 0 and try to go back again (no page change), we increment flag.
-    // 3. If flag > 1, we go to previous chapter.
-    //
-    // This allows:
-    // - Specific navigation to page 0.
-    // - Seamless navigation to prev chapter if you swipe again.
-    // - Seamless navigation if you swipe from page 0 immediately after chapter load (controlled by init logic).
-
-    if (currentPage == 0) {
-      if (_lastReportedPage != 0) {
-        // Just arrived at page 0 from another page
-        prevSwipe = 1;
-      } else {
-        // Already at page 0, tried to go back
-        prevSwipe++;
-      }
-
+    if (currentPage == 0 && totalPages > 1) {
+      prevSwipe++;
       lastSwipe = 0;
-
-      // Trigger chapter change if this is the second "hit" on the start boundary
       if (prevSwipe > 1 && !_isLoadingChapter) {
         var idx = bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0;
         if (idx > 0) {
@@ -661,8 +628,6 @@ class ShowEpubState extends State<ShowEpub> {
     } else {
       prevSwipe = 0;
     }
-
-    _lastReportedPage = currentPage;
   }
 
   /// Handle last page callback from PagingWidget

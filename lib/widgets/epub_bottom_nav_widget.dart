@@ -2,7 +2,6 @@ import 'package:cosmos_epub/helpers/progress_bar_widget.dart';
 import 'package:cosmos_epub/widgets/font_settings_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
 
 /// Bottom navigation bar widget for EPUB reader
 class EpubBottomNavWidget extends StatefulWidget {
@@ -102,25 +101,23 @@ class _EpubBottomNavWidgetState extends State<EpubBottomNavWidget> {
       bottom: 0,
       child: IgnorePointer(
         ignoring: !widget.showHeader,
-        child: AnimatedOpacity(
-          opacity: widget.showHeader ? 1.0 : 0.0,
+        child: AnimatedContainer(
+          height: widget.showHeader ? 70.h : 30.h,
           duration: const Duration(milliseconds: 200),
-          child: AnimatedContainer(
-            height: widget.showHeader ? 70.h : 0,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            child: ClipRect(
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 8.h,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
+          curve: Curves.easeInOut,
+          child: ClipRect(
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 10.w,
+                  vertical: widget.showHeader ? 8.h : 0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (widget.showHeader) ...[
                       AnimatedOpacity(
                         opacity: _isProgressLongPressed ? 0.0 : 1.0,
                         duration: const Duration(milliseconds: 200),
@@ -130,32 +127,47 @@ class _EpubBottomNavWidgetState extends State<EpubBottomNavWidget> {
                           tooltip: 'Table of Contents',
                         ),
                       ),
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4.w),
-                          child: ProgressBarWidget(
-                            currentPage: widget.currentPage,
-                            totalPages: widget.totalPages,
-                            isCalculating: widget.isCalculating,
-                            onNextPage: widget.onNextPage,
-                            onPreviousPage: widget.onPreviousPage,
-                            onJumpToPage: widget.onJumpToPage,
-                            chapterTitle: widget.chapterTitle,
-                            backgroundColor: widget.backColor,
-                            textColor: widget.fontColor,
-                            onLongPressStateChanged: (isLongPressing) {
-                              setState(() {
-                                _isProgressLongPressed = isLongPressing;
-                              });
-                              widget.onProgressLongPressChanged
-                                  ?.call(isLongPressing);
-                            },
-                            staticThemeId: widget.staticThemeId,
-                            buttonBackgroundColor: widget.buttonBackgroundColor,
-                            buttonIconColor: widget.buttonIconColor,
-                          ),
-                        ),
-                      ),
+                    ],
+                    Expanded(
+                      child: widget.showHeader
+                          ? Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4.w),
+                              child: ProgressBarWidget(
+                                currentPage: widget.currentPage,
+                                totalPages: widget.totalPages,
+                                isCalculating: widget.isCalculating,
+                                onNextPage: widget.onNextPage,
+                                onPreviousPage: widget.onPreviousPage,
+                                onJumpToPage: widget.onJumpToPage,
+                                chapterTitle: widget.chapterTitle,
+                                backgroundColor: widget.backColor,
+                                textColor: widget.fontColor,
+                                onLongPressStateChanged: (isLongPressing) {
+                                  setState(() {
+                                    _isProgressLongPressed = isLongPressing;
+                                  });
+                                  widget.onProgressLongPressChanged
+                                      ?.call(isLongPressing);
+                                },
+                                staticThemeId: widget.staticThemeId,
+                                buttonBackgroundColor:
+                                    widget.buttonBackgroundColor,
+                                buttonIconColor: widget.buttonIconColor,
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                "${widget.currentPage}",
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                    ),
+                    if (widget.showHeader) ...[
                       AnimatedOpacity(
                         opacity: _isProgressLongPressed ? 0.0 : 1.0,
                         duration: const Duration(milliseconds: 200),
@@ -178,7 +190,7 @@ class _EpubBottomNavWidgetState extends State<EpubBottomNavWidget> {
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
