@@ -1280,10 +1280,10 @@ class _PagingWidgetState extends State<PagingWidget> {
     }
 
     // Dynamic character limits based on font size
-    // Base values for 16px font size
-    const double baseFontSize = 16.0;
-    const int baseMinChars = 700;
-    const int baseMaxChars = 900;
+    // Base values for 13px font size (our reference point)
+    const double baseFontSize = 13.0;
+    const int baseMinChars = 900;
+    const int baseMaxChars = 1100;
 
     // Get current font size
     final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
@@ -1294,18 +1294,46 @@ class _PagingWidgetState extends State<PagingWidget> {
     final scaleFactor = baseFontSize / currentFontSize;
 
     // Calculate dynamic limits
-    // Calculate dynamic limits with a hard cap to prevent overflow
     int minCharsPerPage = (baseMinChars * scaleFactor).round();
     int maxCharsPerPage = (baseMaxChars * scaleFactor).round();
 
-    // Safety: Strictly limit chars per page
-    // Relaxed limit for smaller fonts (allow up to 1500/1200)
-    // This allows 12px font to reach ~1000 chars as desired
+    // Safety: Strictly limit chars per page to prevent overflow
+    // Maximum allowed is 1500 for very small fonts
     if (maxCharsPerPage > 1500) maxCharsPerPage = 1500;
     if (minCharsPerPage > 1200) minCharsPerPage = 1200;
 
+    // Log detailed font size and character count information
+    print('═══════════════════════════════════════════════════════');
+    print('📊 PAGINATION CHARACTER COUNT CALCULATION');
+    print('───────────────────────────────────────────────────────');
+    print('Current Font Size: ${currentFontSize}px');
+    print('Scale Factor: ${scaleFactor.toStringAsFixed(2)}');
+    print('Calculated Range: $minCharsPerPage - $maxCharsPerPage chars/page');
+    print('───────────────────────────────────────────────────────');
+    print('📐 CHARACTER COUNT EXAMPLES BY FONT SIZE:');
     print(
-        '📏 Font size: $currentFontSize, Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
+        'Font size 10px: ~${(baseMinChars * (baseFontSize / 10)).round()}-${(baseMaxChars * (baseFontSize / 10)).round()} characters per page');
+    print(
+        'Font size 11px: ~${(baseMinChars * (baseFontSize / 11)).round()}-${(baseMaxChars * (baseFontSize / 11)).round()} characters per page');
+    print(
+        'Font size 12px: ~${(baseMinChars * (baseFontSize / 12)).round()}-${(baseMaxChars * (baseFontSize / 12)).round()} characters per page');
+    print(
+        'Font size 13px: $baseMinChars-$baseMaxChars characters per page (BASE)');
+    print(
+        'Font size 14px: ~${(baseMinChars * (baseFontSize / 14)).round()}-${(baseMaxChars * (baseFontSize / 14)).round()} characters per page');
+    print(
+        'Font size 15px: ~${(baseMinChars * (baseFontSize / 15)).round()}-${(baseMaxChars * (baseFontSize / 15)).round()} characters per page');
+    print(
+        'Font size 16px: ~${(baseMinChars * (baseFontSize / 16)).round()}-${(baseMaxChars * (baseFontSize / 16)).round()} characters per page');
+    print(
+        'Font size 18px: ~${(baseMinChars * (baseFontSize / 18)).round()}-${(baseMaxChars * (baseFontSize / 18)).round()} characters per page');
+    print(
+        'Font size 20px: ~${(baseMinChars * (baseFontSize / 20)).round()}-${(baseMaxChars * (baseFontSize / 20)).round()} characters per page');
+    print(
+        'Font size 22px: ~${(baseMinChars * (baseFontSize / 22)).round()}-${(baseMaxChars * (baseFontSize / 22)).round()} characters per page');
+    print(
+        'Font size 24px: ~${(baseMinChars * (baseFontSize / 24)).round()}-${(baseMaxChars * (baseFontSize / 24)).round()} characters per page');
+    print('═══════════════════════════════════════════════════════');
 
     // Adjust limits based on actual layout height
     if (estimatedPages > 0 && totalChars > 0) {
