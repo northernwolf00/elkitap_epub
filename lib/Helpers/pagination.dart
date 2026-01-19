@@ -1224,7 +1224,11 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     // FIRST PASS: Calculate total content height to see if it fits in one page
     double totalContentHeight = 0;
+    int totalChars = 0;
     for (var span in flatSpans) {
+      if (span is TextSpan && span.text != null) {
+        totalChars += span.text!.length;
+      }
       if (span is WidgetSpan) {
         try {
           TextPainter painter = TextPainter(
@@ -1254,7 +1258,10 @@ class _PagingWidgetState extends State<PagingWidget> {
     int estimatedPages = pageRatio.ceil();
 
     // AGGRESSIVE: If content fits in 1 page (with extra overflow allowed for front matter), force single page
-    final singlePageThreshold = _isFrontMatter ? 2.4 : 1.5;
+    // FIXED: Reduced threshold from 2.4/1.5 to 1.05.
+    // The previous high threshold was forcing 2+ pages of content into a single page,
+    // especially for content classified as "Front Matter" (threshold 2.4).
+    final singlePageThreshold = 1.05;
     if (pageRatio <= singlePageThreshold) {
       List<InlineSpan> allSpansForPage = List.from(flatSpans);
       _pageSpans.add(TextSpan(children: allSpansForPage));
@@ -1291,13 +1298,33 @@ class _PagingWidgetState extends State<PagingWidget> {
     int minCharsPerPage = (baseMinChars * scaleFactor).round();
     int maxCharsPerPage = (baseMaxChars * scaleFactor).round();
 
-    // Safety: Strictly limit to 800 chars per page as requested
-    // This ensures text is never cut off and pagination always splits cleanly
-    if (maxCharsPerPage > 800) maxCharsPerPage = 800;
-    if (minCharsPerPage > 600) minCharsPerPage = 600;
+    // Safety: Strictly limit chars per page
+    // Relaxed limit for smaller fonts (allow up to 1500/1200)
+    // This allows 12px font to reach ~1000 chars as desired
+    if (maxCharsPerPage > 1500) maxCharsPerPage = 1500;
+    if (minCharsPerPage > 1200) minCharsPerPage = 1200;
 
     print(
         '📏 Font size: $currentFontSize, Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
+
+    // Adjust limits based on actual layout height
+    if (estimatedPages > 0 && totalChars > 0) {
+      int avgCharsPerPage = (totalChars / estimatedPages).ceil();
+      // Allow some variance, but if height says we need far fewer chars (e.g. large font), respect it
+      if (avgCharsPerPage < maxCharsPerPage) {
+        print(
+            "Adjusting max chars from $maxCharsPerPage to $avgCharsPerPage based on height layout");
+        maxCharsPerPage = avgCharsPerPage;
+
+        // Ensure min is lower
+        if (minCharsPerPage >= maxCharsPerPage) {
+          minCharsPerPage = (maxCharsPerPage * 0.8).floor();
+        }
+      }
+    }
+
+    print(
+        '📏 Adjusted limits -> Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
 
     // Calculate total character count and track each span's character count
     List<int> spanCharCounts = [];
