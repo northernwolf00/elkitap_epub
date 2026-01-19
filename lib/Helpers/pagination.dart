@@ -1281,9 +1281,10 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     // Dynamic character limits based on font size
     // Base values for 13px font size (our reference point)
+    // Increased to fill pages more completely and reduce empty space
     const double baseFontSize = 13.0;
-    const int baseMinChars = 900;
-    const int baseMaxChars = 1100;
+    const int baseMinChars = 1050;
+    const int baseMaxChars = 1250;
 
     // Get current font size
     final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
