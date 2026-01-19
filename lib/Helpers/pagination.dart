@@ -1283,8 +1283,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     // Base values for 13px font size (our reference point)
     // Increased to fill pages more completely and reduce empty space
     const double baseFontSize = 13.0;
-    const int baseMinChars = 1050;
-    const int baseMaxChars = 1250;
+    const int baseMinChars = 1000;
+    const int baseMaxChars = 1200;
 
     // Get current font size
     final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
@@ -1307,6 +1307,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     print('═══════════════════════════════════════════════════════');
     print('📊 PAGINATION CHARACTER COUNT CALCULATION');
     print('───────────────────────────────────────────────────────');
+    print('Total Content Characters: $totalChars');
     print('Current Font Size: ${currentFontSize}px');
     print('Scale Factor: ${scaleFactor.toStringAsFixed(2)}');
     print('Calculated Range: $minCharsPerPage - $maxCharsPerPage chars/page');
@@ -1336,24 +1337,27 @@ class _PagingWidgetState extends State<PagingWidget> {
         'Font size 24px: ~${(baseMinChars * (baseFontSize / 24)).round()}-${(baseMaxChars * (baseFontSize / 24)).round()} characters per page');
     print('═══════════════════════════════════════════════════════');
 
-    // Adjust limits based on actual layout height
-    if (estimatedPages > 0 && totalChars > 0) {
-      int avgCharsPerPage = (totalChars / estimatedPages).ceil();
-      // Allow some variance, but if height says we need far fewer chars (e.g. large font), respect it
-      if (avgCharsPerPage < maxCharsPerPage) {
-        print(
-            "Adjusting max chars from $maxCharsPerPage to $avgCharsPerPage based on height layout");
-        maxCharsPerPage = avgCharsPerPage;
+    // REMOVED: Height-based adjustment that was overriding font-size scaling
+    // The previous logic was forcing all font sizes to use the same character count,
+    // which defeated the purpose of dynamic font-size-based pagination.
+    // Now we trust the font-size-based calculation exclusively.
 
-        // Ensure min is lower
-        if (minCharsPerPage >= maxCharsPerPage) {
-          minCharsPerPage = (maxCharsPerPage * 0.8).floor();
-        }
-      }
-    }
+    // Calculate estimated pages based on character count
+    // This ensures font size changes affect pagination
+    int charBasedEstimatedPages = (totalChars / maxCharsPerPage).ceil();
 
+    // Use the MAXIMUM of height-based and character-based estimates
+    // This ensures we respect both constraints
+    int finalEstimatedPages = charBasedEstimatedPages > estimatedPages
+        ? charBasedEstimatedPages
+        : estimatedPages;
+
+    print('📊 Page Estimation:');
+    print('   Height-based: $estimatedPages pages');
+    print('   Character-based: $charBasedEstimatedPages pages');
+    print('   Final estimate: $finalEstimatedPages pages');
     print(
-        '📏 Adjusted limits -> Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
+        '📏 Final limits -> Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
 
     // Calculate total character count and track each span's character count
     List<int> spanCharCounts = [];
@@ -1373,25 +1377,39 @@ class _PagingWidgetState extends State<PagingWidget> {
     List<List<InlineSpan>> allPages = [];
     List<InlineSpan> currentPageList = [];
     int currentPageChars = 0;
-
     for (int i = 0; i < flatSpans.length; i++) {
       final span = flatSpans[i];
       final spanChars = spanCharCounts[i];
 
+      print(
+          '🔄 Processing span $i: $spanChars chars, current page has $currentPageChars chars');
+
       // Check if adding this span would exceed the max character limit
       if (currentPageChars + spanChars > maxCharsPerPage) {
+        print(
+            '   ⚠️  Would exceed max ($maxCharsPerPage). Current: $currentPageChars + Span: $spanChars = ${currentPageChars + spanChars}');
+
         // If we have content on the current page, and it's substantial, break page first
         if (currentPageList.isNotEmpty && currentPageChars >= minCharsPerPage) {
+          print(
+              '   📄 Breaking page (has $currentPageChars >= $minCharsPerPage min)');
           allPages.add(List.from(currentPageList));
           currentPageList.clear();
           currentPageChars = 0;
+        } else {
+          print(
+              '   ⏭️  Not breaking (current $currentPageChars < $minCharsPerPage min)');
         }
 
         // If the span itself fits now (on fresh page), just add it
         if (spanChars <= maxCharsPerPage) {
+          print('   ✅ Span fits on fresh page, adding whole span');
           currentPageList.add(span);
           currentPageChars += spanChars;
           continue;
+        } else {
+          print(
+              '   ✂️  Span too large ($spanChars > $maxCharsPerPage), will split');
         }
 
         // The span is too large for a single page (even a fresh one) -> We MUST split it
@@ -1464,6 +1482,7 @@ class _PagingWidgetState extends State<PagingWidget> {
         }
       } else {
         // Fits normally
+        print('   ✅ Fits normally, adding to current page');
         currentPageList.add(span);
         currentPageChars += spanChars;
       }
