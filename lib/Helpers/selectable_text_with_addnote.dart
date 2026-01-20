@@ -5,6 +5,7 @@ import 'package:selectable/selectable.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'dart:io';
 
 class SelectableTextWithCustomToolbar extends StatelessWidget {
   final String text;
@@ -30,58 +31,92 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selectable(
-      selectWordOnLongPress: true,
-      selectWordOnDoubleTap: true,
-      selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
-      popupMenuItems: [
-        SelectableMenuItem(
-          title: CosmosEpubLocalization.t('add_note'),
-          isEnabled: (controller) => controller!.isTextSelected,
-          handler: (controller) {
-            final selectedText = controller!.getSelection()!.text!;
-            _handleAddNote(context, selectedText);
-            return true;
-          },
-        ),
-        SelectableMenuItem(
-          title: CosmosEpubLocalization.t('share'),
-          isEnabled: (controller) => controller!.isTextSelected,
-          handler: (controller) {
-            final selectedText = controller!.getSelection()!.text!;
-            _handleShare(context, selectedText);
-            return true;
-          },
-        ),
-        SelectableMenuItem(
-          type: SelectableMenuItemType.copy,
-          title: CosmosEpubLocalization.t('copy'),
-        ),
-      ],
-      child: Directionality(
-        textDirection: textDirection,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isFirstPage && chapterTitle != null) ...[
-              SizedBox(height: 20.h),
-              Text(
-                chapterTitle!,
-                textAlign: TextAlign.center,
-                style: style.copyWith(
-                  fontSize: (style.fontSize ?? 10) + 2,
-                  fontFamily: 'SFPro',
-                  height: 1.3,
-                ),
-              ),
-              SizedBox(height: 16.h),
-              SizedBox(height: 30.h),
-            ],
+    final iosButtonStyle = Platform.isIOS
+        ? ButtonStyle(
+            shape: WidgetStateProperty.all(
+              const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            ),
+            padding: WidgetStateProperty.all(
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            minimumSize: WidgetStateProperty.all(const Size(0, 44)),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          )
+        : null;
 
-            // Main text with paragraph indentation
-            _buildFormattedText(text, style),
-          ],
+    final theme = Theme.of(context);
+
+    return Theme(
+      
+      data: theme.copyWith(
+        textButtonTheme: TextButtonThemeData(
+            style: iosButtonStyle ?? theme.textButtonTheme.style),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+            style: iosButtonStyle ?? theme.elevatedButtonTheme.style),
+        filledButtonTheme: FilledButtonThemeData(
+            style: iosButtonStyle ?? theme.filledButtonTheme.style),
+        // Try to override button bar spacing if possible, though Selectable internals are tricky
+        buttonTheme: theme.buttonTheme.copyWith(
+          padding: Platform.isIOS ? EdgeInsets.zero : null,
+          shape: Platform.isIOS
+              ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+              : null,
+        ),
+      ),
+      child: Selectable(
+        selectWordOnLongPress: true,
+        selectWordOnDoubleTap: true,
+        selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
+        popupMenuItems: [
+          SelectableMenuItem(
+        
+            title: CosmosEpubLocalization.t('add_note'),
+            isEnabled: (controller) => controller!.isTextSelected,
+            handler: (controller) {
+              final selectedText = controller!.getSelection()!.text!;
+              _handleAddNote(context, selectedText);
+              return true;
+            },
+          ),
+          SelectableMenuItem(
+            title: CosmosEpubLocalization.t('share'),
+            isEnabled: (controller) => controller!.isTextSelected,
+            handler: (controller) {
+              final selectedText = controller!.getSelection()!.text!;
+              _handleShare(context, selectedText);
+              return true;
+            },
+          ),
+          SelectableMenuItem(
+            type: SelectableMenuItemType.copy,
+            title: CosmosEpubLocalization.t('copy'),
+          ),
+        ],
+        child: Directionality(
+          textDirection: textDirection,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isFirstPage && chapterTitle != null) ...[
+                SizedBox(height: 20.h),
+                Text(
+                  chapterTitle!,
+                  textAlign: TextAlign.center,
+                  style: style.copyWith(
+                    fontSize: (style.fontSize ?? 10) + 2,
+                    fontFamily: 'SFPro',
+                    height: 1.3,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                SizedBox(height: 30.h),
+              ],
+
+              // Main text with paragraph indentation
+              _buildFormattedText(text, style),
+            ],
+          ),
         ),
       ),
     );
@@ -606,10 +641,10 @@ class BookPageBuilder {
       final span = children[i];
       if (span is WidgetSpan) {
       } else if (span is TextSpan) {
-        final text = span.text ?? '';
-        final hasChildren = span.children?.isNotEmpty ?? false;
-        final isItalic = span.style?.fontStyle == FontStyle.italic;
-        final isDivider = _isSectionDivider(text);
+        // final text = span.text ?? '';
+        // final hasChildren = span.children?.isNotEmpty ?? false;
+        // final isItalic = span.style?.fontStyle == FontStyle.italic;
+        // final isDivider = _isSectionDivider(text);
       }
     }
 
@@ -830,6 +865,7 @@ class BookPageBuilder {
                               fontWeight: FontWeight.w500,
                               height: 1.1,
                               letterSpacing: 0.1,
+                              color: Colors.grey,
                             ),
                           ),
                           SizedBox(height: 6.h),
@@ -844,8 +880,7 @@ class BookPageBuilder {
                               fontSize: (style.fontSize ?? 16) - 2,
                               fontWeight: FontWeight.w400,
                               height: 1.0,
-                              color: (style.color ?? Colors.black)
-                                  .withValues(alpha: 0.5),
+                              color: Colors.grey,
                             ),
                           ),
                           SizedBox(height: 4.h),
@@ -904,13 +939,14 @@ class BookPageBuilder {
                           overflow: TextOverflow.ellipsis,
                           style: style.copyWith(
                             fontSize:
-                                (style.fontSize ?? 16) + 2, // Smaller title
-                            fontWeight: FontWeight.w500,
-                            height: 1.1, // Tighter spacing
-                            letterSpacing: 0.1,
+                                (style.fontSize ?? 16) - 2, // Smaller title
+                            fontWeight: FontWeight.w400,
+                            height: 1.0, // Tighter spacing
+
+                            color: Colors.grey,
                           ),
                         ),
-                        SizedBox(height: 6.h), // Reduced from 10h
+                        SizedBox(height: 10.h), // Reduced from 10h
                       ] else ...[
                         SizedBox(height: 2.h), // Reduced from 4h
                         Text(
@@ -922,11 +958,10 @@ class BookPageBuilder {
                             fontSize: (style.fontSize ?? 16) - 2,
                             fontWeight: FontWeight.w400,
                             height: 1.0, // Tighter spacing
-                            color: (style.color ?? Colors.black)
-                                .withValues(alpha: 0.5),
+                            color: Colors.grey,
                           ),
                         ),
-                        SizedBox(height: 4.h), // Reduced from 6h
+                        SizedBox(height: 10.h), // Reduced from 6h
                       ],
                     ],
 

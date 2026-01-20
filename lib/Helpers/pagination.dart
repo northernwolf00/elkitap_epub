@@ -1261,8 +1261,10 @@ class _PagingWidgetState extends State<PagingWidget> {
     // FIXED: Reduced threshold from 2.4/1.5 to 1.05.
     // The previous high threshold was forcing 2+ pages of content into a single page,
     // especially for content classified as "Front Matter" (threshold 2.4).
-    final singlePageThreshold = 1.05;
-    if (pageRatio <= singlePageThreshold) {
+    final singlePageThreshold = 1.0;
+    // CRITICAL FIX: Ensure we don't force single page if char count is too high!
+    // Must respect the absolute max limit (1050)
+    if (pageRatio <= singlePageThreshold && totalChars <= 1050) {
       List<InlineSpan> allSpansForPage = List.from(flatSpans);
       _pageSpans.add(TextSpan(children: allSpansForPage));
       _finalizePages();
@@ -1279,29 +1281,46 @@ class _PagingWidgetState extends State<PagingWidget> {
       targetHeightPerPage = safeMaxHeight;
     }
 
-    // Dynamic character limits based on font size
+    // Dynamic character limits based on font size AND screen size
     // Base values for 13px font size (our reference point)
-    // Increased to fill pages more completely and reduce empty space
     const double baseFontSize = 13.0;
-    const int baseMinChars = 1000;
-    const int baseMaxChars = 1200;
+    const int baseMinChars = 800;
+    const int baseMaxChars = 1000;
+
+    // Calculate Screen Capacity Factor
+    // Reference content area (approx standard phone safe area: 350w x 600h)
+    const double referenceArea = 350.0 * 600.0; // ~210,000 sq pixels
+    final double currentArea = maxWidth * maxHeight;
+
+    double screenCapacityFactor = currentArea / referenceArea;
+
+    // Clamp factor to prevent extreme scaling (0.8x to 1.1x)
+    // This ensures we adjust for size but don't go crazy on tablets or tiny screens
+    // Reduced upper bound significantly to prevent "wall of text"
+    if (screenCapacityFactor < 0.8) screenCapacityFactor = 0.8;
+    if (screenCapacityFactor > 1.1) screenCapacityFactor = 1.1;
 
     // Get current font size
     final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
 
     // Calculate scaling factor (inverse relationship)
-    // If font is larger, we need fewer characters
-    // If font is smaller, we can fit more characters
-    final scaleFactor = baseFontSize / currentFontSize;
+    final fontScaleFactor = baseFontSize / currentFontSize;
 
-    // Calculate dynamic limits
-    int minCharsPerPage = (baseMinChars * scaleFactor).round();
-    int maxCharsPerPage = (baseMaxChars * scaleFactor).round();
+    // Calculate dynamic limits combining both factors
+    int minCharsPerPage =
+        (baseMinChars * fontScaleFactor * screenCapacityFactor).round();
+    int maxCharsPerPage =
+        (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
 
     // Safety: Strictly limit chars per page to prevent overflow
-    // Maximum allowed is 1500 for very small fonts
-    if (maxCharsPerPage > 1500) maxCharsPerPage = 1500;
-    if (minCharsPerPage > 1200) minCharsPerPage = 1200;
+    // Hard cap at 1050 to ensure we never get 1600+ chars
+    int absoluteMax = 1050;
+    if (maxCharsPerPage > absoluteMax) maxCharsPerPage = absoluteMax;
+
+    // Ensure logical bounds
+    if (maxCharsPerPage < 500) maxCharsPerPage = 500;
+    if (minCharsPerPage > maxCharsPerPage)
+      minCharsPerPage = maxCharsPerPage - 50;
 
     // Log detailed font size and character count information
     print('═══════════════════════════════════════════════════════');
@@ -1309,7 +1328,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     print('───────────────────────────────────────────────────────');
     print('Total Content Characters: $totalChars');
     print('Current Font Size: ${currentFontSize}px');
-    print('Scale Factor: ${scaleFactor.toStringAsFixed(2)}');
+    print('Scale Factor: ${fontScaleFactor.toStringAsFixed(2)}');
+    print('Screen Capacity Factor: ${screenCapacityFactor.toStringAsFixed(2)}');
     print('Calculated Range: $minCharsPerPage - $maxCharsPerPage chars/page');
     print('───────────────────────────────────────────────────────');
     print('📐 CHARACTER COUNT EXAMPLES BY FONT SIZE:');
