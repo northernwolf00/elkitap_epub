@@ -1224,7 +1224,11 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     // FIRST PASS: Calculate total content height to see if it fits in one page
     double totalContentHeight = 0;
+    int totalChars = 0;
     for (var span in flatSpans) {
+      if (span is TextSpan && span.text != null) {
+        totalChars += span.text!.length;
+      }
       if (span is WidgetSpan) {
         try {
           TextPainter painter = TextPainter(
@@ -1254,8 +1258,13 @@ class _PagingWidgetState extends State<PagingWidget> {
     int estimatedPages = pageRatio.ceil();
 
     // AGGRESSIVE: If content fits in 1 page (with extra overflow allowed for front matter), force single page
-    final singlePageThreshold = _isFrontMatter ? 2.4 : 1.5;
-    if (pageRatio <= singlePageThreshold) {
+    // FIXED: Reduced threshold from 2.4/1.5 to 1.05.
+    // The previous high threshold was forcing 2+ pages of content into a single page,
+    // especially for content classified as "Front Matter" (threshold 2.4).
+    final singlePageThreshold = 1.0;
+    // CRITICAL FIX: Ensure we don't force single page if char count is too high!
+    // Must respect the absolute max limit (1050)
+    if (pageRatio <= singlePageThreshold && totalChars <= 1050) {
       List<InlineSpan> allSpansForPage = List.from(flatSpans);
       _pageSpans.add(TextSpan(children: allSpansForPage));
       _finalizePages();
@@ -1272,32 +1281,103 @@ class _PagingWidgetState extends State<PagingWidget> {
       targetHeightPerPage = safeMaxHeight;
     }
 
-    // Dynamic character limits based on font size
-    // Base values for 16px font size
-    const double baseFontSize = 16.0;
-    const int baseMinChars = 700;
-    const int baseMaxChars = 900;
+    // Dynamic character limits based on font size AND screen size
+    // Base values for 13px font size (our reference point)
+    const double baseFontSize = 13.0;
+    const int baseMinChars = 800;
+    const int baseMaxChars = 1000;
+
+    // Calculate Screen Capacity Factor
+    // Reference content area (approx standard phone safe area: 350w x 600h)
+    const double referenceArea = 350.0 * 600.0; // ~210,000 sq pixels
+    final double currentArea = maxWidth * maxHeight;
+
+    double screenCapacityFactor = currentArea / referenceArea;
+
+    // Clamp factor to prevent extreme scaling (0.8x to 1.1x)
+    // This ensures we adjust for size but don't go crazy on tablets or tiny screens
+    // Reduced upper bound significantly to prevent "wall of text"
+    if (screenCapacityFactor < 0.8) screenCapacityFactor = 0.8;
+    if (screenCapacityFactor > 1.1) screenCapacityFactor = 1.1;
 
     // Get current font size
     final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
 
     // Calculate scaling factor (inverse relationship)
-    // If font is larger, we need fewer characters
-    // If font is smaller, we can fit more characters
-    final scaleFactor = baseFontSize / currentFontSize;
+    final fontScaleFactor = baseFontSize / currentFontSize;
 
-    // Calculate dynamic limits
-    // Calculate dynamic limits with a hard cap to prevent overflow
-    int minCharsPerPage = (baseMinChars * scaleFactor).round();
-    int maxCharsPerPage = (baseMaxChars * scaleFactor).round();
+    // Calculate dynamic limits combining both factors
+    int minCharsPerPage =
+        (baseMinChars * fontScaleFactor * screenCapacityFactor).round();
+    int maxCharsPerPage =
+        (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
 
-    // Safety: Strictly limit to 800 chars per page as requested
-    // This ensures text is never cut off and pagination always splits cleanly
-    if (maxCharsPerPage > 800) maxCharsPerPage = 800;
-    if (minCharsPerPage > 600) minCharsPerPage = 600;
+    // Safety: Strictly limit chars per page to prevent overflow
+    // Hard cap at 1050 to ensure we never get 1600+ chars
+    int absoluteMax = 1050;
+    if (maxCharsPerPage > absoluteMax) maxCharsPerPage = absoluteMax;
 
+    // Ensure logical bounds
+    if (maxCharsPerPage < 500) maxCharsPerPage = 500;
+    if (minCharsPerPage > maxCharsPerPage)
+      minCharsPerPage = maxCharsPerPage - 50;
+
+    // Log detailed font size and character count information
+    print('═══════════════════════════════════════════════════════');
+    print('📊 PAGINATION CHARACTER COUNT CALCULATION');
+    print('───────────────────────────────────────────────────────');
+    print('Total Content Characters: $totalChars');
+    print('Current Font Size: ${currentFontSize}px');
+    print('Scale Factor: ${fontScaleFactor.toStringAsFixed(2)}');
+    print('Screen Capacity Factor: ${screenCapacityFactor.toStringAsFixed(2)}');
+    print('Calculated Range: $minCharsPerPage - $maxCharsPerPage chars/page');
+    print('───────────────────────────────────────────────────────');
+    print('📐 CHARACTER COUNT EXAMPLES BY FONT SIZE:');
     print(
-        '📏 Font size: $currentFontSize, Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
+        'Font size 10px: ~${(baseMinChars * (baseFontSize / 10)).round()}-${(baseMaxChars * (baseFontSize / 10)).round()} characters per page');
+    print(
+        'Font size 11px: ~${(baseMinChars * (baseFontSize / 11)).round()}-${(baseMaxChars * (baseFontSize / 11)).round()} characters per page');
+    print(
+        'Font size 12px: ~${(baseMinChars * (baseFontSize / 12)).round()}-${(baseMaxChars * (baseFontSize / 12)).round()} characters per page');
+    print(
+        'Font size 13px: $baseMinChars-$baseMaxChars characters per page (BASE)');
+    print(
+        'Font size 14px: ~${(baseMinChars * (baseFontSize / 14)).round()}-${(baseMaxChars * (baseFontSize / 14)).round()} characters per page');
+    print(
+        'Font size 15px: ~${(baseMinChars * (baseFontSize / 15)).round()}-${(baseMaxChars * (baseFontSize / 15)).round()} characters per page');
+    print(
+        'Font size 16px: ~${(baseMinChars * (baseFontSize / 16)).round()}-${(baseMaxChars * (baseFontSize / 16)).round()} characters per page');
+    print(
+        'Font size 18px: ~${(baseMinChars * (baseFontSize / 18)).round()}-${(baseMaxChars * (baseFontSize / 18)).round()} characters per page');
+    print(
+        'Font size 20px: ~${(baseMinChars * (baseFontSize / 20)).round()}-${(baseMaxChars * (baseFontSize / 20)).round()} characters per page');
+    print(
+        'Font size 22px: ~${(baseMinChars * (baseFontSize / 22)).round()}-${(baseMaxChars * (baseFontSize / 22)).round()} characters per page');
+    print(
+        'Font size 24px: ~${(baseMinChars * (baseFontSize / 24)).round()}-${(baseMaxChars * (baseFontSize / 24)).round()} characters per page');
+    print('═══════════════════════════════════════════════════════');
+
+    // REMOVED: Height-based adjustment that was overriding font-size scaling
+    // The previous logic was forcing all font sizes to use the same character count,
+    // which defeated the purpose of dynamic font-size-based pagination.
+    // Now we trust the font-size-based calculation exclusively.
+
+    // Calculate estimated pages based on character count
+    // This ensures font size changes affect pagination
+    int charBasedEstimatedPages = (totalChars / maxCharsPerPage).ceil();
+
+    // Use the MAXIMUM of height-based and character-based estimates
+    // This ensures we respect both constraints
+    int finalEstimatedPages = charBasedEstimatedPages > estimatedPages
+        ? charBasedEstimatedPages
+        : estimatedPages;
+
+    print('📊 Page Estimation:');
+    print('   Height-based: $estimatedPages pages');
+    print('   Character-based: $charBasedEstimatedPages pages');
+    print('   Final estimate: $finalEstimatedPages pages');
+    print(
+        '📏 Final limits -> Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
 
     // Calculate total character count and track each span's character count
     List<int> spanCharCounts = [];
@@ -1317,25 +1397,39 @@ class _PagingWidgetState extends State<PagingWidget> {
     List<List<InlineSpan>> allPages = [];
     List<InlineSpan> currentPageList = [];
     int currentPageChars = 0;
-
     for (int i = 0; i < flatSpans.length; i++) {
       final span = flatSpans[i];
       final spanChars = spanCharCounts[i];
 
+      print(
+          '🔄 Processing span $i: $spanChars chars, current page has $currentPageChars chars');
+
       // Check if adding this span would exceed the max character limit
       if (currentPageChars + spanChars > maxCharsPerPage) {
+        print(
+            '   ⚠️  Would exceed max ($maxCharsPerPage). Current: $currentPageChars + Span: $spanChars = ${currentPageChars + spanChars}');
+
         // If we have content on the current page, and it's substantial, break page first
         if (currentPageList.isNotEmpty && currentPageChars >= minCharsPerPage) {
+          print(
+              '   📄 Breaking page (has $currentPageChars >= $minCharsPerPage min)');
           allPages.add(List.from(currentPageList));
           currentPageList.clear();
           currentPageChars = 0;
+        } else {
+          print(
+              '   ⏭️  Not breaking (current $currentPageChars < $minCharsPerPage min)');
         }
 
         // If the span itself fits now (on fresh page), just add it
         if (spanChars <= maxCharsPerPage) {
+          print('   ✅ Span fits on fresh page, adding whole span');
           currentPageList.add(span);
           currentPageChars += spanChars;
           continue;
+        } else {
+          print(
+              '   ✂️  Span too large ($spanChars > $maxCharsPerPage), will split');
         }
 
         // The span is too large for a single page (even a fresh one) -> We MUST split it
@@ -1408,6 +1502,7 @@ class _PagingWidgetState extends State<PagingWidget> {
         }
       } else {
         // Fits normally
+        print('   ✅ Fits normally, adding to current page');
         currentPageList.add(span);
         currentPageChars += spanChars;
       }
