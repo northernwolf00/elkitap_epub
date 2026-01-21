@@ -1287,24 +1287,41 @@ class _PagingWidgetState extends State<PagingWidget> {
     const int baseMinChars = 800;
     const int baseMaxChars = 1000;
 
-    // Calculate Screen Capacity Factor
-    // Reference content area (approx standard phone safe area: 350w x 600h)
-    const double referenceArea = 350.0 * 600.0; // ~210,000 sq pixels
-    final double currentArea = maxWidth * maxHeight;
-
-    double screenCapacityFactor = currentArea / referenceArea;
-
-    // Clamp factor to prevent extreme scaling (0.8x to 1.1x)
-    // This ensures we adjust for size but don't go crazy on tablets or tiny screens
-    // Reduced upper bound significantly to prevent "wall of text"
-    if (screenCapacityFactor < 0.8) screenCapacityFactor = 0.8;
-    if (screenCapacityFactor > 1.1) screenCapacityFactor = 1.1;
-
     // Get current font size
     final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
 
-    // Calculate scaling factor (inverse relationship)
+    // Calculate scaling factor (inverse relationship with font size)
     final fontScaleFactor = baseFontSize / currentFontSize;
+
+    // IMPROVED: Calculate screen-based scaling more accurately
+    // Instead of using area, calculate based on available lines and characters per line
+
+    // Estimate line height (font size * line height multiplier)
+    final lineHeightMultiplier = _isFrontMatter ? 1.25 : 1.5;
+    final estimatedLineHeight = currentFontSize * lineHeightMultiplier;
+
+    // Calculate how many lines fit on screen
+    final linesPerPage = (maxHeight / estimatedLineHeight).floor();
+
+    // Estimate average characters per line based on width
+    // Average character width is roughly 0.5-0.6 of font size for most fonts
+    final avgCharWidth = currentFontSize * 0.55;
+    final charsPerLine = (maxWidth / avgCharWidth).floor();
+
+    // Calculate screen capacity based on lines and chars per line
+    final screenBasedMaxChars = (linesPerPage * charsPerLine * 0.85)
+        .round(); // 85% to account for spacing
+
+    // Reference values for standard phone (about 40 lines * 45 chars = 1800, but we use 85% = ~1530)
+    // We want to scale from this
+    const int referenceScreenChars = 1200;
+
+    double screenCapacityFactor = screenBasedMaxChars / referenceScreenChars;
+
+    // Allow more flexibility in screen capacity (0.6x to 1.5x)
+    // This allows better adaptation to small and large screens
+    if (screenCapacityFactor < 0.6) screenCapacityFactor = 0.6;
+    if (screenCapacityFactor > 1.5) screenCapacityFactor = 1.5;
 
     // Calculate dynamic limits combining both factors
     int minCharsPerPage =
@@ -1312,15 +1329,19 @@ class _PagingWidgetState extends State<PagingWidget> {
     int maxCharsPerPage =
         (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
 
-    // Safety: Strictly limit chars per page to prevent overflow
-    // Hard cap at 1050 to ensure we never get 1600+ chars
-    int absoluteMax = 1050;
+    // Safety: Limit chars per page to prevent overflow, but make it more flexible
+    // Scale the absolute max based on screen size
+    int absoluteMax = (1200 * screenCapacityFactor).round();
+    if (absoluteMax < 600) absoluteMax = 600;
+    if (absoluteMax > 1800) absoluteMax = 1800;
+
     if (maxCharsPerPage > absoluteMax) maxCharsPerPage = absoluteMax;
 
     // Ensure logical bounds
-    if (maxCharsPerPage < 500) maxCharsPerPage = 500;
+    if (maxCharsPerPage < 400) maxCharsPerPage = 400;
     if (minCharsPerPage > maxCharsPerPage)
-      minCharsPerPage = maxCharsPerPage - 50;
+      minCharsPerPage = maxCharsPerPage - 100;
+    if (minCharsPerPage < 300) minCharsPerPage = 300;
 
     // Log detailed font size and character count information
     print('═══════════════════════════════════════════════════════');
@@ -1328,33 +1349,21 @@ class _PagingWidgetState extends State<PagingWidget> {
     print('───────────────────────────────────────────────────────');
     print('Total Content Characters: $totalChars');
     print('Current Font Size: ${currentFontSize}px');
-    print('Scale Factor: ${fontScaleFactor.toStringAsFixed(2)}');
-    print('Screen Capacity Factor: ${screenCapacityFactor.toStringAsFixed(2)}');
-    print('Calculated Range: $minCharsPerPage - $maxCharsPerPage chars/page');
+    print('Font Scale Factor: ${fontScaleFactor.toStringAsFixed(2)}');
     print('───────────────────────────────────────────────────────');
-    print('📐 CHARACTER COUNT EXAMPLES BY FONT SIZE:');
-    print(
-        'Font size 10px: ~${(baseMinChars * (baseFontSize / 10)).round()}-${(baseMaxChars * (baseFontSize / 10)).round()} characters per page');
-    print(
-        'Font size 11px: ~${(baseMinChars * (baseFontSize / 11)).round()}-${(baseMaxChars * (baseFontSize / 11)).round()} characters per page');
-    print(
-        'Font size 12px: ~${(baseMinChars * (baseFontSize / 12)).round()}-${(baseMaxChars * (baseFontSize / 12)).round()} characters per page');
-    print(
-        'Font size 13px: $baseMinChars-$baseMaxChars characters per page (BASE)');
-    print(
-        'Font size 14px: ~${(baseMinChars * (baseFontSize / 14)).round()}-${(baseMaxChars * (baseFontSize / 14)).round()} characters per page');
-    print(
-        'Font size 15px: ~${(baseMinChars * (baseFontSize / 15)).round()}-${(baseMaxChars * (baseFontSize / 15)).round()} characters per page');
-    print(
-        'Font size 16px: ~${(baseMinChars * (baseFontSize / 16)).round()}-${(baseMaxChars * (baseFontSize / 16)).round()} characters per page');
-    print(
-        'Font size 18px: ~${(baseMinChars * (baseFontSize / 18)).round()}-${(baseMaxChars * (baseFontSize / 18)).round()} characters per page');
-    print(
-        'Font size 20px: ~${(baseMinChars * (baseFontSize / 20)).round()}-${(baseMaxChars * (baseFontSize / 20)).round()} characters per page');
-    print(
-        'Font size 22px: ~${(baseMinChars * (baseFontSize / 22)).round()}-${(baseMaxChars * (baseFontSize / 22)).round()} characters per page');
-    print(
-        'Font size 24px: ~${(baseMinChars * (baseFontSize / 24)).round()}-${(baseMaxChars * (baseFontSize / 24)).round()} characters per page');
+    print('📐 SCREEN DIMENSIONS:');
+    print('Max Width: ${maxWidth.toStringAsFixed(1)}px');
+    print('Max Height: ${maxHeight.toStringAsFixed(1)}px');
+    print('Estimated Line Height: ${estimatedLineHeight.toStringAsFixed(1)}px');
+    print('Lines Per Page: $linesPerPage');
+    print('Chars Per Line: $charsPerLine');
+    print('Screen-Based Max Chars: $screenBasedMaxChars');
+    print('Screen Capacity Factor: ${screenCapacityFactor.toStringAsFixed(2)}');
+    print('───────────────────────────────────────────────────────');
+    print('📄 FINAL PAGE LIMITS:');
+    print('Min Chars Per Page: $minCharsPerPage');
+    print('Max Chars Per Page: $maxCharsPerPage');
+    print('Absolute Max: $absoluteMax');
     print('═══════════════════════════════════════════════════════');
 
     // REMOVED: Height-based adjustment that was overriding font-size scaling
