@@ -1409,28 +1409,35 @@ class _PagingWidgetState extends State<PagingWidget> {
         print(
             '   ⚠️  Would exceed max ($maxCharsPerPage). Current: $currentPageChars + Span: $spanChars = ${currentPageChars + spanChars}');
 
-        // If we have content on the current page, and it's substantial, break page first
+        // CRITICAL FIX: Only break to new page if current page has substantial content
+        // AND the span itself is not too large to split
         if (currentPageList.isNotEmpty && currentPageChars >= minCharsPerPage) {
+          // Current page has enough content, break to new page
           print(
               '   📄 Breaking page (has $currentPageChars >= $minCharsPerPage min)');
           allPages.add(List.from(currentPageList));
           currentPageList.clear();
           currentPageChars = 0;
-        } else {
-          print(
-              '   ⏭️  Not breaking (current $currentPageChars < $minCharsPerPage min)');
-        }
 
-        // If the span itself fits now (on fresh page), just add it
-        if (spanChars <= maxCharsPerPage) {
-          print('   ✅ Span fits on fresh page, adding whole span');
+          // If the span fits on fresh page, add it and continue
+          if (spanChars <= maxCharsPerPage) {
+            print('   ✅ Span fits on fresh page, adding whole span');
+            currentPageList.add(span);
+            currentPageChars += spanChars;
+            continue;
+          }
+          // Otherwise fall through to splitting logic
+        } else if (currentPageList.isEmpty && spanChars <= maxCharsPerPage) {
+          // Empty page and span fits - just add it
+          print('   ✅ Empty page, span fits, adding whole span');
           currentPageList.add(span);
           currentPageChars += spanChars;
           continue;
-        } else {
-          print(
-              '   ✂️  Span too large ($spanChars > $maxCharsPerPage), will split');
         }
+
+        // At this point, we need to split the span to fill the current page better
+        print(
+            '   ✂️  Current page under minimum ($currentPageChars < $minCharsPerPage), will split span to fill page');
 
         // The span is too large for a single page (even a fresh one) -> We MUST split it
         if (span is TextSpan && span.text != null) {
@@ -1441,8 +1448,13 @@ class _PagingWidgetState extends State<PagingWidget> {
             // How much space do we have left on current page?
             int spaceLeft = maxCharsPerPage - currentPageChars;
 
-            // If space is too small (e.g. < 100 chars), just break page to start fresh
-            if (spaceLeft < 100 && currentPageList.isNotEmpty) {
+            // IMPROVED: Calculate smart threshold for page break
+            // If we're already past minimum, use smaller threshold (100 chars)
+            // If we're still building up to minimum, be more aggressive (use 50 chars or less)
+            int breakThreshold = currentPageChars >= minCharsPerPage ? 100 : 50;
+
+            // If space is too small, break page to start fresh
+            if (spaceLeft < breakThreshold && currentPageList.isNotEmpty) {
               allPages.add(List.from(currentPageList));
               currentPageList.clear();
               currentPageChars = 0;
