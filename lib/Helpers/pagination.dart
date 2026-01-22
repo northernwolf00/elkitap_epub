@@ -1186,361 +1186,170 @@ class _PagingWidgetState extends State<PagingWidget> {
     return null;
   }
 
-  Future<void> _paginateFlattened(
-      List<InlineSpan> allSpans, Size pageSize) async {
-    List<InlineSpan> flatSpans = [];
+int calculateResponsiveCharsPerPage({
+  required Size pageSize,
+  required TextStyle style,
+  required bool isFrontMatter,
+  required double reservedVerticalSpace,
+}) {
+  final fontSize = style.fontSize ?? 13.0;
+  final lineHeightMultiplier = isFrontMatter ? 1.25 : 1.5;
 
-    void flatten(InlineSpan span) {
-      if (span is TextSpan) {
-        if (span.children != null && span.children!.isNotEmpty) {
-          for (var child in span.children!) flatten(child);
-        } else if (span.text != null && span.text!.isNotEmpty) {
-          flatSpans.add(span);
+  // Physical line height
+  final lineHeight = fontSize * lineHeightMultiplier;
+
+  // Available vertical space
+  final usableHeight = pageSize.height - reservedVerticalSpace;
+  final linesPerPage = (usableHeight / lineHeight).floor();
+
+  // Character width estimation (SF Pro / Roboto friendly)
+  final avgCharWidth = fontSize * 0.55;
+  final usableWidth = pageSize.width - 32.w;
+  final charsPerLine = (usableWidth / avgCharWidth).floor();
+
+  // Final character count
+  final charsPerPage = (linesPerPage * charsPerLine * 0.85).round();
+
+  // Phone-safe bounds
+  return charsPerPage.clamp(350, 1800);
+}
+
+Future<void> _paginateFlattened(
+    List<InlineSpan> allSpans, Size pageSize) async {
+  _pageSpans.clear();
+
+  // ─────────────────────────────────────────────
+  // Layout constants (must match page UI padding)
+  // ─────────────────────────────────────────────
+  double horizontalPadding = pageSize.width >= 600 ? 20.w : 10.w;
+  double maxWidth = pageSize.width - horizontalPadding;
+
+  double containerPadding = _isFrontMatter ? 14.h : 24.h;
+  double chapterHeaderSpace = _isFrontMatter ? 8.h : 20.h;
+  double bottomSafeArea = _isFrontMatter ? 8.h : 16.h;
+
+  final reservedSpace = containerPadding + chapterHeaderSpace + bottomSafeArea;
+
+  // ─────────────────────────────────────────────
+  // RESPONSIVE CHARACTER LIMIT (THIS IS THE KEY)
+  // ─────────────────────────────────────────────
+  final maxCharsPerPage = calculateResponsiveCharsPerPage(
+    pageSize: pageSize,
+    style: _contentStyle,
+    isFrontMatter: _isFrontMatter,
+    reservedVerticalSpace: reservedSpace,
+  );
+
+  final minCharsPerPage = (maxCharsPerPage * 0.65).round();
+
+  // ─────────────────────────────────────────────
+  // Flatten spans
+  // ─────────────────────────────────────────────
+  final List<InlineSpan> flatSpans = [];
+
+  void flatten(InlineSpan span) {
+    if (span is TextSpan) {
+      if (span.children != null && span.children!.isNotEmpty) {
+        for (final child in span.children!) {
+          flatten(child);
         }
-      } else if (span is WidgetSpan) {
+      } else if (span.text != null && span.text!.isNotEmpty) {
         flatSpans.add(span);
       }
+    } else if (span is WidgetSpan) {
+      flatSpans.add(span);
+    }
+  }
+
+  for (final span in allSpans) {
+    flatten(span);
+  }
+
+  // ─────────────────────────────────────────────
+  // Pagination loop
+  // ─────────────────────────────────────────────
+  final List<List<InlineSpan>> pages = [];
+  List<InlineSpan> currentPage = [];
+  int currentChars = 0;
+
+  for (final span in flatSpans) {
+    final spanChars =
+        span is TextSpan && span.text != null ? span.text!.length : 0;
+
+    // Normal fit
+    if (currentChars + spanChars <= maxCharsPerPage) {
+      currentPage.add(span);
+      currentChars += spanChars;
+      continue;
     }
 
-    for (var s in allSpans) flatten(s);
-
-    double horizontalPadding = 10.w;
-    if (pageSize.width >= 600) {
-      horizontalPadding = 20.w;
-    }
-    double maxWidth = pageSize.width - horizontalPadding;
-
-    // Container padding'leri ile senkronize olmalı (selectable_text_with_addnote.dart)
-    // Increased reserved space to prevent text from being cut off at bottom
-    double containerPadding = _isFrontMatter ? 14.h : 24.h;
-    double chapterHeaderSpace = _isFrontMatter ? 8.h : 20.h;
-    double bottomSafeArea =
-        _isFrontMatter ? 8.h : 16.h; // Extra space for bottom navigation area
-
-    double reservedSpace =
-        containerPadding + chapterHeaderSpace + bottomSafeArea;
-
-    double maxHeight = pageSize.height - reservedSpace;
-
-    // FIRST PASS: Calculate total content height to see if it fits in one page
-    double totalContentHeight = 0;
-    int totalChars = 0;
-    for (var span in flatSpans) {
-      if (span is TextSpan && span.text != null) {
-        totalChars += span.text!.length;
-      }
-      if (span is WidgetSpan) {
-        try {
-          TextPainter painter = TextPainter(
-            text: TextSpan(children: [span]),
-            textDirection: TextDirection.ltr,
-            textScaleFactor: 1.0,
-          );
-          painter.layout(maxWidth: maxWidth);
-          totalContentHeight += painter.height;
-          painter.dispose();
-        } catch (e) {
-          totalContentHeight += 100.h;
-        }
-      } else if (span is TextSpan && span.text != null) {
-        TextPainter painter = TextPainter(
-          text: TextSpan(text: span.text, style: span.style),
-          textDirection: TextDirection.ltr,
-          textScaleFactor: 1.0,
-        );
-        painter.layout(maxWidth: maxWidth);
-        totalContentHeight += painter.height;
-        painter.dispose();
-      }
+    // Page break if enough content
+    if (currentChars >= minCharsPerPage) {
+      pages.add(List.from(currentPage));
+      currentPage.clear();
+      currentChars = 0;
     }
 
-    double pageRatio = totalContentHeight / maxHeight;
-    int estimatedPages = pageRatio.ceil();
+    // Split long text spans
+    if (span is TextSpan && span.text != null) {
+      String remaining = span.text!;
+      final style = span.style;
 
-    // AGGRESSIVE: If content fits in 1 page (with extra overflow allowed for front matter), force single page
-    // FIXED: Reduced threshold from 2.4/1.5 to 1.05.
-    // The previous high threshold was forcing 2+ pages of content into a single page,
-    // especially for content classified as "Front Matter" (threshold 2.4).
-    final singlePageThreshold = 1.0;
-    // CRITICAL FIX: Ensure we don't force single page if char count is too high!
-    // Must respect the absolute max limit (1050)
-    if (pageRatio <= singlePageThreshold && totalChars <= 1050) {
-      List<InlineSpan> allSpansForPage = List.from(flatSpans);
-      _pageSpans.add(TextSpan(children: allSpansForPage));
-      _finalizePages();
-      return;
-    }
+      while (remaining.isNotEmpty) {
+        final spaceLeft = maxCharsPerPage - currentChars;
 
-    // For all content, distribute evenly across pages (Apple Books style)
-    // Calculate target height per page for even distribution
-    double targetHeightPerPage = totalContentHeight / estimatedPages;
-
-    // Use slightly less than maxHeight to ensure content fits comfortably
-    double safeMaxHeight = maxHeight * 0.95;
-    if (targetHeightPerPage > safeMaxHeight) {
-      targetHeightPerPage = safeMaxHeight;
-    }
-
-    // Dynamic character limits based on font size AND screen size
-    // Base values for 13px font size (our reference point)
-    const double baseFontSize = 13.0;
-    const int baseMinChars = 800;
-    const int baseMaxChars = 1000;
-
-    // Get current font size
-    final currentFontSize = _contentStyle.fontSize ?? baseFontSize;
-
-    // Calculate scaling factor (inverse relationship with font size)
-    final fontScaleFactor = baseFontSize / currentFontSize;
-
-    // IMPROVED: Calculate screen-based scaling more accurately
-    // Instead of using area, calculate based on available lines and characters per line
-
-    // Estimate line height (font size * line height multiplier)
-    final lineHeightMultiplier = _isFrontMatter ? 1.25 : 1.5;
-    final estimatedLineHeight = currentFontSize * lineHeightMultiplier;
-
-    // Calculate how many lines fit on screen
-    final linesPerPage = (maxHeight / estimatedLineHeight).floor();
-
-    // Estimate average characters per line based on width
-    // Average character width is roughly 0.5-0.6 of font size for most fonts
-    final avgCharWidth = currentFontSize * 0.55;
-    final charsPerLine = (maxWidth / avgCharWidth).floor();
-
-    // Calculate screen capacity based on lines and chars per line
-    final screenBasedMaxChars = (linesPerPage * charsPerLine * 0.85)
-        .round(); // 85% to account for spacing
-
-    // Reference values for standard phone (about 40 lines * 45 chars = 1800, but we use 85% = ~1530)
-    // We want to scale from this
-    const int referenceScreenChars = 1200;
-
-    double screenCapacityFactor = screenBasedMaxChars / referenceScreenChars;
-
-    // Allow more flexibility in screen capacity (0.6x to 1.5x)
-    // This allows better adaptation to small and large screens
-    if (screenCapacityFactor < 0.6) screenCapacityFactor = 0.6;
-    if (screenCapacityFactor > 1.5) screenCapacityFactor = 1.5;
-
-    // Calculate dynamic limits combining both factors
-    int minCharsPerPage =
-        (baseMinChars * fontScaleFactor * screenCapacityFactor).round();
-    int maxCharsPerPage =
-        (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
-
-    // Safety: Limit chars per page to prevent overflow, but make it more flexible
-    // Scale the absolute max based on screen size
-    int absoluteMax = (1200 * screenCapacityFactor).round();
-    if (absoluteMax < 600) absoluteMax = 600;
-    if (absoluteMax > 1800) absoluteMax = 1800;
-
-    if (maxCharsPerPage > absoluteMax) maxCharsPerPage = absoluteMax;
-
-    // Ensure logical bounds
-    if (maxCharsPerPage < 400) maxCharsPerPage = 400;
-    if (minCharsPerPage > maxCharsPerPage)
-      minCharsPerPage = maxCharsPerPage - 100;
-    if (minCharsPerPage < 300) minCharsPerPage = 300;
-
-    // Log detailed font size and character count information
-    print('═══════════════════════════════════════════════════════');
-    print('📊 PAGINATION CHARACTER COUNT CALCULATION');
-    print('───────────────────────────────────────────────────────');
-    print('Total Content Characters: $totalChars');
-    print('Current Font Size: ${currentFontSize}px');
-    print('Font Scale Factor: ${fontScaleFactor.toStringAsFixed(2)}');
-    print('───────────────────────────────────────────────────────');
-    print('📐 SCREEN DIMENSIONS:');
-    print('Max Width: ${maxWidth.toStringAsFixed(1)}px');
-    print('Max Height: ${maxHeight.toStringAsFixed(1)}px');
-    print('Estimated Line Height: ${estimatedLineHeight.toStringAsFixed(1)}px');
-    print('Lines Per Page: $linesPerPage');
-    print('Chars Per Line: $charsPerLine');
-    print('Screen-Based Max Chars: $screenBasedMaxChars');
-    print('Screen Capacity Factor: ${screenCapacityFactor.toStringAsFixed(2)}');
-    print('───────────────────────────────────────────────────────');
-    print('📄 FINAL PAGE LIMITS:');
-    print('Min Chars Per Page: $minCharsPerPage');
-    print('Max Chars Per Page: $maxCharsPerPage');
-    print('Absolute Max: $absoluteMax');
-    print('═══════════════════════════════════════════════════════');
-
-    // REMOVED: Height-based adjustment that was overriding font-size scaling
-    // The previous logic was forcing all font sizes to use the same character count,
-    // which defeated the purpose of dynamic font-size-based pagination.
-    // Now we trust the font-size-based calculation exclusively.
-
-    // Calculate estimated pages based on character count
-    // This ensures font size changes affect pagination
-    int charBasedEstimatedPages = (totalChars / maxCharsPerPage).ceil();
-
-    // Use the MAXIMUM of height-based and character-based estimates
-    // This ensures we respect both constraints
-    int finalEstimatedPages = charBasedEstimatedPages > estimatedPages
-        ? charBasedEstimatedPages
-        : estimatedPages;
-
-    print('📊 Page Estimation:');
-    print('   Height-based: $estimatedPages pages');
-    print('   Character-based: $charBasedEstimatedPages pages');
-    print('   Final estimate: $finalEstimatedPages pages');
-    print(
-        '📏 Final limits -> Min chars: $minCharsPerPage, Max chars: $maxCharsPerPage');
-
-    // Calculate total character count and track each span's character count
-    List<int> spanCharCounts = [];
-
-    for (var span in flatSpans) {
-      int charCount = 0;
-      if (span is TextSpan && span.text != null) {
-        charCount = span.text!.length;
-      }
-      spanCharCounts.add(charCount);
-    }
-
-    // REMOVED optimization: We ALWAYS want to run the distribution loop
-    // to ensure splitting works correctly for single large paragraphs.
-
-    // Distribute content across pages based on character count
-    List<List<InlineSpan>> allPages = [];
-    List<InlineSpan> currentPageList = [];
-    int currentPageChars = 0;
-    for (int i = 0; i < flatSpans.length; i++) {
-      final span = flatSpans[i];
-      final spanChars = spanCharCounts[i];
-
-      print(
-          '🔄 Processing span $i: $spanChars chars, current page has $currentPageChars chars');
-
-      // Check if adding this span would exceed the max character limit
-      if (currentPageChars + spanChars > maxCharsPerPage) {
-        print(
-            '   ⚠️  Would exceed max ($maxCharsPerPage). Current: $currentPageChars + Span: $spanChars = ${currentPageChars + spanChars}');
-
-        // CRITICAL FIX: Only break to new page if current page has substantial content
-        // AND the span itself is not too large to split
-        if (currentPageList.isNotEmpty && currentPageChars >= minCharsPerPage) {
-          // Current page has enough content, break to new page
-          print(
-              '   📄 Breaking page (has $currentPageChars >= $minCharsPerPage min)');
-          allPages.add(List.from(currentPageList));
-          currentPageList.clear();
-          currentPageChars = 0;
-
-          // If the span fits on fresh page, add it and continue
-          if (spanChars <= maxCharsPerPage) {
-            print('   ✅ Span fits on fresh page, adding whole span');
-            currentPageList.add(span);
-            currentPageChars += spanChars;
-            continue;
-          }
-          // Otherwise fall through to splitting logic
-        } else if (currentPageList.isEmpty && spanChars <= maxCharsPerPage) {
-          // Empty page and span fits - just add it
-          print('   ✅ Empty page, span fits, adding whole span');
-          currentPageList.add(span);
-          currentPageChars += spanChars;
+        if (spaceLeft <= 50 && currentPage.isNotEmpty) {
+          pages.add(List.from(currentPage));
+          currentPage.clear();
+          currentChars = 0;
           continue;
         }
 
-        // At this point, we need to split the span to fill the current page better
-        print(
-            '   ✂️  Current page under minimum ($currentPageChars < $minCharsPerPage), will split span to fill page');
-
-        // The span is too large for a single page (even a fresh one) -> We MUST split it
-        if (span is TextSpan && span.text != null) {
-          String remainingText = span.text!;
-          TextStyle? style = span.style;
-
-          while (remainingText.isNotEmpty) {
-            // How much space do we have left on current page?
-            int spaceLeft = maxCharsPerPage - currentPageChars;
-
-            // IMPROVED: Calculate smart threshold for page break
-            // If we're already past minimum, use smaller threshold (100 chars)
-            // If we're still building up to minimum, be more aggressive (use 50 chars or less)
-            int breakThreshold = currentPageChars >= minCharsPerPage ? 100 : 50;
-
-            // If space is too small, break page to start fresh
-            if (spaceLeft < breakThreshold && currentPageList.isNotEmpty) {
-              allPages.add(List.from(currentPageList));
-              currentPageList.clear();
-              currentPageChars = 0;
-              spaceLeft = maxCharsPerPage;
-            }
-
-            if (remainingText.length <= spaceLeft) {
-              // Fits completely
-              currentPageList.add(TextSpan(text: remainingText, style: style));
-              currentPageChars += remainingText.length;
-              remainingText = '';
-            } else {
-              // Need to split. Find last space before limit
-              int splitIndex = remainingText.lastIndexOf(' ', spaceLeft);
-              if (splitIndex == -1 || splitIndex < spaceLeft * 0.7) {
-                // If no space found nearby, just hard split at limit
-                splitIndex = spaceLeft;
-              }
-
-              String textPart = remainingText.substring(0, splitIndex);
-              remainingText = remainingText.substring(
-                  splitIndex); // Keep space or not? usually keep space at start of next line or drop it?
-              // Better: trimmed textPart? No, preserve spacing.
-              // Let's drop the leading space of the next part if it's a space split
-              if (remainingText.startsWith(' ')) {
-                remainingText = remainingText.substring(1);
-              }
-
-              currentPageList.add(TextSpan(text: textPart, style: style));
-              currentPageChars += textPart.length;
-
-              // Force new page
-              allPages.add(List.from(currentPageList));
-              currentPageList.clear();
-              currentPageChars = 0;
-            }
-          }
+        if (remaining.length <= spaceLeft) {
+          currentPage.add(TextSpan(text: remaining, style: style));
+          currentChars += remaining.length;
+          remaining = '';
         } else {
-          // Non-text span (widget) that is supposedly huge? Rare, but just add it to avoid loop
-          // Or if it's a widget, we can't really split it.
-          // If we just cleared the page, add it anyway even if it exceeds
-          if (currentPageList.isEmpty) {
-            currentPageList.add(span);
-            currentPageChars += spanChars;
-            // Force break after this huge widget
-            allPages.add(List.from(currentPageList));
-            currentPageList.clear();
-            currentPageChars = 0;
-          } else {
-            // Should have been handled by first check (break page), but if it falls here:
-            // Break page and add to next
-            allPages.add(List.from(currentPageList));
-            currentPageList.clear();
-            currentPageList.add(span);
-            currentPageChars += spanChars;
+          int splitIndex = remaining.lastIndexOf(' ', spaceLeft);
+          if (splitIndex < spaceLeft * 0.7 || splitIndex == -1) {
+            splitIndex = spaceLeft;
           }
+
+          final part = remaining.substring(0, splitIndex);
+          remaining = remaining.substring(splitIndex).trimLeft();
+
+          currentPage.add(TextSpan(text: part, style: style));
+          currentChars += part.length;
+
+          pages.add(List.from(currentPage));
+          currentPage.clear();
+          currentChars = 0;
         }
-      } else {
-        // Fits normally
-        print('   ✅ Fits normally, adding to current page');
-        currentPageList.add(span);
-        currentPageChars += spanChars;
       }
+    } else {
+      // WidgetSpan fallback
+      if (currentPage.isNotEmpty) {
+        pages.add(List.from(currentPage));
+        currentPage.clear();
+        currentChars = 0;
+      }
+      currentPage.add(span);
     }
-
-    // Add remaining content as last page
-    if (currentPageList.isNotEmpty) {
-      allPages.add(currentPageList);
-    }
-
-    // Convert to TextSpans
-    for (var pageSpans in allPages) {
-      _pageSpans.add(TextSpan(children: pageSpans));
-    }
-
-    _finalizePages();
   }
+
+  if (currentPage.isNotEmpty) {
+    pages.add(currentPage);
+  }
+
+  // ─────────────────────────────────────────────
+  // Convert to TextSpans
+  // ─────────────────────────────────────────────
+  for (final page in pages) {
+    _pageSpans.add(TextSpan(children: page));
+  }
+
+  _finalizePages();
+}
 
   String _addHyphenIfLineBreaksMidWord(
       String lineText, String fullText, int endOffset) {
