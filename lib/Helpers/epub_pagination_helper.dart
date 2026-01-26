@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:cosmos_epub/helpers/hyphenator_helper.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,40 +28,29 @@ class EpubPaginationHelper {
     int targetPageInBook,
     Map<int, int> chapterPageCounts,
   ) {
-    debugPrint('\n🔍 calculateChapterAndPageFromBookPage:');
-    debugPrint('   targetPageInBook: $targetPageInBook');
-    debugPrint('   chapterPageCounts: $chapterPageCounts');
-    debugPrint('   _chapters.length: ${_chapters.length}');
-
     if (chapterPageCounts.isEmpty) {
-      debugPrint('   ❌ chapterPageCounts is empty - returning null');
       return null;
     }
 
     int accumulatedPages = 0;
     for (int chapterIndex = 0; chapterIndex < _chapters.length; chapterIndex++) {
       if (!chapterPageCounts.containsKey(chapterIndex)) {
-        debugPrint('   ⚠️ Chapter $chapterIndex not in chapterPageCounts - returning null');
         return null;
       }
 
       int pagesInChapter = chapterPageCounts[chapterIndex]!;
       int nextAccumulated = accumulatedPages + pagesInChapter;
 
-      debugPrint('   Chapter $chapterIndex: accumulated=$accumulatedPages, pagesInChapter=$pagesInChapter, nextAccumulated=$nextAccumulated');
-
       // Check if target page is in this chapter
       if (targetPageInBook >= accumulatedPages && targetPageInBook < nextAccumulated) {
         int pageInChapter = targetPageInBook - accumulatedPages;
 
-        debugPrint('   ✅ FOUND! Chapter: $chapterIndex, Page in chapter: $pageInChapter');
         return {'chapter': chapterIndex, 'page': pageInChapter};
       }
 
       accumulatedPages = nextAccumulated;
     }
 
-    debugPrint('   ❌ Target page not found in any chapter - returning null');
     return null;
   }
 
@@ -240,6 +230,12 @@ class EpubPaginationHelper {
       // Replace ALL whitespace (including newlines) with single space
       String text = node.text.replaceAll(RegExp(r'\s+'), ' ');
       if (text.trim().isEmpty) return const TextSpan(text: '');
+
+      // Apply hyphenation for accurate page count
+      final hyphenator = HyphenatorHelper.instance;
+      if (hyphenator.isInitialized && !text.contains('\u00AD') && !text.contains('\u200B')) {
+        text = hyphenator.hyphenate(text);
+      }
 
       return TextSpan(
         text: text,
