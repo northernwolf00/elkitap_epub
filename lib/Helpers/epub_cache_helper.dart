@@ -51,7 +51,24 @@ class EpubCacheHelper {
         (cachedScreenHeight - screenHeight).abs() > 10) {
       log('📚 Cache invalidated: screen height changed from $cachedScreenHeight to $screenHeight');
       gs.remove('book_${bookId}_page_counts');
+      gs.remove('book_${bookId}_page_counts');
       return {};
+    }
+
+    // Check for daily expiration (24 hours)
+    final cachedTimestamp = gs.read('book_${bookId}_cache_timestamp');
+    if (cachedTimestamp != null) {
+      final cachedTime = DateTime.fromMillisecondsSinceEpoch(cachedTimestamp);
+      final now = DateTime.now();
+      if (now.difference(cachedTime).inHours >= 24) {
+        log('⏰ Cache expired (>24h), clearing... (Saved: $cachedTime)');
+        clearCache();
+        return {};
+      }
+    } else if (cached != null) {
+      // If no timestamp but cache exists (legacy), treat as expired to be safe/migration
+      // Or just keep it. Let's keep it but next save will add timestamp.
+      log('⚠️ Cache exists without timestamp. Will be updated on next save.');
     }
 
     if (cached != null && cached is Map) {
@@ -94,6 +111,11 @@ class EpubCacheHelper {
       gs.write('book_${bookId}_cache_screen_width', screenWidth);
     if (screenHeight != null)
       gs.write('book_${bookId}_cache_screen_height', screenHeight);
+
+    // Save current timestamp for daily expiration
+    gs.write('book_${bookId}_cache_timestamp',
+        DateTime.now().millisecondsSinceEpoch);
+
     log('💾 Saved page counts to cache (fontSize: $fontSize, themeId: $themeId, screen: ${screenWidth}x$screenHeight)');
   }
 
@@ -103,7 +125,9 @@ class EpubCacheHelper {
     gs.remove('book_${bookId}_cache_font_size');
     gs.remove('book_${bookId}_cache_theme_id');
     gs.remove('book_${bookId}_cache_screen_width');
+    gs.remove('book_${bookId}_cache_screen_width');
     gs.remove('book_${bookId}_cache_screen_height');
+    gs.remove('book_${bookId}_cache_timestamp');
     log('🗑️ Cleared cache for book $bookId');
   }
 }

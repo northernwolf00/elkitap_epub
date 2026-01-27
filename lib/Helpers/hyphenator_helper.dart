@@ -23,7 +23,9 @@ class HyphenatorHelper {
   static const String softHyphen = '\u00AD';
 
   // Kombinasyon: Soft hyphen + ZWSP - Flutter'da daha iyi çalışır
-  static const String hybridHyphen = '\u00AD\u200B';
+  // static const String hybridHyphen = '\u00AD\u200B';
+  // FIX: ZWSP causes visibility issues on some devices/fonts. Using pure Soft Hyphen.
+  static const String hybridHyphen = '\u00AD';
 
   HyphenatorHelper._();
 
