@@ -38,6 +38,8 @@ class HyphenatorHelper {
   void initialize() {
     if (_isInitialized) return;
 
+    final startTime = DateTime.now();
+
     try {
       // Hybrid hyphen kullan - soft hyphen + ZWSP
 
@@ -66,7 +68,11 @@ class HyphenatorHelper {
       );
 
       _isInitialized = true;
-      print('📝 HyphenatorHelper initialized for RU, EN, TR, TK languages (soft hyphen+ZWSP mode)');
+      final endTime = DateTime.now();
+      final durationMs = endTime.difference(startTime).inMilliseconds;
+      final durationSec = (durationMs / 1000).toStringAsFixed(2);
+      print(
+          '📝 HyphenatorHelper initialized for RU, EN, TR, TK languages (soft hyphen+ZWSP mode) - took ${durationMs}ms ($durationSec seconds)');
     } catch (e) {
       print('⚠️ HyphenatorHelper initialization failed: $e');
       _isInitialized = false;
@@ -91,7 +97,8 @@ class HyphenatorHelper {
         cyrillicCount++;
       }
       // Basic Latin range: 0x0041-0x007A
-      else if ((code >= 0x0041 && code <= 0x005A) || (code >= 0x0061 && code <= 0x007A)) {
+      else if ((code >= 0x0041 && code <= 0x005A) ||
+          (code >= 0x0061 && code <= 0x007A)) {
         latinCount++;
       }
 
@@ -177,7 +184,8 @@ class HyphenatorHelper {
 
   /// Satır sonlarında ZWSP varsa tire ekle
   /// TextPainter ile satır sonlarını tespit edip, ZWSP'de bölünenlere tire ekler
-  static String addHyphensAtLineBreaks(String text, List<int> lineBreakPositions) {
+  static String addHyphensAtLineBreaks(
+      String text, List<int> lineBreakPositions) {
     if (lineBreakPositions.isEmpty) return text;
 
     final buffer = StringBuffer();
