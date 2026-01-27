@@ -9,18 +9,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 
 class ChaptersBottomSheet extends StatefulWidget {
-  final String title;
-  final List<LocalChapterModel> chapters;
-  final String bookId;
-  final String imageUrl;
-  final Color accentColor;
-  final String chapterListTitle;
-  final int currentPage;
-  final int totalPages;
-  final int currentPageInChapter; // New parameter for current page within chapter
-  final String? currentSubchapterTitle; // Currently active subchapter title
-  final bool isCalculating; // Show loading while calculating total pages
-
   const ChaptersBottomSheet({
     super.key,
     required this.title,
@@ -31,16 +19,75 @@ class ChaptersBottomSheet extends StatefulWidget {
     required this.chapterListTitle,
     required this.currentPage,
     required this.totalPages,
-    this.currentPageInChapter = 0, // Default to 0
-    this.currentSubchapterTitle, // Current subchapter title
-    this.isCalculating = false, // Default to false
+    required this.chapterPageCounts,
+    required this.subchapterPageMapByChapter,
+    required this.filteredToOriginalIndex,
+    this.currentPageInChapter = 0,
+    this.currentSubchapterTitle,
+    this.isCalculating = false,
   });
+
+  final Color accentColor;
+  final String bookId;
+  final String chapterListTitle;
+  final List<LocalChapterModel> chapters;
+  final Map<int, int> chapterPageCounts;
+  final Map<int, Map<String, int>> subchapterPageMapByChapter;
+  final Map<int, int> filteredToOriginalIndex;
+  final int currentPage;
+  final int currentPageInChapter;
+  final String? currentSubchapterTitle;
+  final String imageUrl;
+  final bool isCalculating;
+  final String title;
+  final int totalPages;
 
   @override
   State<ChaptersBottomSheet> createState() => _ChaptersBottomSheetState();
 }
 
 class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
+  /// Subchapter için doğru startPage'i dinamik hesapla
+  int _calculateSubchapterStartPage(LocalChapterModel chapter) {
+    if (!chapter.isSubChapter) {
+      return chapter.startPage; // Normal chapter, direkt döndür
+    }
+
+    // Parent chapter'ın başlangıç sayfasını hesapla
+    final parentChapterIndex = chapter.parentChapterIndex;
+    final originalParentIndex = widget.filteredToOriginalIndex[parentChapterIndex] ?? parentChapterIndex;
+
+    int parentStartPageInBook = 1; // 1-indexed
+    for (int j = 0; j < originalParentIndex; j++) {
+      if (widget.chapterPageCounts.containsKey(j)) {
+        parentStartPageInBook += widget.chapterPageCounts[j]!;
+      }
+    }
+
+    // Subchapter'ın parent içindeki offset'i ile hesapla
+    final mapForChapter = widget.subchapterPageMapByChapter[originalParentIndex];
+    final offsetInChapter = mapForChapter != null && mapForChapter.containsKey(chapter.chapter) ? mapForChapter[chapter.chapter]! : chapter.pageInChapter;
+
+    // offsetInChapter 0-indexed, parentStartPageInBook 1-indexed
+    // Sonuç: parentStartPage + offset (offset 0 ise parent'ın başlangıç sayfası)
+    int startPage = parentStartPageInBook + offsetInChapter;
+
+    print('📊 Subchapter "${chapter.chapter}": parent=$originalParentIndex, parentStart=$parentStartPageInBook, offset=$offsetInChapter, result=$startPage');
+
+    return startPage;
+  }
+
+  int _calculateSubchapterPageInChapter(LocalChapterModel chapter) {
+    if (!chapter.isSubChapter) return 0;
+    final parentChapterIndex = chapter.parentChapterIndex;
+    final originalParentIndex = widget.filteredToOriginalIndex[parentChapterIndex] ?? parentChapterIndex;
+    final mapForChapter = widget.subchapterPageMapByChapter[originalParentIndex];
+    if (mapForChapter != null && mapForChapter.containsKey(chapter.chapter)) {
+      return mapForChapter[chapter.chapter]!;
+    }
+    return chapter.pageInChapter;
+  }
+
   @override
   Widget build(BuildContext context) {
     String allChapterText = widget.chapters.map((c) => c.chapter).join(' ');
@@ -60,7 +107,6 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
             ),
             child: Column(
               children: [
-                // Header
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                   child: Row(
@@ -71,12 +117,12 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                         height: 80,
                         width: 60,
                         decoration: BoxDecoration(
-                          color: Colors.red, // fallback background while loading
-                          borderRadius: BorderRadius.circular(8), // optional
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         clipBehavior: Clip.hardEdge,
                         child: CachedNetworkImage(
-                          imageUrl: widget.imageUrl, // << put your URL here
+                          imageUrl: widget.imageUrl,
                           fit: BoxFit.cover,
                           placeholder: (context, url) => const LoadingWidget(
                             height: 80,
@@ -157,19 +203,16 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                   ),
                 ),
                 Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
-                // Chapters list
                 Expanded(
                   child: ListView.separated(
                     controller: scrollController,
                     padding: EdgeInsets.symmetric(vertical: 8.h),
                     itemCount: widget.chapters.length,
                     separatorBuilder: (context, index) {
-                      // Don't show separator between subchapters of same parent
                       bool currentIsSubchapter = widget.chapters[index].isSubChapter;
                       bool nextIsSubchapter = index + 1 < widget.chapters.length && widget.chapters[index + 1].isSubChapter;
 
                       if (currentIsSubchapter && nextIsSubchapter) {
-                        // Both are subchapters - thin separator
                         return Divider(
                           height: 1,
                           thickness: 0.3,
@@ -191,46 +234,63 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                       final chapter = widget.chapters[i];
                       final currentChapterIndex = bookProgress.getBookProgress(widget.bookId).currentChapterIndex ?? 0;
 
-                      // Check if this item is currently selected
+                      // Debug: Print current state
+                      if (i == 0) {
+                        print('🔍 BOTTOM SHEET DEBUG:');
+                        print('   currentSubchapterTitle: "${widget.currentSubchapterTitle}"');
+                        print('   currentChapterIndex: $currentChapterIndex');
+                        print('   currentPageInChapter: ${widget.currentPageInChapter}');
+                      }
+
+                      // Highlight logic - simplified to use chapter index instead of title matching
                       bool isCurrentChapter = false;
-                      if (chapter.isSubChapter && chapter.parentChapterIndex >= 0) {
-                        // Sub-chapter: selected if parent chapter matches AND subchapter title matches
-                        isCurrentChapter = (currentChapterIndex == chapter.parentChapterIndex && widget.currentSubchapterTitle != null && widget.currentSubchapterTitle == chapter.chapter);
+
+                      if (widget.currentSubchapterTitle != null && widget.currentSubchapterTitle!.isNotEmpty) {
+                        // We're inside a subchapter - highlight based on title match
+                        if (chapter.isSubChapter && chapter.chapter == widget.currentSubchapterTitle) {
+                          isCurrentChapter = true;
+                          print('✅ ACTIVE SUBCHAPTER: "${chapter.chapter}" (index: $i, title match)');
+                        }
                       } else {
-                        // Regular chapter: selected if chapter index matches AND no subchapter is active
-                        isCurrentChapter = (currentChapterIndex == i && widget.currentSubchapterTitle == null);
+                        // No subchapter - highlight the main chapter by index
+                        if (!chapter.isSubChapter && currentChapterIndex == i) {
+                          isCurrentChapter = true;
+                          print('✅ ACTIVE CHAPTER: "${chapter.chapter}" (index: $i)');
+                        }
                       }
 
                       return InkWell(
                         onTap: () async {
-                          // Handle sub-chapter navigation - return Map with navigation info
                           if (chapter.isSubChapter && chapter.parentChapterIndex >= 0) {
+                            final dynamicPageInChapter = _calculateSubchapterPageInChapter(chapter);
+                            final dynamicStartPage = _calculateSubchapterStartPage(chapter);
+
+                            print('🎯 TIKLANAN SUBCHAPTER: "${chapter.chapter}"');
+                            print('   Parent Chapter Index: ${chapter.parentChapterIndex}');
+                            print('   Page In Chapter: $dynamicPageInChapter');
+                            print('   Start Page: $dynamicStartPage');
+
                             Navigator.of(context).pop({
                               'isSubChapter': true,
                               'chapterIndex': chapter.parentChapterIndex,
-                              'pageIndex': chapter.pageInChapter,
-                              'subchapterIndex': i, // Include the subchapter's own index
-                              'subchapterTitle': chapter.chapter, // Include the subchapter's title
-                              'startPage': chapter.startPage, // Include absolute page for book-level navigation
+                              'pageIndex': dynamicPageInChapter,
+                              'subchapterIndex': i,
+                              'subchapterTitle': chapter.chapter,
+                              'startPage': dynamicStartPage,
                             });
                             return;
                           }
 
-                          // If tapping the current chapter, navigate to first page of chapter
                           if (i == bookProgress.getBookProgress(widget.bookId).currentChapterIndex) {
                             Navigator.of(context).pop({
                               'isSubChapter': false,
                               'chapterIndex': i,
-                              'pageIndex': 0, // Go to first page of chapter
+                              'pageIndex': 0,
                             });
                             return;
                           }
 
-                          Navigator.of(context).pop({
-                            'isSubChapter': false,
-                            'chapterIndex': i,
-                            'pageIndex': 0,
-                          });
+                          Navigator.of(context).pop({'isSubChapter': false, 'chapterIndex': i, 'pageIndex': 0});
                         },
                         child: Container(
                           color: isCurrentChapter
@@ -246,14 +306,11 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                           ),
                           child: Row(
                             children: [
-                              // Chapter content
                               Expanded(
                                 child: Row(
                                   children: [
-                                    // Indent for subchapters
                                     if (widget.chapters[i].isSubChapter) ...[
                                       SizedBox(width: textDirection == TextDirection.ltr ? 24.w : 0),
-                                      // Bullet point or icon for subchapter
                                       Icon(
                                         Icons.circle,
                                         size: 6.h,
@@ -292,10 +349,9 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                                   ],
                                 ),
                               ),
-                              // Show page number if available
-                              if (widget.chapters[i].startPage > 0)
+                              if (_calculateSubchapterStartPage(widget.chapters[i]) > 0)
                                 Text(
-                                  '${widget.chapters[i].startPage}',
+                                  '${_calculateSubchapterStartPage(widget.chapters[i])}',
                                   style: TextStyle(
                                     color: isCurrentChapter
                                         ? Get.isDarkMode
@@ -306,6 +362,17 @@ class _ChaptersBottomSheetState extends State<ChaptersBottomSheet> {
                                             : Colors.black54,
                                     fontWeight: isCurrentChapter ? FontWeight.w600 : FontWeight.w400,
                                     fontSize: 13.sp,
+                                  ),
+                                )
+                              else if (widget.isCalculating)
+                                SizedBox(
+                                  width: 14.w,
+                                  height: 14.h,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Get.isDarkMode ? Colors.white38 : Colors.black38,
+                                    ),
                                   ),
                                 ),
                             ],
