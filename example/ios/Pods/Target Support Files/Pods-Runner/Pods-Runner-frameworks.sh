@@ -177,7 +177,7 @@ code_sign_if_enabled() {
 
 if [[ "$CONFIGURATION" == "Debug" ]]; then
   install_framework "${BUILT_PRODUCTS_DIR}/fluttertoast/fluttertoast.framework"
-  install_framework "${BUILT_PRODUCTS_DIR}/isar_flutter_libs/isar_flutter_libs.framework"
+  install_framework "${BUILT_PRODUCTS_DIR}/isar_community_flutter_libs/isar_community_flutter_libs.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/path_provider_foundation/path_provider_foundation.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/screen_brightness_ios/screen_brightness_ios.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/share_plus/share_plus.framework"
@@ -186,7 +186,7 @@ if [[ "$CONFIGURATION" == "Debug" ]]; then
 fi
 if [[ "$CONFIGURATION" == "Profile" ]]; then
   install_framework "${BUILT_PRODUCTS_DIR}/fluttertoast/fluttertoast.framework"
-  install_framework "${BUILT_PRODUCTS_DIR}/isar_flutter_libs/isar_flutter_libs.framework"
+  install_framework "${BUILT_PRODUCTS_DIR}/isar_community_flutter_libs/isar_community_flutter_libs.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/path_provider_foundation/path_provider_foundation.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/screen_brightness_ios/screen_brightness_ios.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/share_plus/share_plus.framework"
@@ -195,7 +195,7 @@ if [[ "$CONFIGURATION" == "Profile" ]]; then
 fi
 if [[ "$CONFIGURATION" == "Release" ]]; then
   install_framework "${BUILT_PRODUCTS_DIR}/fluttertoast/fluttertoast.framework"
-  install_framework "${BUILT_PRODUCTS_DIR}/isar_flutter_libs/isar_flutter_libs.framework"
+  install_framework "${BUILT_PRODUCTS_DIR}/isar_community_flutter_libs/isar_community_flutter_libs.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/path_provider_foundation/path_provider_foundation.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/screen_brightness_ios/screen_brightness_ios.framework"
   install_framework "${BUILT_PRODUCTS_DIR}/share_plus/share_plus.framework"
