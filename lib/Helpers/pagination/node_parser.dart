@@ -1,5 +1,4 @@
 import 'package:cosmos_epub/helpers/pagination/html_parsing_helpers.dart';
-import 'package:cosmos_epub/helpers/hyphenator_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:html/dom.dart' as dom;
@@ -10,8 +9,7 @@ class NodeParser {
   final bool isFrontMatter;
   final String chapterTitle;
   final List<String> subchapterTitles;
-  final Future<InlineSpan> Function(dom.Element node, double maxWidth)
-      onImageNode;
+  final Future<InlineSpan> Function(dom.Element node, double maxWidth) onImageNode;
 
   final String _normalizedChapterTitle;
   final List<String> _normalizedSubchapterTitles;
@@ -22,15 +20,10 @@ class NodeParser {
     required this.chapterTitle,
     required this.subchapterTitles,
     required this.onImageNode,
-  })  : _normalizedChapterTitle =
-            HtmlParsingHelpers.normalizeTitle(chapterTitle),
-        _normalizedSubchapterTitles =
-            subchapterTitles.map(HtmlParsingHelpers.normalizeTitle).toList() {
-    HyphenatorHelper.instance.initialize();
-  }
+  })  : _normalizedChapterTitle = HtmlParsingHelpers.normalizeTitle(chapterTitle),
+        _normalizedSubchapterTitles = subchapterTitles.map(HtmlParsingHelpers.normalizeTitle).toList();
 
-  Future<InlineSpan> parseNode(dom.Node node, double maxWidth,
-      {bool isPoetry = false}) async {
+  Future<InlineSpan> parseNode(dom.Node node, double maxWidth, {bool isPoetry = false}) async {
     if (node is dom.Text) {
       return _parseTextNode(node, isPoetry);
     } else if (node is dom.Element) {
@@ -43,12 +36,11 @@ class NodeParser {
     String text = node.text;
 
     text = text.replaceAll('\u00A0', ' ');
-    // NOT: \u200B (ZWSP) artık silmiyoruz - hyphenation bunu kullanıyor
+    text = text.replaceAll('\u200B', '');
     text = text.replaceAll('\u2009', ' ');
     text = text.replaceAll('\u202F', ' ');
 
     if (!isPoetry) {
-      // Collapse only regular whitespace (keep ZWSP \u200B and soft hyphen \u00AD)
       text = text.replaceAll(RegExp(r'[ \t\n\r\f\v]+'), ' ');
       text = text.replaceAllMapped(
         RegExp(r'([\.,;:!?])([A-Za-z\u0400-\u04FF])'),
@@ -63,15 +55,6 @@ class NodeParser {
     text = text.replaceAll(RegExp(r'[ \t\n\r\f\v]+([.,;:!?\)\]»])'), r'$1');
     text = text.replaceAll(RegExp(r'([([«])[ \t\n\r\f\v]+'), r'$1');
 
-    if (!isPoetry) {
-      final hyphenator = HyphenatorHelper.instance;
-      // Hybrid hyphen kontrolü (soft hyphen + ZWSP)
-      final hasHybridHyphen = text.contains('\u00AD\u200B');
-      if (hyphenator.isInitialized && !hasHybridHyphen) {
-        text = hyphenator.hyphenate(text);
-      }
-    }
-
     return TextSpan(
       text: text,
       style: contentStyle.copyWith(
@@ -85,14 +68,11 @@ class NodeParser {
     );
   }
 
-  Future<InlineSpan> _parseElementNode(
-      dom.Element node, double maxWidth, bool isPoetry) async {
+  Future<InlineSpan> _parseElementNode(dom.Element node, double maxWidth, bool isPoetry) async {
     final nodeText = node.text.trim();
 
     // DEBUG: Tüm kısa metinleri logla
-    if (nodeText.isNotEmpty &&
-        nodeText.length < 50 &&
-        !nodeText.contains('\n')) {}
+    if (nodeText.isNotEmpty && nodeText.length < 50 && !nodeText.contains('\n')) {}
 
     switch (node.localName) {
       case 'img':
@@ -121,13 +101,11 @@ class NodeParser {
     }
   }
 
-  Future<InlineSpan> _parseParagraphOrDiv(
-      dom.Element node, double maxWidth) async {
+  Future<InlineSpan> _parseParagraphOrDiv(dom.Element node, double maxWidth) async {
     final paragraphText = node.text.trim();
     final isShortText = paragraphText.isNotEmpty && paragraphText.length < 80;
     final hasNoLineBreaks = !paragraphText.contains('\n');
-    final normalizedParagraph =
-        HtmlParsingHelpers.normalizeTitle(paragraphText);
+    final normalizedParagraph = HtmlParsingHelpers.normalizeTitle(paragraphText);
     final paragraphLower = paragraphText.toLowerCase().trim();
 
     // ========== AUTHOR NAME TESPİTİ ==========
@@ -137,13 +115,9 @@ class NodeParser {
       final words = paragraphText.split(RegExp(r'\s+'));
       // 1-3 kelime, hepsi büyük harfle başlıyorsa ve kitap başlığı kelimeleri yok
       if (words.length >= 1 && words.length <= 3) {
-        final allCapitalized =
-            words.every((w) => w.isNotEmpty && w[0] == w[0].toUpperCase());
-        final hasBookKeywords = paragraphLower.contains('пять') ||
-            paragraphLower.contains('пороков') ||
-            paragraphLower.contains('команды') ||
-            paragraphLower.contains('притчи') ||
-            paragraphLower.contains('лидерстве');
+        final allCapitalized = words.every((w) => w.isNotEmpty && w[0] == w[0].toUpperCase());
+        final hasBookKeywords =
+            paragraphLower.contains('пять') || paragraphLower.contains('пороков') || paragraphLower.contains('команды') || paragraphLower.contains('притчи') || paragraphLower.contains('лидерстве');
         if (allCapitalized && !hasBookKeywords) {
           isLikelyAuthorName = true;
         }
@@ -181,19 +155,14 @@ class NodeParser {
       }
     }
 
-    final isSubchapterTitle = isShortText &&
-        hasNoLineBreaks &&
-        (_isSubchapterTitleOptimized(normalizedParagraph) ||
-            _matchesAnyNormalizedTitle(
-                normalizedParagraph, _normalizedSubchapterTitles));
+    final isSubchapterTitle = isShortText && hasNoLineBreaks && (_isSubchapterTitleOptimized(normalizedParagraph) || _matchesAnyNormalizedTitle(normalizedParagraph, _normalizedSubchapterTitles));
 
     final normalizedChapterTitle = _normalizedChapterTitle;
     final isChapterTitle = isShortText &&
         hasNoLineBreaks &&
         normalizedParagraph.isNotEmpty &&
         normalizedChapterTitle.isNotEmpty &&
-        (normalizedParagraph == normalizedChapterTitle ||
-            _matchesSingleTitle(normalizedParagraph, normalizedChapterTitle));
+        (normalizedParagraph == normalizedChapterTitle || _matchesSingleTitle(normalizedParagraph, normalizedChapterTitle));
 
     // AGGRESSIVE MATCHING: Check if paragraph is part of ANY title
     bool isPartialChapterTitle = false;
@@ -201,8 +170,7 @@ class NodeParser {
 
     if (isShortText && hasNoLineBreaks && paragraphText.length >= 3) {
       // Check against chapter title
-      isPartialChapterTitle =
-          _isPartOfTitleOptimized(normalizedParagraph, normalizedChapterTitle);
+      isPartialChapterTitle = _isPartOfTitleOptimized(normalizedParagraph, normalizedChapterTitle);
 
       // Check against ALL subchapter titles
       for (final title in _normalizedSubchapterTitles) {
@@ -216,42 +184,21 @@ class NodeParser {
     final hasBoldChild = node.children.any((child) =>
         child.localName == 'b' ||
         child.localName == 'strong' ||
-        (child.localName == 'span' &&
-            (child.attributes['style']?.contains('font-weight') == true ||
-                child.attributes['style']?.contains('bold') == true)));
-    final isOnlyBold = node.children.length == 1 &&
-        (node.children.first.localName == 'b' ||
-            node.children.first.localName == 'strong');
+        (child.localName == 'span' && (child.attributes['style']?.contains('font-weight') == true || child.attributes['style']?.contains('bold') == true)));
+    final isOnlyBold = node.children.length == 1 && (node.children.first.localName == 'b' || node.children.first.localName == 'strong');
 
     final hasHeadingClass = _elementHasHeadingClass(node);
     final hasHeadingStyle = _elementHasHeadingStyle(node);
-    final isHeuristicHeading = hasNoLineBreaks &&
-        (_isLikelyHeadingText(paragraphText) ||
-            _isStandaloneShortHeading(paragraphText) ||
-            hasHeadingClass ||
-            hasHeadingStyle);
-    final canRenderAsHeading = hasNoLineBreaks &&
-        (isShortText ||
-            _isLikelyHeadingText(paragraphText) ||
-            hasHeadingClass ||
-            hasHeadingStyle);
+    final isHeuristicHeading = hasNoLineBreaks && (_isLikelyHeadingText(paragraphText) || _isStandaloneShortHeading(paragraphText) || hasHeadingClass || hasHeadingStyle);
+    final canRenderAsHeading = hasNoLineBreaks && (isShortText || _isLikelyHeadingText(paragraphText) || hasHeadingClass || hasHeadingStyle);
 
     // isDirectTitleMatch'ı da koşula ekle AMA author name ise BOLD YAPMA
     if (!isLikelyAuthorName &&
-        (isDirectTitleMatch ||
-            isChapterTitle ||
-            isSubchapterTitle ||
-            isPartialChapterTitle ||
-            isPartialSubchapterTitle ||
-            hasBoldChild ||
-            isOnlyBold ||
-            isHeuristicHeading) &&
+        (isDirectTitleMatch || isChapterTitle || isSubchapterTitle || isPartialChapterTitle || isPartialSubchapterTitle || hasBoldChild || isOnlyBold || isHeuristicHeading) &&
         canRenderAsHeading) {
       // Determine semantic label
       String? semanticsLabel;
-      if (isSubchapterTitle ||
-          _matchesAnyNormalizedTitle(
-              normalizedParagraph, _normalizedSubchapterTitles)) {
+      if (isSubchapterTitle || _matchesAnyNormalizedTitle(normalizedParagraph, _normalizedSubchapterTitles)) {
         semanticsLabel = 'SUBCHAPTER:$paragraphText';
       }
 
@@ -276,8 +223,7 @@ class NodeParser {
     if (isPoetry) {
       return _parsePoetry(node, maxWidth);
     } else {
-      final isSectionDivider =
-          HtmlParsingHelpers.isSectionDividerText(paragraphText);
+      final isSectionDivider = HtmlParsingHelpers.isSectionDividerText(paragraphText);
 
       if (isSectionDivider) {
         return _parseSectionDivider(paragraphText, maxWidth);
@@ -295,9 +241,7 @@ class NodeParser {
       for (var child in element.children) {
         if (child.localName == 'div' || child.localName == 'p') {
           String lineText = child.text.trim();
-          if (lineText.isNotEmpty &&
-              lineText.length < 100 &&
-              !addedLines.contains(lineText)) {
+          if (lineText.isNotEmpty && lineText.length < 100 && !addedLines.contains(lineText)) {
             poetryLines.add(lineText);
             addedLines.add(lineText);
           }
@@ -311,15 +255,10 @@ class NodeParser {
 
     if (poetryLines.isEmpty) {
       String poetryHtml = node.innerHtml;
-      poetryHtml = poetryHtml.replaceAll(
-          RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+      poetryHtml = poetryHtml.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
       poetryHtml = poetryHtml.replaceAll(RegExp(r'<[^>]+>'), '');
       poetryHtml = poetryHtml.replaceAll('&nbsp;', ' ');
-      poetryLines = poetryHtml
-          .split('\n')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty)
-          .toList();
+      poetryLines = poetryHtml.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
     }
 
     String poetryText = poetryLines.join('\n');
@@ -330,8 +269,7 @@ class NodeParser {
       baseline: TextBaseline.alphabetic,
       child: Container(
         width: maxWidth,
-        padding: EdgeInsets.only(
-            bottom: isFrontMatter ? 4.h : 6.h, top: isFrontMatter ? 2.h : 4.h),
+        padding: EdgeInsets.only(bottom: isFrontMatter ? 4.h : 6.h, top: isFrontMatter ? 2.h : 4.h),
         child: Text(
           poetryText,
           textAlign: centerPoetry ? TextAlign.center : TextAlign.left,
@@ -395,9 +333,7 @@ class NodeParser {
     bool isSubchapter = subchapterTitles.any((title) {
       final titleLower = title.toLowerCase().trim();
       final headingLower = headingText.toLowerCase().trim();
-      return titleLower == headingLower ||
-          titleLower.contains(headingLower) ||
-          headingLower.contains(titleLower);
+      return titleLower == headingLower || titleLower.contains(headingLower) || headingLower.contains(titleLower);
     });
 
     // DİREKT text al, children parse etme - böylece bold style korunur
@@ -428,8 +364,7 @@ class NodeParser {
     }
 
     StringBuffer textBuffer = StringBuffer();
-    void extractQuoteText(dom.Element element,
-        {bool skipNestedBlockquote = false}) {
+    void extractQuoteText(dom.Element element, {bool skipNestedBlockquote = false}) {
       for (var child in element.nodes) {
         if (child is dom.Element) {
           if (child.localName == 'blockquote' && skipNestedBlockquote) {
@@ -531,9 +466,7 @@ class NodeParser {
       prevSibling = node.parent!.previousElementSibling;
     }
 
-    if (prevSibling != null &&
-        (prevSibling.localName == 'em' || prevSibling.localName == 'i') &&
-        prevSibling.text.trim().length > 80) {
+    if (prevSibling != null && (prevSibling.localName == 'em' || prevSibling.localName == 'i') && prevSibling.text.trim().length > 80) {
       return const TextSpan(text: '');
     }
 
@@ -559,8 +492,7 @@ class NodeParser {
     );
   }
 
-  Future<InlineSpan> _parseItalic(
-      dom.Element node, double maxWidth, bool isPoetry) async {
+  Future<InlineSpan> _parseItalic(dom.Element node, double maxWidth, bool isPoetry) async {
     List<InlineSpan> children = [];
     for (var child in node.nodes) {
       children.add(await parseNode(child, maxWidth, isPoetry: isPoetry));
@@ -601,8 +533,7 @@ class NodeParser {
     );
   }
 
-  Future<InlineSpan> _parseBold(
-      dom.Element node, double maxWidth, bool isPoetry) async {
+  Future<InlineSpan> _parseBold(dom.Element node, double maxWidth, bool isPoetry) async {
     List<InlineSpan> children = [];
     for (var child in node.nodes) {
       children.add(await parseNode(child, maxWidth, isPoetry: isPoetry));
@@ -616,8 +547,7 @@ class NodeParser {
     );
   }
 
-  Future<InlineSpan> _parseGenericElement(
-      dom.Element node, double maxWidth, bool isPoetry) async {
+  Future<InlineSpan> _parseGenericElement(dom.Element node, double maxWidth, bool isPoetry) async {
     List<InlineSpan> children = [];
     for (var child in node.nodes) {
       children.add(await parseNode(child, maxWidth, isPoetry: isPoetry));
@@ -642,12 +572,10 @@ class NodeParser {
     if (normalizedParagraph == normalizedTitle) return true;
 
     if (normalizedParagraph.length > 5 && normalizedTitle.length > 5) {
-      if (normalizedParagraph.startsWith(normalizedTitle) ||
-          normalizedParagraph.endsWith(normalizedTitle)) {
+      if (normalizedParagraph.startsWith(normalizedTitle) || normalizedParagraph.endsWith(normalizedTitle)) {
         return true;
       }
-      if (normalizedParagraph.contains(normalizedTitle) ||
-          normalizedTitle.contains(normalizedParagraph)) {
+      if (normalizedParagraph.contains(normalizedTitle) || normalizedTitle.contains(normalizedParagraph)) {
         return true;
       }
     }
@@ -657,8 +585,7 @@ class NodeParser {
 
   /// Check if paragraph text is a significant part of a title
   /// This handles cases where titles are split across multiple HTML elements
-  bool _isPartOfTitleOptimized(
-      String normalizedParagraph, String normalizedTitle) {
+  bool _isPartOfTitleOptimized(String normalizedParagraph, String normalizedTitle) {
     // Skip if paragraph is too short to be meaningful
     if (normalizedParagraph.length < 2) return false;
     if (normalizedTitle.isEmpty) return false;
@@ -667,14 +594,8 @@ class NodeParser {
     if (normalizedParagraph == normalizedTitle) return true;
 
     // AGGRESSIVE: Split into words
-    final paragraphWords = normalizedParagraph
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .toList();
-    final titleWords = normalizedTitle
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .toList();
+    final paragraphWords = normalizedParagraph.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final titleWords = normalizedTitle.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
 
     if (paragraphWords.isEmpty || titleWords.isEmpty) return false;
 
@@ -692,9 +613,7 @@ class NodeParser {
 
     for (final paragraphWord in paragraphWords) {
       for (int i = titleIndex; i < titleWords.length; i++) {
-        if (titleWords[i] == paragraphWord ||
-            titleWords[i].contains(paragraphWord) ||
-            paragraphWord.contains(titleWords[i])) {
+        if (titleWords[i] == paragraphWord || titleWords[i].contains(paragraphWord) || paragraphWord.contains(titleWords[i])) {
           matchedWords++;
           titleIndex = i + 1;
           break;
@@ -709,11 +628,7 @@ class NodeParser {
 
     // AGGRESSIVE: For very short paragraphs (1-2 words), just check if words exist in title
     if (paragraphWords.length <= 2) {
-      final allWordsExist = paragraphWords.every((word) => titleWords.any(
-          (titleWord) =>
-              titleWord == word ||
-              titleWord.contains(word) ||
-              word.contains(titleWord)));
+      final allWordsExist = paragraphWords.every((word) => titleWords.any((titleWord) => titleWord == word || titleWord.contains(word) || word.contains(titleWord)));
 
       if (allWordsExist) {
         return true;
@@ -723,8 +638,7 @@ class NodeParser {
     return false;
   }
 
-  bool _matchesAnyNormalizedTitle(
-      String normalizedParagraph, List<String> normalizedTitles) {
+  bool _matchesAnyNormalizedTitle(String normalizedParagraph, List<String> normalizedTitles) {
     for (final normalizedTitle in normalizedTitles) {
       if (_matchesSingleTitle(normalizedParagraph, normalizedTitle)) {
         return true;
@@ -744,8 +658,7 @@ class NodeParser {
         }
         // Partial match for longer titles
         if (normalizedParagraph.length > 5 && normalizedSubTitle.length > 5) {
-          if (normalizedParagraph.contains(normalizedSubTitle) ||
-              normalizedSubTitle.contains(normalizedParagraph)) {
+          if (normalizedParagraph.contains(normalizedSubTitle) || normalizedSubTitle.contains(normalizedParagraph)) {
             return true;
           }
         }
@@ -772,8 +685,7 @@ class NodeParser {
           caseSensitive: false,
         ).hasMatch(lower);
 
-    final hasRoman =
-        RegExp(r'\b[ivxlcdm]+\b', caseSensitive: false).hasMatch(lower);
+    final hasRoman = RegExp(r'\b[ivxlcdm]+\b', caseSensitive: false).hasMatch(lower);
     final hasDigits = RegExp(r'\b\d+\b').hasMatch(lower);
 
     if (keywordMatch && (hasRoman || hasDigits)) {
@@ -791,8 +703,7 @@ class NodeParser {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return false;
 
-    final words =
-        trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (words.length > 6) return false;
     if (trimmed.length > 80) return false;
 
@@ -800,8 +711,7 @@ class NodeParser {
     if (RegExp(r'[,;:]').hasMatch(trimmed)) return false;
 
     // Title-case or all-caps-ish (Cyrillic/Latin)
-    final startsWithUpper =
-        words.every((w) => RegExp(r'^[A-ZА-ЯЁ]').hasMatch(w));
+    final startsWithUpper = words.every((w) => RegExp(r'^[A-ZА-ЯЁ]').hasMatch(w));
     if (startsWithUpper) return true;
 
     // Single word headings like "Problemy" or "Предыстория"
@@ -826,11 +736,8 @@ class NodeParser {
     final style = (element.attributes['style'] ?? '').toLowerCase();
     if (style.isEmpty) return false;
 
-    final hasBold = style.contains('font-weight') &&
-        (style.contains('bold') ||
-            RegExp(r'font-weight\s*:\s*[6-9]00').hasMatch(style));
-    final hasLargeFont =
-        RegExp(r'font-size\s*:\s*(1\.[2-9]em|[2-9]\d?px)').hasMatch(style);
+    final hasBold = style.contains('font-weight') && (style.contains('bold') || RegExp(r'font-weight\s*:\s*[6-9]00').hasMatch(style));
+    final hasLargeFont = RegExp(r'font-size\s*:\s*(1\.[2-9]em|[2-9]\d?px)').hasMatch(style);
     final isCentered = style.contains('text-align') && style.contains('center');
 
     return hasBold || hasLargeFont || isCentered;

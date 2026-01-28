@@ -16,52 +16,6 @@ import 'package:html/dom.dart' as dom;
 
 export 'package:cosmos_epub/helpers/pagination/paging_text_handler.dart';
 
-import 'package:cosmos_epub/helpers/hyphenator_helper.dart';
-
-/// Top-level function to run in an isolate
-/// Parses HTML, applies hyphenation to text nodes, and returns the modified HTML string
-Future<String> processHtmlInIsolate(String content) async {
-  try {
-    // Initialize hyphenator (synchronously in this isolate)
-    HyphenatorHelper.instance.initialize();
-
-    // Parse HTML fragment
-    final document = html_parser.parseFragment(content);
-
-    // Recursively hyphenate all text nodes
-    _hyphenateNodesRecursively(document);
-
-    // Return the modified HTML
-    return document.outerHtml;
-  } catch (e) {
-    print('⚠️ Error in isolate: $e');
-    return content; // Return original if something fails
-  }
-}
-
-void _hyphenateNodesRecursively(dom.Node node) {
-  if (node is dom.Text) {
-    final text = node.text;
-    if (text.trim().isNotEmpty) {
-      // Hyphenate the text content using the initialized helper
-      // The helper will use the language detection logic internally
-      node.text = HyphenatorHelper.instance.hyphenate(text);
-    }
-  } else if (node is dom.Element) {
-    // Skip non-visible tags
-    if (node.localName == 'script' ||
-        node.localName == 'style' ||
-        node.localName == 'head' ||
-        node.localName == 'meta') {
-      return;
-    }
-
-    for (var child in node.nodes) {
-      _hyphenateNodesRecursively(child);
-    }
-  }
-}
-
 class PagingWidget extends StatefulWidget {
   const PagingWidget(
     this.textContent,
@@ -96,8 +50,7 @@ class PagingWidget extends StatefulWidget {
   final int linesPerPage;
   final Function(int, int) onLastPage;
   final Function(int, int) onPageFlip;
-  final Function(Map<String, int>)?
-      onPaginationComplete; // Callback for subchapter page mapping
+  final Function(Map<String, int>)? onPaginationComplete; // Callback for subchapter page mapping
   final VoidCallback onTextTap;
   final bool showNavBar;
   final int starterPageIndex;
@@ -229,27 +182,17 @@ class _PagingWidgetState extends State<PagingWidget> {
     contentToParse = contentToParse.trim();
 
     // Cleaning steps before isolate
-    contentToParse =
-        contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
+    contentToParse = contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
 
-    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true)
-        .firstMatch(contentToParse);
+    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true).firstMatch(contentToParse);
     if (bodyMatch != null) {
       contentToParse = bodyMatch.group(1) ?? contentToParse;
-    }
-
-    // Run hyphenation in isolate
-    try {
-      contentToParse = await compute(processHtmlInIsolate, contentToParse);
-    } catch (e) {
-      print('⚠️ Isolate processing failed, falling back to main thread: $e');
     }
 
     final pageSize = _initializedRenderBox.size;
     _pageSpans.clear();
 
-    _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(
-        widget.textContent, widget.chapterTitle);
+    _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(widget.textContent, widget.chapterTitle);
     _contentStyle = _resolveContentStyle();
 
     _initializeHelpers();
@@ -306,8 +249,7 @@ class _PagingWidgetState extends State<PagingWidget> {
       return;
     }
 
-    final distributedPages =
-        _pageDistributor.distributeContent(spans, pageSize);
+    final distributedPages = _pageDistributor.distributeContent(spans, pageSize);
     _pageSpans.addAll(distributedPages);
 
     // Get subchapter page mapping and send it back via callback
@@ -356,9 +298,7 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (pages.isNotEmpty) {
-        final startIndex = widget.starterPageIndex < pages.length
-            ? widget.starterPageIndex
-            : 0;
+        final startIndex = widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0;
         widget.onPageFlip(startIndex, pages.length);
       }
     });
@@ -414,10 +354,7 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
   Widget _buildEmptyState() {
-    final isTitlePage = widget.textContent.trim().length < 200 &&
-        widget.textContent
-            .toLowerCase()
-            .contains(widget.chapterTitle.toLowerCase());
+    final isTitlePage = widget.textContent.trim().length < 200 && widget.textContent.toLowerCase().contains(widget.chapterTitle.toLowerCase());
 
     return Center(
       child: Padding(
@@ -442,9 +379,7 @@ class _PagingWidgetState extends State<PagingWidget> {
             ),
             SizedBox(height: 8.h),
             Text(
-              isTitlePage
-                  ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.'
-                  : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
+              isTitlePage ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.' : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
               style: TextStyle(
                 fontSize: 14.sp,
                 color: (widget.style.color ?? Colors.black).withOpacity(0.6),
@@ -476,12 +411,7 @@ class _PagingWidgetState extends State<PagingWidget> {
                 key: _pageKey,
                 child: PageFlipWidget(
                   key: _pageController,
-                  initialIndex: widget.starterPageIndex != 0
-                      ? (pages.isNotEmpty &&
-                              widget.starterPageIndex < pages.length
-                          ? widget.starterPageIndex
-                          : 0)
-                      : widget.starterPageIndex,
+                  initialIndex: widget.starterPageIndex != 0 ? (pages.isNotEmpty && widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0) : widget.starterPageIndex,
                   onPageFlip: (pageIndex) {
                     _currentPageIndex = pageIndex;
                     _handler.currentPage.value = pageIndex + 1;
@@ -490,8 +420,7 @@ class _PagingWidgetState extends State<PagingWidget> {
                   onLastPageSwipe: () {
                     widget.onLastPage(_currentPageIndex, pages.length);
                   },
-                  backgroundColor:
-                      widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
+                  backgroundColor: widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
                   lastPage: widget.lastWidget,
                   children: pages,
                 ),

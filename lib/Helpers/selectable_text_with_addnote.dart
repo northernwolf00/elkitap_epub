@@ -1197,4 +1197,3 @@ class BookPageBuilder {
     return cleaned.trim();
   }
 }
-
