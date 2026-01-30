@@ -58,7 +58,8 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
           color: menuBackgroundColor,
           elevation: 8,
           shadowColor: isDark ? Colors.white12 : Colors.black26,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         // Custom button styles
         textButtonTheme: TextButtonThemeData(style: customButtonStyle),
@@ -80,7 +81,9 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
       child: Selectable(
         selectWordOnLongPress: true,
         selectWordOnDoubleTap: true,
-        selectionColor: isDark ? Colors.grey.shade700.withValues(alpha: 0.5) : Colors.grey.shade300.withValues(alpha: 0.5),
+        selectionColor: isDark
+            ? Colors.grey.shade700.withValues(alpha: 0.5)
+            : Colors.grey.shade300.withValues(alpha: 0.5),
         popupMenuItems: [
           SelectableMenuItem(
             title: CosmosEpubLocalization.t('add_note'),
@@ -145,7 +148,8 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
     formatted = formatted.replaceAll('\u200B', ''); // Zero-width space
     formatted = formatted.replaceAll('\u2009', ' '); // Thin space
     formatted = formatted.replaceAll('\u202F', ' '); // Narrow no-break space
-    formatted = formatted.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
+    formatted =
+        formatted.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
 
     // Remove spaces at the beginning and end of lines
     formatted = formatted.replaceAll(RegExp(r'^\s+', multiLine: true), '');
@@ -203,7 +207,9 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
           String current = word[i];
           String next = i < word.length - 1 ? word[i + 1] : '';
 
-          bool currentIsConsonant = RegExp(r'[бвгджзклмнпрстфхцчшщБВГДЖЗКЛМНПРСТФХЦЧШЩ]').hasMatch(current);
+          bool currentIsConsonant =
+              RegExp(r'[бвгджзклмнпрстфхцчшщБВГДЖЗКЛМНПРСТФХЦЧШЩ]')
+                  .hasMatch(current);
           bool nextIsVowel = RegExp(r'[аэоуиыяюеёАЭОУИЫЯЮЕЁ]').hasMatch(next);
 
           if (currentIsConsonant && nextIsVowel && (i % 3 == 0 || i % 4 == 0)) {
@@ -285,8 +291,11 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
         child: Obx(() => Container(
               height: MediaQuery.of(context).size.height * 0.9,
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black
+                    : Colors.white,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 children: [
@@ -298,7 +307,8 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                       children: [
                         Text(
                           CosmosEpubLocalization.t('note'),
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.bold),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -306,7 +316,9 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                             Navigator.pop(context);
                             await CosmosEpub.addNote(
                               bookId: bookId,
-                              selectedText: note.isEmpty ? selectedText : '$selectedText\n\n$note',
+                              selectedText: note.isEmpty
+                                  ? selectedText
+                                  : '$selectedText\n\n$note',
                               context: context,
                             );
                           },
@@ -314,7 +326,10 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                             CosmosEpubLocalization.t('done'),
                             style: TextStyle(
                               fontSize: 17,
-                              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -324,7 +339,8 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                   ),
                   // Selected text display with left border
                   Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       border: Border(
@@ -359,9 +375,12 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                   ),
                   // Color picker - always visible above keyboard
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white,
                       border: Border(
                         top: BorderSide(
                           color: Colors.grey.withValues(alpha: 0.3),
@@ -390,7 +409,11 @@ class SelectableTextWithCustomToolbar extends StatelessWidget {
                                     shape: BoxShape.circle,
                                     border: selectedColor.value == color
                                         ? Border.all(
-                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.white
+                                                    : Colors.black,
                                             width: 3,
                                           )
                                         : null,
@@ -498,7 +521,8 @@ class BookPageBuilder {
 
         if (widget is Container) {
           // Check if container has centered alignment (quote style)
-          if (widget.alignment == Alignment.centerRight || widget.alignment == Alignment.center) {
+          if (widget.alignment == Alignment.centerRight ||
+              widget.alignment == Alignment.center) {
             quoteSpans++;
           }
           // Check margin - quotes often have left margin
@@ -526,7 +550,8 @@ class BookPageBuilder {
 
     if (widget is Container) {
       // Check alignment
-      if (widget.alignment == Alignment.centerRight || widget.alignment == Alignment.center) {
+      if (widget.alignment == Alignment.centerRight ||
+          widget.alignment == Alignment.center) {
         return true;
       }
       // Check margin - quotes often have left margin
@@ -606,7 +631,9 @@ class BookPageBuilder {
     }
 
     // Arabic numerals as section dividers (1, 2, 3, etc. or 1., 2., 3., etc.)
-    if (RegExp(r'^\d+\.?$').hasMatch(trimmed) || RegExp(r'^\(\d+\)$').hasMatch(trimmed) || RegExp(r'^\d+\)$').hasMatch(trimmed)) {
+    if (RegExp(r'^\d+\.?$').hasMatch(trimmed) ||
+        RegExp(r'^\(\d+\)$').hasMatch(trimmed) ||
+        RegExp(r'^\d+\)$').hasMatch(trimmed)) {
       return true;
     }
 
@@ -615,7 +642,11 @@ class BookPageBuilder {
 
   /// Check if page has regular text followed by a quote at the end
   /// Returns split info: (hasTextThenQuote, regularContentSpans, quoteContentSpans)
-  static ({bool hasTextThenQuote, List<InlineSpan> regularContent, List<InlineSpan> quoteContent}) _analyzePageContent(TextSpan contentSpan) {
+  static ({
+    bool hasTextThenQuote,
+    List<InlineSpan> regularContent,
+    List<InlineSpan> quoteContent
+  }) _analyzePageContent(TextSpan contentSpan) {
     final children = contentSpan.children;
     if (children == null || children.isEmpty) {
       return (hasTextThenQuote: false, regularContent: [], quoteContent: []);
@@ -692,7 +723,8 @@ class BookPageBuilder {
         }
 
         // Skip whitespace-only spans
-        if (text.trim().isEmpty && (span.children == null || span.children!.isEmpty)) {
+        if (text.trim().isEmpty &&
+            (span.children == null || span.children!.isEmpty)) {
           if (inQuoteSection) {
             continue;
           } else {
@@ -739,7 +771,9 @@ class BookPageBuilder {
           for (var child in span.children!) {
             if (child is TextSpan) {
               final childText = child.text ?? '';
-              if (childText.trim().isNotEmpty && childText.trim().length > 10 && !_isSectionDivider(childText)) {
+              if (childText.trim().isNotEmpty &&
+                  childText.trim().length > 10 &&
+                  !_isSectionDivider(childText)) {
                 hasRegularContent = true;
                 break;
               }
@@ -754,7 +788,8 @@ class BookPageBuilder {
           final widget = span.child;
           if (widget is Container) {
             // If container has centerRight alignment, it's a quote, skip it
-            if (widget.alignment == Alignment.centerRight || widget.alignment == Alignment.center) {
+            if (widget.alignment == Alignment.centerRight ||
+                widget.alignment == Alignment.center) {
               continue;
             }
           }
@@ -769,13 +804,18 @@ class BookPageBuilder {
     }
 
     // Split content
-    final regularContent = children.sublist(0, quoteStartIndex).cast<InlineSpan>().toList();
-    final quoteContent = children.sublist(quoteStartIndex).cast<InlineSpan>().toList();
+    final regularContent =
+        children.sublist(0, quoteStartIndex).cast<InlineSpan>().toList();
+    final quoteContent =
+        children.sublist(quoteStartIndex).cast<InlineSpan>().toList();
 
-    return (hasTextThenQuote: true, regularContent: regularContent, quoteContent: quoteContent);
+    return (
+      hasTextThenQuote: true,
+      regularContent: regularContent,
+      quoteContent: quoteContent
+    );
   }
 
-  // NEW METHOD: Build page with TextSpan (for mixed text + images)
   static Widget buildBookPageSpan({
     required BuildContext context,
     required TextSpan contentSpan,
@@ -799,186 +839,190 @@ class BookPageBuilder {
     final pageAnalysis = _analyzePageContent(contentSpan);
     final hasTextThenQuote = pageAnalysis.hasTextThenQuote;
 
-    return GestureDetector(
-        onTap: onTextTap,
-        behavior: HitTestBehavior.translucent,
-        child: Container(
-          // Tam ekran yüksekliği
-          height: double.infinity,
-          width: double.infinity,
-          // DEBUG: Add colored border to see page boundaries
-          decoration: BoxDecoration(
-            color: bgColor,
-          ),
-          padding: EdgeInsets.only(
-            left: 16.w,
-            right: 16.w,
-            top: 8.h,
-            bottom: 16.h,
-          ),
-          child: Directionality(
-            textDirection: textDirection,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // If page has text followed by quote, create split layout
-                if (hasTextThenQuote) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      // Chapter title header on ALL pages
-                      if (chapterTitle != null) ...[
-                        if (isFirstPage) ...[
-                          SizedBox(height: 4.h),
-                          Text(
-                            chapterTitle,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: style.copyWith(
-                              fontSize: (style.fontSize ?? 16) + 2,
-                              fontWeight: FontWeight.w500,
-                              height: 1.1,
-                              letterSpacing: 0.1,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          SizedBox(height: 6.h),
-                        ] else ...[
-                          SizedBox(height: 2.h),
-                          Text(
-                            chapterTitle,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: style.copyWith(
-                              fontSize: (style.fontSize ?? 16) - 2,
-                              fontWeight: FontWeight.w400,
-                              height: 1.0,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          SizedBox(height: 4.h),
-                        ],
-                      ],
-
-                      // Regular text content at top
-                      Selectable(
-                        selectWordOnLongPress: true,
-                        selectWordOnDoubleTap: true,
-                        selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
-                        popupMenuItems: _buildPopupMenuItems(context, bookId),
-                        child: RichText(
-                          textAlign: TextAlign.left,
-                          text: TextSpan(children: pageAnalysis.regularContent),
-                        ),
-                      ),
-
-                      // Quote content centered in remaining space
-                      Expanded(
-                        child: Container(
-                          alignment: Alignment.center,
-                          child: Selectable(
-                            selectWordOnLongPress: true,
-                            selectWordOnDoubleTap: true,
-                            selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
-                            popupMenuItems: _buildPopupMenuItems(context, bookId),
-                            child: RichText(
-                              textAlign: TextAlign.center,
-                              text: TextSpan(children: pageAnalysis.quoteContent),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }
-
-                // Standard layout for other pages
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    // Chapter title header on ALL pages
-                    if (chapterTitle != null) ...[
-                      if (isFirstPage) ...[
-                        SizedBox(height: 4.h), // Reduced from 8h
-                        Text(
-                          chapterTitle,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: style.copyWith(
-                            fontSize: (style.fontSize ?? 16) - 2, // Smaller title
-                            fontWeight: FontWeight.w400,
-                            height: 1.0, // Tighter spacing
-
-                            color: Colors.grey,
-                          ),
-                        ),
-                        SizedBox(height: 10.h), // Reduced from 10h
-                      ] else ...[
-                        SizedBox(height: 2.h), // Reduced from 4h
-                        Text(
-                          chapterTitle,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: style.copyWith(
-                            fontSize: (style.fontSize ?? 16) - 2,
-                            fontWeight: FontWeight.w400,
-                            height: 1.0, // Tighter spacing
-                            color: Colors.grey,
-                          ),
-                        ),
-                        SizedBox(height: 10.h), // Reduced from 6h
-                      ],
-                    ],
-
-                    // Main content - fill remaining space completely
-                    // If quote-only page, center vertically; otherwise top-align
-                    Expanded(
-                      child: Container(
-                        alignment: isQuoteOnlyPage ? Alignment.center : Alignment.topLeft,
-                        child: Selectable(
-                          selectWordOnLongPress: true,
-                          selectWordOnDoubleTap: true,
-                          selectionColor: const Color(0xFFB8B3E9).withValues(alpha: 0.5),
-                          popupMenuItems: _buildPopupMenuItems(context, bookId),
-                          // For quote-only pages, don't force full height - let alignment work
-                          child: isQuoteOnlyPage
-                              ? SizedBox(
-                                  width: double.infinity,
-                                  child: RichText(
-                                    textAlign: TextAlign.center,
-                                    text: _centerQuoteSpans(contentSpan),
-                                  ),
-                                )
-                              : LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return Container(
-                                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                                      child: RichText(
-                                        textAlign: TextAlign.left,
-                                        text: contentSpan,
-                                      ),
-                                    );
-                                  },
-                                ),
-                        ),
-                      ),
-                    ),
-                    // Bottom spacer kaldırıldı - padding zaten var
-                  ],
-                );
-              },
+    return LayoutBuilder(builder: (context, constraints) {
+      return GestureDetector(
+          onTap: onTextTap,
+          behavior: HitTestBehavior.translucent,
+          child: Container(
+            height: constraints.maxHeight,
+            width: constraints.maxWidth,
+            decoration: BoxDecoration(
+              color: bgColor,
             ),
-          ),
-        ));
+            padding: EdgeInsets.only(
+              left: 16.w,
+              right: 16.w,
+              top: 8.h,
+              bottom: bottomNavHeight + 8.h,
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Directionality(
+                  textDirection: textDirection,
+                  child: hasTextThenQuote
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Chapter title header on ALL pages
+                            if (chapterTitle != null) ...[
+                              if (isFirstPage) ...[
+                                SizedBox(height: 4.h),
+                                Text(
+                                  chapterTitle,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: style.copyWith(
+                                    fontSize: (style.fontSize ?? 16) + 2,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.1,
+                                    letterSpacing: 0.1,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                SizedBox(height: 6.h),
+                              ] else ...[
+                                SizedBox(height: 2.h),
+                                Text(
+                                  chapterTitle,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: style.copyWith(
+                                    fontSize: (style.fontSize ?? 16) - 2,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.0,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                SizedBox(height: 4.h),
+                              ],
+                            ],
+
+                            // Regular text content at top
+                            Selectable(
+                              selectWordOnLongPress: true,
+                              selectWordOnDoubleTap: true,
+                              selectionColor: const Color(0xFFB8B3E9)
+                                  .withValues(alpha: 0.5),
+                              popupMenuItems:
+                                  _buildPopupMenuItems(context, bookId),
+                              child: RichText(
+                                textAlign: TextAlign.left,
+                                text: TextSpan(
+                                    children: pageAnalysis.regularContent),
+                              ),
+                            ),
+
+                            // Quote content
+                            Container(
+                              padding: EdgeInsets.symmetric(vertical: 8.h),
+                              width: double
+                                  .infinity, // Ensure full width for centering text
+                              child: Selectable(
+                                selectWordOnLongPress: true,
+                                selectWordOnDoubleTap: true,
+                                selectionColor: const Color(0xFFB8B3E9)
+                                    .withValues(alpha: 0.5),
+                                popupMenuItems:
+                                    _buildPopupMenuItems(context, bookId),
+                                child: RichText(
+                                  textAlign: TextAlign.center,
+                                  text: TextSpan(
+                                      children: pageAnalysis.quoteContent),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: isQuoteOnlyPage
+                              ? MainAxisAlignment.center
+                              : MainAxisAlignment.start,
+                          children: [
+                            // Chapter title header on ALL pages
+                            if (chapterTitle != null) ...[
+                              if (isFirstPage) ...[
+                                SizedBox(height: 4.h), // Reduced from 8h
+                                Text(
+                                  chapterTitle,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: style.copyWith(
+                                    fontSize: (style.fontSize ?? 16) -
+                                        2, // Smaller title
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.0, // Tighter spacing
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                SizedBox(height: 10.h), // Reduced from 10h
+                              ] else ...[
+                                SizedBox(height: 2.h), // Reduced from 4h
+                                Text(
+                                  chapterTitle,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: style.copyWith(
+                                    fontSize: (style.fontSize ?? 16) - 2,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.0, // Tighter spacing
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                SizedBox(height: 10.h), // Reduced from 6h
+                              ],
+                            ],
+
+                            // Main content
+                            Container(
+                              // alignment removed to prevent infinite expansion in scroll view
+                              child: Selectable(
+                                selectWordOnLongPress: true,
+                                selectWordOnDoubleTap: true,
+                                selectionColor: const Color(0xFFB8B3E9)
+                                    .withValues(alpha: 0.5),
+                                popupMenuItems:
+                                    _buildPopupMenuItems(context, bookId),
+                                child: isQuoteOnlyPage
+                                    ? SizedBox(
+                                        width: double.infinity,
+                                        child: RichText(
+                                          textAlign: TextAlign.center,
+                                          text: _centerQuoteSpans(contentSpan),
+                                        ),
+                                      )
+                                    : LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          return Container(
+                                            child: RichText(
+                                              textAlign: TextAlign.left,
+                                              text: contentSpan,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ));
+    });
   }
 
   /// Build popup menu items for text selection
-  static List<SelectableMenuItem> _buildPopupMenuItems(BuildContext context, String bookId) {
+  static List<SelectableMenuItem> _buildPopupMenuItems(
+      BuildContext context, String bookId) {
     return [
       SelectableMenuItem(
         title: CosmosEpubLocalization.t('add_note'),
@@ -1016,11 +1060,13 @@ class BookPageBuilder {
     ];
   }
 
-  static Future<void> _handleAddNoteFromSpan(BuildContext context, String bookId, String selectedText) async {
+  static Future<void> _handleAddNoteFromSpan(
+      BuildContext context, String bookId, String selectedText) async {
     _showAddNoteBottomSheetFromSpan(context, bookId, selectedText);
   }
 
-  static void _showAddNoteBottomSheetFromSpan(BuildContext context, String bookId, String selectedText) {
+  static void _showAddNoteBottomSheetFromSpan(
+      BuildContext context, String bookId, String selectedText) {
     final textController = TextEditingController(text: '');
     final selectedColor = Colors.blue.obs;
 
@@ -1037,8 +1083,11 @@ class BookPageBuilder {
         child: Obx(() => Container(
               height: MediaQuery.of(context).size.height * 0.9,
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black
+                    : Colors.white,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 children: [
@@ -1050,7 +1099,8 @@ class BookPageBuilder {
                       children: [
                         Text(
                           CosmosEpubLocalization.t('note'),
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.bold),
                         ),
                         TextButton(
                           onPressed: () async {
@@ -1058,7 +1108,9 @@ class BookPageBuilder {
                             Navigator.pop(context);
                             await CosmosEpub.addNote(
                               bookId: bookId,
-                              selectedText: note.isEmpty ? selectedText : '$selectedText\n\n$note',
+                              selectedText: note.isEmpty
+                                  ? selectedText
+                                  : '$selectedText\n\n$note',
                               context: context,
                             );
                           },
@@ -1066,7 +1118,10 @@ class BookPageBuilder {
                             CosmosEpubLocalization.t('done'),
                             style: TextStyle(
                               fontSize: 17,
-                              color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1076,7 +1131,8 @@ class BookPageBuilder {
                   ),
                   // Selected text display with left border
                   Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       border: Border(
@@ -1112,9 +1168,12 @@ class BookPageBuilder {
 
                   // Color picker - always visible above keyboard
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white,
                       border: Border(
                         top: BorderSide(
                           color: Colors.grey.withValues(alpha: 0.3),
@@ -1143,7 +1202,11 @@ class BookPageBuilder {
                                     shape: BoxShape.circle,
                                     border: selectedColor.value == color
                                         ? Border.all(
-                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.white
+                                                    : Colors.black,
                                             width: 3,
                                           )
                                         : null,
@@ -1186,7 +1249,8 @@ class BookPageBuilder {
     cleaned = cleaned.replaceAll('\uFEFF', ''); // Zero-width no-break space
 
     // Remove excessive spaces
-    cleaned = cleaned.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
+    cleaned =
+        cleaned.replaceAll(RegExp(r'[ \t\u00A0\u200B\u2009\u202F]+'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r' {2,}'), ' ');
 
     // Clean up line breaks

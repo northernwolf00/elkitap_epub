@@ -49,8 +49,9 @@ class PagingWidget extends StatefulWidget {
   final Widget? lastWidget;
   final int linesPerPage;
   final Function(int, int) onLastPage;
-  final Function(int, int) onPageFlip;
-  final Function(Map<String, int>)? onPaginationComplete; // Callback for subchapter page mapping
+  final Function(int, int, int) onPageFlip; // pageIndex, totalPages, charCount
+  final Function(Map<String, int>)?
+      onPaginationComplete; // Callback for subchapter page mapping
   final VoidCallback onTextTap;
   final bool showNavBar;
   final int starterPageIndex;
@@ -182,9 +183,11 @@ class _PagingWidgetState extends State<PagingWidget> {
     contentToParse = contentToParse.trim();
 
     // Cleaning steps before isolate
-    contentToParse = contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
+    contentToParse =
+        contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
 
-    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true).firstMatch(contentToParse);
+    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true)
+        .firstMatch(contentToParse);
     if (bodyMatch != null) {
       contentToParse = bodyMatch.group(1) ?? contentToParse;
     }
@@ -192,7 +195,8 @@ class _PagingWidgetState extends State<PagingWidget> {
     final pageSize = _initializedRenderBox.size;
     _pageSpans.clear();
 
-    _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(widget.textContent, widget.chapterTitle);
+    _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(
+        widget.textContent, widget.chapterTitle);
     _contentStyle = _resolveContentStyle();
 
     _initializeHelpers();
@@ -249,7 +253,10 @@ class _PagingWidgetState extends State<PagingWidget> {
       return;
     }
 
-    final distributedPages = _pageDistributor.distributeContent(spans, pageSize);
+    // Reserve space for bottom navigation and page indicator
+    final bottomPadding = widget.showNavBar ? 100.h : 40.h;
+    final distributedPages = _pageDistributor.distributeContent(spans, pageSize,
+        bottomPadding: bottomPadding);
     _pageSpans.addAll(distributedPages);
 
     // Get subchapter page mapping and send it back via callback
@@ -266,7 +273,7 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
   void _finalizePages() {
-    final bottomNavHeight = widget.showNavBar ? 10.0 : 0.0;
+    final bottomNavHeight = widget.showNavBar ? 10.h : 0.0;
 
     if (_pageSpans.length > 1) {
       while (_pageSpans.isNotEmpty && !_spanHasRealContent(_pageSpans.first)) {
@@ -298,8 +305,13 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (pages.isNotEmpty) {
-        final startIndex = widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0;
-        widget.onPageFlip(startIndex, pages.length);
+        final startIndex = widget.starterPageIndex < pages.length
+            ? widget.starterPageIndex
+            : 0;
+        int charCount = (startIndex < _pageSpans.length)
+            ? _pageSpans[startIndex].toPlainText().length
+            : 0;
+        widget.onPageFlip(startIndex, pages.length, charCount);
       }
     });
   }
@@ -354,7 +366,10 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
   Widget _buildEmptyState() {
-    final isTitlePage = widget.textContent.trim().length < 200 && widget.textContent.toLowerCase().contains(widget.chapterTitle.toLowerCase());
+    final isTitlePage = widget.textContent.trim().length < 200 &&
+        widget.textContent
+            .toLowerCase()
+            .contains(widget.chapterTitle.toLowerCase());
 
     return Center(
       child: Padding(
@@ -379,7 +394,9 @@ class _PagingWidgetState extends State<PagingWidget> {
             ),
             SizedBox(height: 8.h),
             Text(
-              isTitlePage ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.' : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
+              isTitlePage
+                  ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.'
+                  : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
               style: TextStyle(
                 fontSize: 14.sp,
                 color: (widget.style.color ?? Colors.black).withOpacity(0.6),
@@ -411,16 +428,25 @@ class _PagingWidgetState extends State<PagingWidget> {
                 key: _pageKey,
                 child: PageFlipWidget(
                   key: _pageController,
-                  initialIndex: widget.starterPageIndex != 0 ? (pages.isNotEmpty && widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0) : widget.starterPageIndex,
+                  initialIndex: widget.starterPageIndex != 0
+                      ? (pages.isNotEmpty &&
+                              widget.starterPageIndex < pages.length
+                          ? widget.starterPageIndex
+                          : 0)
+                      : widget.starterPageIndex,
                   onPageFlip: (pageIndex) {
                     _currentPageIndex = pageIndex;
                     _handler.currentPage.value = pageIndex + 1;
-                    widget.onPageFlip(pageIndex, pages.length);
+                    int charCount = (pageIndex < _pageSpans.length)
+                        ? _pageSpans[pageIndex].toPlainText().length
+                        : 0;
+                    widget.onPageFlip(pageIndex, pages.length, charCount);
                   },
                   onLastPageSwipe: () {
                     widget.onLastPage(_currentPageIndex, pages.length);
                   },
-                  backgroundColor: widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
+                  backgroundColor:
+                      widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
                   lastPage: widget.lastWidget,
                   children: pages,
                 ),

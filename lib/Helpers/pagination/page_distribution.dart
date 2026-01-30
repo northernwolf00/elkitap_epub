@@ -15,12 +15,14 @@ class PageDistributor {
   });
 
   /// Distributes spans across multiple pages based on character limits
-  List<TextSpan> distributeContent(List<InlineSpan> allSpans, Size pageSize) {
+  List<TextSpan> distributeContent(List<InlineSpan> allSpans, Size pageSize,
+      {double bottomPadding = 0}) {
     subchapterPageMap.clear(); // Clear previous mapping
 
     List<InlineSpan> flatSpans = _flattenSpans(allSpans);
 
-    final metrics = _calculateMetrics(flatSpans, pageSize);
+    final metrics =
+        _calculateMetrics(flatSpans, pageSize, bottomPadding: bottomPadding);
 
     // If content fits in single page - BALANCED
     if (metrics.pageRatio <= 1.0 && metrics.totalChars <= 1600) {
@@ -37,7 +39,9 @@ class PageDistributor {
 
     void flatten(InlineSpan span, {TextStyle? inheritedStyle}) {
       if (span is TextSpan) {
-        final effectiveStyle = inheritedStyle != null ? inheritedStyle.merge(span.style) : span.style;
+        final effectiveStyle = inheritedStyle != null
+            ? inheritedStyle.merge(span.style)
+            : span.style;
 
         if (span.children != null && span.children!.isNotEmpty) {
           for (var child in span.children!) {
@@ -62,7 +66,8 @@ class PageDistributor {
     return flatSpans;
   }
 
-  _PageMetrics _calculateMetrics(List<InlineSpan> flatSpans, Size pageSize) {
+  _PageMetrics _calculateMetrics(List<InlineSpan> flatSpans, Size pageSize,
+      {double bottomPadding = 0}) {
     double horizontalPadding = 10.w;
     if (pageSize.width >= 600) {
       horizontalPadding = 20.w;
@@ -73,7 +78,8 @@ class PageDistributor {
     double containerPadding = isFrontMatter ? 10.h : 16.h;
     double chapterHeaderSpace = isFrontMatter ? 6.h : 12.h;
     double bottomSafeArea = isFrontMatter ? 6.h : 10.h;
-    double reservedSpace = containerPadding + chapterHeaderSpace + bottomSafeArea;
+    double reservedSpace =
+        containerPadding + chapterHeaderSpace + bottomSafeArea + bottomPadding;
     double maxHeight = pageSize.height - reservedSpace;
 
     double totalContentHeight = 0;
@@ -117,18 +123,22 @@ class PageDistributor {
     const double referenceArea = 350.0 * 600.0;
 
     final double currentArea = maxWidth * maxHeight;
-    double screenCapacityFactor = (currentArea / referenceArea).clamp(0.8, 1.15);
+    double screenCapacityFactor =
+        (currentArea / referenceArea).clamp(0.8, 1.15);
 
     final currentFontSize = contentStyle.fontSize ?? baseFontSize;
     final fontScaleFactor = baseFontSize / currentFontSize;
 
-    int minCharsPerPage = (baseMinChars * fontScaleFactor * screenCapacityFactor).round();
-    int maxCharsPerPage = (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
+    int minCharsPerPage =
+        (baseMinChars * fontScaleFactor * screenCapacityFactor).round();
+    int maxCharsPerPage =
+        (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
 
     // Dengeli limitler
-    if (maxCharsPerPage > 1600) maxCharsPerPage = 1600; // Orijinal: 1050, Agresif: 1800
-    if (maxCharsPerPage < 700) maxCharsPerPage = 700; // Orijinal: 500, Agresif: 800
-    if (minCharsPerPage > maxCharsPerPage) minCharsPerPage = maxCharsPerPage - 80;
+    if (maxCharsPerPage > 1400) maxCharsPerPage = 1400; // Refined from 1600
+    if (maxCharsPerPage < 600) maxCharsPerPage = 600; // Refined from 700
+    if (minCharsPerPage > maxCharsPerPage)
+      minCharsPerPage = maxCharsPerPage - 80;
 
     return _PageMetrics(
       maxWidth: maxWidth,
@@ -140,7 +150,8 @@ class PageDistributor {
     );
   }
 
-  List<TextSpan> _distributeToPages(List<InlineSpan> flatSpans, _PageMetrics metrics) {
+  List<TextSpan> _distributeToPages(
+      List<InlineSpan> flatSpans, _PageMetrics metrics) {
     List<int> spanCharCounts = flatSpans.map((span) {
       if (span is TextSpan && span.text != null) {
         return span.text!.length;
@@ -166,7 +177,9 @@ class PageDistributor {
 
       // SUBCHAPTER kontrolü - semanticsLabel ile işaretli başlıklar
       bool isSubchapterHeading = false;
-      if (span is TextSpan && span.semanticsLabel != null && span.semanticsLabel!.startsWith('SUBCHAPTER:')) {
+      if (span is TextSpan &&
+          span.semanticsLabel != null &&
+          span.semanticsLabel!.startsWith('SUBCHAPTER:')) {
         isSubchapterHeading = true;
       }
 
@@ -179,7 +192,9 @@ class PageDistributor {
         currentPageChars = 0;
       }
       // Normal başlıklar (h1/h2/h3) için - sadece sayfa yeterince doluysa yeni sayfa aç
-      else if (_isHeadingSpan(span) && currentPageList.isNotEmpty && currentPageChars > metrics.minCharsPerPage * 0.55) {
+      else if (_isHeadingSpan(span) &&
+          currentPageList.isNotEmpty &&
+          currentPageChars > metrics.minCharsPerPage * 0.55) {
         _detectSubchaptersInSpans(currentPageList, allPages.length);
         allPages.add(List.from(currentPageList));
         currentPageList.clear();
@@ -192,13 +207,17 @@ class PageDistributor {
         int remainingAfterThis = getRemainingChars(i + 1);
 
         // BALANCED: Orphan prevention - kısa metinleri taşıma
-        if (!_isHeadingSpan(span) && remainingAfterThis > 0 && remainingAfterThis < 150) {
+        if (!_isHeadingSpan(span) &&
+            remainingAfterThis > 0 &&
+            remainingAfterThis < 150) {
           currentPageList.add(span);
           currentPageChars += spanChars;
           continue;
         }
 
-        if (currentPageList.isNotEmpty && currentPageChars >= metrics.minCharsPerPage) {
+        if (currentPageList.isNotEmpty &&
+            (currentPageChars >= metrics.minCharsPerPage ||
+                currentPageChars + spanChars > metrics.maxCharsPerPage * 1.1)) {
           _detectSubchaptersInSpans(currentPageList, allPages.length);
           allPages.add(List.from(currentPageList));
           currentPageList.clear();
@@ -223,7 +242,8 @@ class PageDistributor {
           currentPageList = [];
           currentPageChars = 0;
         } else {
-          _handleLargeWidgetSpan(span, spanChars, currentPageList, currentPageChars, allPages);
+          _handleLargeWidgetSpan(
+              span, spanChars, currentPageList, currentPageChars, allPages);
           currentPageList = [];
           currentPageChars = 0;
         }
@@ -252,7 +272,16 @@ class PageDistributor {
     // OVERFLOW KONTROLÜ: Taşan sayfaları otomatik düzelt
     allPages = _fixOverflowingPages(allPages, metrics);
 
-    return allPages.map((pageSpans) => TextSpan(children: pageSpans)).toList();
+    // Log character lengths for each page
+    List<TextSpan> resultPages =
+        allPages.map((pageSpans) => TextSpan(children: pageSpans)).toList();
+    print('📝 [PAGE LOG] Chapter character lengths:');
+    for (int i = 0; i < resultPages.length; i++) {
+      int charLength = resultPages[i].toPlainText().length;
+      print('   📄 Page ${i + 1}: $charLength characters');
+    }
+
+    return resultPages;
   }
 
   bool _isHeadingSpan(InlineSpan span) {
@@ -265,9 +294,14 @@ class PageDistributor {
         final text = span.text ?? '';
         final trimmedText = text.trim();
 
-        final isBoldWeight = fontWeight == FontWeight.w500 || fontWeight == FontWeight.w600 || fontWeight == FontWeight.w700 || fontWeight == FontWeight.bold;
+        final isBoldWeight = fontWeight == FontWeight.w500 ||
+            fontWeight == FontWeight.w600 ||
+            fontWeight == FontWeight.w700 ||
+            fontWeight == FontWeight.bold;
 
-        return fontSize >= baseFontSize + 3 && isBoldWeight && trimmedText.isNotEmpty;
+        return fontSize >= baseFontSize + 3 &&
+            isBoldWeight &&
+            trimmedText.isNotEmpty;
       }
     }
     return false;
@@ -347,78 +381,75 @@ class PageDistributor {
   /// Detect subchapters in a list of spans and record their page number
   void _detectSubchaptersInSpans(List<InlineSpan> spans, int pageIndex) {
     for (var span in spans) {
-      if (span is TextSpan && span.semanticsLabel != null && span.semanticsLabel!.startsWith('SUBCHAPTER:')) {
-        final subchapterTitle = span.semanticsLabel!.substring('SUBCHAPTER:'.length);
+      if (span is TextSpan &&
+          span.semanticsLabel != null &&
+          span.semanticsLabel!.startsWith('SUBCHAPTER:')) {
+        final subchapterTitle =
+            span.semanticsLabel!.substring('SUBCHAPTER:'.length);
         if (!subchapterPageMap.containsKey(subchapterTitle)) {
           subchapterPageMap[subchapterTitle] = pageIndex;
-          print('📍 Subchapter detected: "$subchapterTitle" at page ${pageIndex + 1}');
+          print(
+              '📍 Subchapter detected: "$subchapterTitle" at page ${pageIndex + 1}');
         }
       }
     }
   }
 
-  /// Taşan sayfaları tespit edip düzelt - son satırı sonraki sayfaya taşı
-  List<List<InlineSpan>> _fixOverflowingPages(List<List<InlineSpan>> pages, _PageMetrics metrics) {
+  /// Taşan sayfaları tespit edip düzelt - taşan içeriği sonraki sayfaya aktar
+  List<List<InlineSpan>> _fixOverflowingPages(
+      List<List<InlineSpan>> pages, _PageMetrics metrics) {
     List<List<InlineSpan>> fixedPages = [];
 
     for (int pageIdx = 0; pageIdx < pages.length; pageIdx++) {
       List<InlineSpan> currentPage = List.from(pages[pageIdx]);
 
-      // Sayfanın gerçek yüksekliğini ölç
+      // Measure actual height
       double actualHeight = _measurePageHeight(currentPage, metrics.maxWidth);
 
-      // Eğer sayfa maxHeight'tan %97'den fazla doluysa, taşma riski var
-      double fillRatio = actualHeight / metrics.maxHeight;
+      // If page overflows height, move spans one by one to the next page
+      // BUT keep at least one span to avoid infinite loops
+      while (actualHeight > metrics.maxHeight && currentPage.length > 1) {
+        final lastSpan = currentPage.removeLast();
 
-      if (fillRatio > 0.97 && currentPage.isNotEmpty) {
-        // Son birkaç span'i bul ve sonraki sayfaya taşı
-        List<InlineSpan> itemsToMove = [];
-        int removeCount = 0;
-
-        // Son text span'lerden 1-3 tanesini bul (yaklaşık 1 satır)
-        for (int i = currentPage.length - 1; i >= 0 && removeCount < 3; i--) {
-          if (currentPage[i] is TextSpan) {
-            final textSpan = currentPage[i] as TextSpan;
-            if (textSpan.text != null && textSpan.text!.trim().isNotEmpty) {
-              itemsToMove.insert(0, currentPage[i]);
-              removeCount++;
-
-              // Yaklaşık 1 satır kadar metin taşındıysa dur
-              int totalChars = itemsToMove.fold(0, (sum, span) {
-                if (span is TextSpan && span.text != null) return sum + span.text!.length;
-                return sum;
-              });
-
-              if (totalChars > 80) break; // ~1 satır
-            }
-          }
+        // Calculate characters in moved span
+        int movedChars = 0;
+        if (lastSpan is TextSpan && lastSpan.text != null) {
+          movedChars = lastSpan.text!.length;
         }
 
-        // Taşınacak item'ları kaldır
-        for (var item in itemsToMove) {
-          currentPage.remove(item);
-        }
-
-        // Düzeltilmiş sayfayı ekle
-        fixedPages.add(currentPage);
-
-        // Sonraki sayfaya taşınan item'ları ekle
-        if (itemsToMove.isNotEmpty) {
-          if (pageIdx + 1 < pages.length) {
-            // Sonraki sayfa varsa, başına ekle
-            pages[pageIdx + 1].insertAll(0, itemsToMove);
+        if (pageIdx + 1 < pages.length) {
+          // Check if next page would become too huge
+          int nextPageChars = _calculateTotalChars(pages[pageIdx + 1]);
+          if (nextPageChars + movedChars > metrics.maxCharsPerPage * 1.5) {
+            // If next page is already full, insert a new page instead
+            pages.insert(pageIdx + 1, [lastSpan]);
           } else {
-            // Sonraki sayfa yoksa, yeni sayfa oluştur
-            fixedPages.add(itemsToMove);
+            // Otherwise, push to the beginning of next page
+            pages[pageIdx + 1].insert(0, lastSpan);
           }
+        } else {
+          // If no next page, create one
+          pages.add([lastSpan]);
         }
-      } else {
-        // Sayfa normal, olduğu gibi ekle
-        fixedPages.add(currentPage);
+
+        // Re-measure
+        actualHeight = _measurePageHeight(currentPage, metrics.maxWidth);
       }
+
+      fixedPages.add(currentPage);
     }
 
     return fixedPages;
+  }
+
+  int _calculateTotalChars(List<InlineSpan> spans) {
+    int total = 0;
+    for (var span in spans) {
+      if (span is TextSpan && span.text != null) {
+        total += span.text!.length;
+      }
+    }
+    return total;
   }
 
   /// Bir sayfanın gerçek yüksekliğini ölç
