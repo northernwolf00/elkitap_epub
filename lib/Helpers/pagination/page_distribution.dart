@@ -25,7 +25,7 @@ class PageDistributor {
         _calculateMetrics(flatSpans, pageSize, bottomPadding: bottomPadding);
 
     // If content fits in single page - BALANCED
-    if (metrics.pageRatio <= 1.0 && metrics.totalChars <= 1600) {
+    if (metrics.pageRatio <= 1.0 && metrics.weightedTotalChars <= 1400) {
       // Check for subchapters even in single page
       _detectSubchaptersInSpans(flatSpans, 0);
       return [TextSpan(children: List.from(flatSpans))];
@@ -83,11 +83,25 @@ class PageDistributor {
     double maxHeight = pageSize.height - reservedSpace;
 
     double totalContentHeight = 0;
+    double weightedTotalChars = 0;
     int totalChars = 0;
 
     for (var span in flatSpans) {
       if (span is TextSpan && span.text != null) {
-        totalChars += span.text!.length;
+        double penalty = 1.0;
+        final label = span.semanticsLabel;
+        if (label != null) {
+          if (label.contains('ATTR:PENALTY=')) {
+            final parts = label.split('ATTR:PENALTY=');
+            penalty = double.tryParse(parts[1].split('|').first) ?? 1.0;
+          }
+          if (label.contains('ATTR:TYPE=IMAGE')) {
+            weightedTotalChars += 450; // Virtual cost for image
+          }
+        }
+        final len = span.text!.length;
+        totalChars += len;
+        weightedTotalChars += len * penalty;
       }
       if (span is WidgetSpan) {
         try {
@@ -119,7 +133,7 @@ class PageDistributor {
     // Calculate character limits - BALANCED: İyi doluluk ama güvenli
     const double baseFontSize = 13.0;
     const int baseMinChars = 1100; // Orijinal: 800, Agresif: 1200
-    const int baseMaxChars = 1400; // Orijinal: 1000, Agresif: 1600
+    const int baseMaxChars = 1300; // Orijinal: 1000, Agresif: 1600
     const double referenceArea = 350.0 * 600.0;
 
     final double currentArea = maxWidth * maxHeight;
@@ -135,7 +149,7 @@ class PageDistributor {
         (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
 
     // Dengeli limitler
-    if (maxCharsPerPage > 1400) maxCharsPerPage = 1400; // Refined from 1600
+    if (maxCharsPerPage > 1300) maxCharsPerPage = 1300; // Refined from 1600
     if (maxCharsPerPage < 600) maxCharsPerPage = 600; // Refined from 700
     if (minCharsPerPage > maxCharsPerPage)
       minCharsPerPage = maxCharsPerPage - 80;
@@ -144,6 +158,7 @@ class PageDistributor {
       maxWidth: maxWidth,
       maxHeight: maxHeight,
       totalChars: totalChars,
+      weightedTotalChars: weightedTotalChars,
       pageRatio: pageRatio,
       minCharsPerPage: minCharsPerPage,
       maxCharsPerPage: maxCharsPerPage,
@@ -152,28 +167,52 @@ class PageDistributor {
 
   List<TextSpan> _distributeToPages(
       List<InlineSpan> flatSpans, _PageMetrics metrics) {
-    List<int> spanCharCounts = flatSpans.map((span) {
-      if (span is TextSpan && span.text != null) {
-        return span.text!.length;
-      }
-      return 0;
-    }).toList();
-
     List<List<InlineSpan>> allPages = [];
     List<InlineSpan> currentPageList = [];
-    int currentPageChars = 0;
+    double currentPageWeightedChars = 0;
 
-    int getRemainingChars(int fromIndex) {
-      int remaining = 0;
+    double getRemainingWeightedChars(int fromIndex) {
+      double remaining = 0;
       for (int j = fromIndex; j < flatSpans.length; j++) {
-        remaining += spanCharCounts[j];
+        final span = flatSpans[j];
+        double penalty = 1.0;
+        double virtualCost = 0;
+        if (span is TextSpan) {
+          final label = span.semanticsLabel;
+          if (label != null) {
+            if (label.contains('ATTR:PENALTY=')) {
+              final parts = label.split('ATTR:PENALTY=');
+              penalty = double.tryParse(parts[1].split('|').first) ?? 1.0;
+            }
+            if (label.contains('ATTR:TYPE=IMAGE')) {
+              virtualCost = 450;
+            }
+          }
+          remaining += (span.text?.length ?? 0) * penalty + virtualCost;
+        }
       }
       return remaining;
     }
 
     for (int i = 0; i < flatSpans.length; i++) {
       final span = flatSpans[i];
-      final spanChars = spanCharCounts[i];
+      double penalty = 1.0;
+      double virtualCost = 0;
+      if (span is TextSpan) {
+        final label = span.semanticsLabel;
+        if (label != null) {
+          if (label.contains('ATTR:PENALTY=')) {
+            final parts = label.split('ATTR:PENALTY=');
+            penalty = double.tryParse(parts[1].split('|').first) ?? 1.0;
+          }
+          if (label.contains('ATTR:TYPE=IMAGE')) {
+            virtualCost = 450;
+          }
+        }
+      }
+      final spanChars =
+          (span is TextSpan && span.text != null) ? span.text!.length : 0;
+      final weightedSpanChars = spanChars * penalty + virtualCost;
 
       // SUBCHAPTER kontrolü - semanticsLabel ile işaretli başlıklar
       bool isSubchapterHeading = false;
@@ -189,44 +228,46 @@ class PageDistributor {
         _detectSubchaptersInSpans(currentPageList, allPages.length);
         allPages.add(List.from(currentPageList));
         currentPageList.clear();
-        currentPageChars = 0;
+        currentPageWeightedChars = 0;
       }
       // Normal başlıklar (h1/h2/h3) için - sadece sayfa yeterince doluysa yeni sayfa aç
       else if (_isHeadingSpan(span) &&
           currentPageList.isNotEmpty &&
-          currentPageChars > metrics.minCharsPerPage * 0.55) {
+          currentPageWeightedChars > metrics.minCharsPerPage * 0.55) {
         _detectSubchaptersInSpans(currentPageList, allPages.length);
         allPages.add(List.from(currentPageList));
         currentPageList.clear();
-        currentPageChars = 0;
+        currentPageWeightedChars = 0;
       }
 
-      if (currentPageChars + spanChars > metrics.maxCharsPerPage) {
+      if (currentPageWeightedChars + weightedSpanChars >
+          metrics.maxCharsPerPage) {
         // Orphan prevention - AMA başlıklar için UYGULAMA
         // Başlık ise ve sayfa doluysa, yeni sayfaya taşıma
-        int remainingAfterThis = getRemainingChars(i + 1);
+        double remainingAfterThis = getRemainingWeightedChars(i + 1);
 
         // BALANCED: Orphan prevention - kısa metinleri taşıma
         if (!_isHeadingSpan(span) &&
             remainingAfterThis > 0 &&
             remainingAfterThis < 150) {
           currentPageList.add(span);
-          currentPageChars += spanChars;
+          currentPageWeightedChars += weightedSpanChars;
           continue;
         }
 
         if (currentPageList.isNotEmpty &&
-            (currentPageChars >= metrics.minCharsPerPage ||
-                currentPageChars + spanChars > metrics.maxCharsPerPage * 1.1)) {
+            (currentPageWeightedChars >= metrics.minCharsPerPage ||
+                currentPageWeightedChars + weightedSpanChars >
+                    metrics.maxCharsPerPage * 1.1)) {
           _detectSubchaptersInSpans(currentPageList, allPages.length);
           allPages.add(List.from(currentPageList));
           currentPageList.clear();
-          currentPageChars = 0;
+          currentPageWeightedChars = 0;
         }
 
-        if (spanChars <= metrics.maxCharsPerPage) {
+        if (weightedSpanChars <= metrics.maxCharsPerPage) {
           currentPageList.add(span);
-          currentPageChars += spanChars;
+          currentPageWeightedChars += weightedSpanChars;
           continue;
         }
 
@@ -235,21 +276,21 @@ class PageDistributor {
           _splitLargeTextSpan(
             span,
             currentPageList,
-            currentPageChars,
+            currentPageWeightedChars.round(),
             metrics,
             allPages,
           );
           currentPageList = [];
-          currentPageChars = 0;
+          currentPageWeightedChars = 0;
         } else {
-          _handleLargeWidgetSpan(
-              span, spanChars, currentPageList, currentPageChars, allPages);
+          _handleLargeWidgetSpan(span, spanChars, currentPageList,
+              currentPageWeightedChars.round(), allPages);
           currentPageList = [];
-          currentPageChars = 0;
+          currentPageWeightedChars = 0;
         }
       } else {
         currentPageList.add(span);
-        currentPageChars += spanChars;
+        currentPageWeightedChars += weightedSpanChars;
       }
     }
 
@@ -477,6 +518,7 @@ class _PageMetrics {
   final double maxWidth;
   final double maxHeight;
   final int totalChars;
+  final double weightedTotalChars;
   final double pageRatio;
   final int minCharsPerPage;
   final int maxCharsPerPage;
@@ -485,6 +527,7 @@ class _PageMetrics {
     required this.maxWidth,
     required this.maxHeight,
     required this.totalChars,
+    required this.weightedTotalChars,
     required this.pageRatio,
     required this.minCharsPerPage,
     required this.maxCharsPerPage,

@@ -39,7 +39,12 @@ class PagingWidget extends StatefulWidget {
     this.linesPerPage = 30,
     this.epubBook,
     this.subchapterTitles = const [],
+    this.precalculatedSpans,
+    this.precalculatedSubchapterMap,
   });
+
+  final List<TextSpan>? precalculatedSpans;
+  final Map<String, int>? precalculatedSubchapterMap;
 
   final String bookId;
   final String chapterTitle;
@@ -86,15 +91,18 @@ class _PagingWidgetState extends State<PagingWidget> {
     if (span is WidgetSpan) return true;
 
     if (span is TextSpan) {
-      final text = span.text ?? '';
-      if (text.replaceAll(RegExp(r'\s+'), '').isNotEmpty) {
-        return true;
+      final text = span.toPlainText();
+      final cleanText = text.replaceAll(RegExp(r'\s+'), '');
+
+      if (cleanText.isEmpty) return false;
+
+      // If only 1 or 2 characters, ensure they are at least alphanumeric
+      // (Avoids pages with just a trailing dot or quote)
+      if (cleanText.length <= 2) {
+        return cleanText.contains(RegExp(r'[a-zA-Z0-9\u0400-\u04FF]'));
       }
-      if (span.children != null && span.children!.isNotEmpty) {
-        for (final child in span.children!) {
-          if (_spanHasRealContent(child)) return true;
-        }
-      }
+
+      return true;
     }
 
     return false;
@@ -181,6 +189,30 @@ class _PagingWidgetState extends State<PagingWidget> {
       throw Exception('No content available to display. Content is empty.');
     }
     contentToParse = contentToParse.trim();
+
+    // 🚀 FAST PATH: Use precalculated spans if available
+    if (widget.precalculatedSpans != null &&
+        widget.precalculatedSpans!.isNotEmpty) {
+      print('🚀 [PAGING] Using PRECALCULATED spans - bypassing heavy parsing!');
+      _pageSpans.clear();
+      _pageSpans.addAll(widget.precalculatedSpans!);
+
+      // Also restore subchapter map if available
+      if (widget.precalculatedSubchapterMap != null) {
+        _subchapterPageMap = Map.from(widget.precalculatedSubchapterMap!);
+        if (widget.onPaginationComplete != null) {
+          widget.onPaginationComplete!(_subchapterPageMap);
+        }
+      }
+
+      // Initialize style required for _finalizePages
+      _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(
+          widget.textContent, widget.chapterTitle);
+      _contentStyle = _resolveContentStyle();
+
+      _finalizePages();
+      return;
+    }
 
     // Cleaning steps before isolate
     contentToParse =
@@ -275,11 +307,8 @@ class _PagingWidgetState extends State<PagingWidget> {
   void _finalizePages() {
     final bottomNavHeight = widget.showNavBar ? 10.h : 0.0;
 
-    if (_pageSpans.length > 1) {
-      while (_pageSpans.isNotEmpty && !_spanHasRealContent(_pageSpans.first)) {
-        _pageSpans.removeAt(0);
-      }
-    }
+    // Filter out all pages with no real content (whitespace, empty, etc.)
+    _pageSpans.removeWhere((span) => !_spanHasRealContent(span));
 
     pages = _pageSpans.asMap().entries.map((entry) {
       int index = entry.key;
