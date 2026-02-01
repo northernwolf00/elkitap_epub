@@ -25,7 +25,7 @@ class PageDistributor {
         _calculateMetrics(flatSpans, pageSize, bottomPadding: bottomPadding);
 
     // If content fits in single page - BALANCED
-    if (metrics.pageRatio <= 1.0 && metrics.weightedTotalChars <= 1400) {
+    if (metrics.pageRatio <= 1.0 && metrics.weightedTotalChars <= 1100) {
       // Check for subchapters even in single page
       _detectSubchaptersInSpans(flatSpans, 0);
       return [TextSpan(children: List.from(flatSpans))];
@@ -132,8 +132,8 @@ class PageDistributor {
 
     // Calculate character limits - BALANCED: İyi doluluk ama güvenli
     const double baseFontSize = 13.0;
-    const int baseMinChars = 1100; // Orijinal: 800, Agresif: 1200
-    const int baseMaxChars = 1300; // Orijinal: 1000, Agresif: 1600
+    const int baseMinChars = 900; // Aiming for ~900-1000
+    const int baseMaxChars = 1000; // Strict limit to prevent overflow
     const double referenceArea = 350.0 * 600.0;
 
     final double currentArea = maxWidth * maxHeight;
@@ -149,7 +149,8 @@ class PageDistributor {
         (baseMaxChars * fontScaleFactor * screenCapacityFactor).round();
 
     // Dengeli limitler
-    if (maxCharsPerPage > 1300) maxCharsPerPage = 1300; // Refined from 1600
+    if (maxCharsPerPage > 1050)
+      maxCharsPerPage = 1050; // Hard clamp to prevent 1600+ content
     if (maxCharsPerPage < 600) maxCharsPerPage = 600; // Refined from 700
     if (minCharsPerPage > maxCharsPerPage)
       minCharsPerPage = maxCharsPerPage - 80;
@@ -258,7 +259,7 @@ class PageDistributor {
         if (currentPageList.isNotEmpty &&
             (currentPageWeightedChars >= metrics.minCharsPerPage ||
                 currentPageWeightedChars + weightedSpanChars >
-                    metrics.maxCharsPerPage * 1.1)) {
+                    metrics.maxCharsPerPage * 1.01)) {
           _detectSubchaptersInSpans(currentPageList, allPages.length);
           allPages.add(List.from(currentPageList));
           currentPageList.clear();
@@ -461,7 +462,7 @@ class PageDistributor {
         if (pageIdx + 1 < pages.length) {
           // Check if next page would become too huge
           int nextPageChars = _calculateTotalChars(pages[pageIdx + 1]);
-          if (nextPageChars + movedChars > metrics.maxCharsPerPage * 1.5) {
+          if (nextPageChars + movedChars > metrics.maxCharsPerPage * 1.15) {
             // If next page is already full, insert a new page instead
             pages.insert(pageIdx + 1, [lastSpan]);
           } else {
