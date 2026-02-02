@@ -24,7 +24,12 @@
 			<key>isShown</key>
 			<false/>
 		</dict>
-		<key>isar_flutter_libs.xcscheme</key>
+		<key>isar_community_flutter_libs-isar_community_flutter_libs_apple_privacy.xcscheme</key>
+		<dict>
+			<key>isShown</key>
+			<false/>
+		</dict>
+		<key>isar_community_flutter_libs.xcscheme</key>
 		<dict>
 			<key>isShown</key>
 			<false/>

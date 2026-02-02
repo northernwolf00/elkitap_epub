@@ -16,52 +16,6 @@ import 'package:html/dom.dart' as dom;
 
 export 'package:cosmos_epub/helpers/pagination/paging_text_handler.dart';
 
-import 'package:cosmos_epub/helpers/hyphenator_helper.dart';
-
-/// Top-level function to run in an isolate
-/// Parses HTML, applies hyphenation to text nodes, and returns the modified HTML string
-Future<String> processHtmlInIsolate(String content) async {
-  try {
-    // Initialize hyphenator (synchronously in this isolate)
-    HyphenatorHelper.instance.initialize();
-
-    // Parse HTML fragment
-    final document = html_parser.parseFragment(content);
-
-    // Recursively hyphenate all text nodes
-    _hyphenateNodesRecursively(document);
-
-    // Return the modified HTML
-    return document.outerHtml;
-  } catch (e) {
-    print('⚠️ Error in isolate: $e');
-    return content; // Return original if something fails
-  }
-}
-
-void _hyphenateNodesRecursively(dom.Node node) {
-  if (node is dom.Text) {
-    final text = node.text;
-    if (text.trim().isNotEmpty) {
-      // Hyphenate the text content using the initialized helper
-      // The helper will use the language detection logic internally
-      node.text = HyphenatorHelper.instance.hyphenate(text);
-    }
-  } else if (node is dom.Element) {
-    // Skip non-visible tags
-    if (node.localName == 'script' ||
-        node.localName == 'style' ||
-        node.localName == 'head' ||
-        node.localName == 'meta') {
-      return;
-    }
-
-    for (var child in node.nodes) {
-      _hyphenateNodesRecursively(child);
-    }
-  }
-}
-
 class PagingWidget extends StatefulWidget {
   const PagingWidget(
     this.textContent,
@@ -85,7 +39,12 @@ class PagingWidget extends StatefulWidget {
     this.linesPerPage = 30,
     this.epubBook,
     this.subchapterTitles = const [],
+    this.precalculatedSpans,
+    this.precalculatedSubchapterMap,
   });
+
+  final List<TextSpan>? precalculatedSpans;
+  final Map<String, int>? precalculatedSubchapterMap;
 
   final String bookId;
   final String chapterTitle;
@@ -95,7 +54,7 @@ class PagingWidget extends StatefulWidget {
   final Widget? lastWidget;
   final int linesPerPage;
   final Function(int, int) onLastPage;
-  final Function(int, int) onPageFlip;
+  final Function(int, int, int) onPageFlip; // pageIndex, totalPages, charCount
   final Function(Map<String, int>)?
       onPaginationComplete; // Callback for subchapter page mapping
   final VoidCallback onTextTap;
@@ -132,15 +91,18 @@ class _PagingWidgetState extends State<PagingWidget> {
     if (span is WidgetSpan) return true;
 
     if (span is TextSpan) {
-      final text = span.text ?? '';
-      if (text.replaceAll(RegExp(r'\s+'), '').isNotEmpty) {
-        return true;
+      final text = span.toPlainText();
+      final cleanText = text.replaceAll(RegExp(r'\s+'), '');
+
+      if (cleanText.isEmpty) return false;
+
+      // If only 1 or 2 characters, ensure they are at least alphanumeric
+      // (Avoids pages with just a trailing dot or quote)
+      if (cleanText.length <= 2) {
+        return cleanText.contains(RegExp(r'[a-zA-Z0-9\u0400-\u04FF]'));
       }
-      if (span.children != null && span.children!.isNotEmpty) {
-        for (final child in span.children!) {
-          if (_spanHasRealContent(child)) return true;
-        }
-      }
+
+      return true;
     }
 
     return false;
@@ -228,6 +190,30 @@ class _PagingWidgetState extends State<PagingWidget> {
     }
     contentToParse = contentToParse.trim();
 
+    // 🚀 FAST PATH: Use precalculated spans if available
+    if (widget.precalculatedSpans != null &&
+        widget.precalculatedSpans!.isNotEmpty) {
+      print('🚀 [PAGING] Using PRECALCULATED spans - bypassing heavy parsing!');
+      _pageSpans.clear();
+      _pageSpans.addAll(widget.precalculatedSpans!);
+
+      // Also restore subchapter map if available
+      if (widget.precalculatedSubchapterMap != null) {
+        _subchapterPageMap = Map.from(widget.precalculatedSubchapterMap!);
+        if (widget.onPaginationComplete != null) {
+          widget.onPaginationComplete!(_subchapterPageMap);
+        }
+      }
+
+      // Initialize style required for _finalizePages
+      _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(
+          widget.textContent, widget.chapterTitle);
+      _contentStyle = _resolveContentStyle();
+
+      _finalizePages();
+      return;
+    }
+
     // Cleaning steps before isolate
     contentToParse =
         contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
@@ -236,13 +222,6 @@ class _PagingWidgetState extends State<PagingWidget> {
         .firstMatch(contentToParse);
     if (bodyMatch != null) {
       contentToParse = bodyMatch.group(1) ?? contentToParse;
-    }
-
-    // Run hyphenation in isolate
-    try {
-      contentToParse = await compute(processHtmlInIsolate, contentToParse);
-    } catch (e) {
-      print('⚠️ Isolate processing failed, falling back to main thread: $e');
     }
 
     final pageSize = _initializedRenderBox.size;
@@ -306,8 +285,10 @@ class _PagingWidgetState extends State<PagingWidget> {
       return;
     }
 
-    final distributedPages =
-        _pageDistributor.distributeContent(spans, pageSize);
+    // Reserve space for bottom navigation and page indicator
+    final bottomPadding = widget.showNavBar ? 100.h : 40.h;
+    final distributedPages = _pageDistributor.distributeContent(spans, pageSize,
+        bottomPadding: bottomPadding);
     _pageSpans.addAll(distributedPages);
 
     // Get subchapter page mapping and send it back via callback
@@ -324,13 +305,10 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
   void _finalizePages() {
-    final bottomNavHeight = widget.showNavBar ? 10.0 : 0.0;
+    final bottomNavHeight = widget.showNavBar ? 10.h : 0.0;
 
-    if (_pageSpans.length > 1) {
-      while (_pageSpans.isNotEmpty && !_spanHasRealContent(_pageSpans.first)) {
-        _pageSpans.removeAt(0);
-      }
-    }
+    // Filter out all pages with no real content (whitespace, empty, etc.)
+    _pageSpans.removeWhere((span) => !_spanHasRealContent(span));
 
     pages = _pageSpans.asMap().entries.map((entry) {
       int index = entry.key;
@@ -359,7 +337,10 @@ class _PagingWidgetState extends State<PagingWidget> {
         final startIndex = widget.starterPageIndex < pages.length
             ? widget.starterPageIndex
             : 0;
-        widget.onPageFlip(startIndex, pages.length);
+        int charCount = (startIndex < _pageSpans.length)
+            ? _pageSpans[startIndex].toPlainText().length
+            : 0;
+        widget.onPageFlip(startIndex, pages.length, charCount);
       }
     });
   }
@@ -485,7 +466,10 @@ class _PagingWidgetState extends State<PagingWidget> {
                   onPageFlip: (pageIndex) {
                     _currentPageIndex = pageIndex;
                     _handler.currentPage.value = pageIndex + 1;
-                    widget.onPageFlip(pageIndex, pages.length);
+                    int charCount = (pageIndex < _pageSpans.length)
+                        ? _pageSpans[pageIndex].toPlainText().length
+                        : 0;
+                    widget.onPageFlip(pageIndex, pages.length, charCount);
                   },
                   onLastPageSwipe: () {
                     widget.onLastPage(_currentPageIndex, pages.length);

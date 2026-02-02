@@ -1,5 +1,4 @@
 import 'package:cosmos_epub/helpers/pagination/html_parsing_helpers.dart';
-import 'package:cosmos_epub/helpers/hyphenator_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:html/dom.dart' as dom;
@@ -25,9 +24,7 @@ class NodeParser {
   })  : _normalizedChapterTitle =
             HtmlParsingHelpers.normalizeTitle(chapterTitle),
         _normalizedSubchapterTitles =
-            subchapterTitles.map(HtmlParsingHelpers.normalizeTitle).toList() {
-    HyphenatorHelper.instance.initialize();
-  }
+            subchapterTitles.map(HtmlParsingHelpers.normalizeTitle).toList();
 
   Future<InlineSpan> parseNode(dom.Node node, double maxWidth,
       {bool isPoetry = false}) async {
@@ -43,12 +40,11 @@ class NodeParser {
     String text = node.text;
 
     text = text.replaceAll('\u00A0', ' ');
-    // NOT: \u200B (ZWSP) artık silmiyoruz - hyphenation bunu kullanıyor
+    text = text.replaceAll('\u200B', '');
     text = text.replaceAll('\u2009', ' ');
     text = text.replaceAll('\u202F', ' ');
 
     if (!isPoetry) {
-      // Collapse only regular whitespace (keep ZWSP \u200B and soft hyphen \u00AD)
       text = text.replaceAll(RegExp(r'[ \t\n\r\f\v]+'), ' ');
       text = text.replaceAllMapped(
         RegExp(r'([\.,;:!?])([A-Za-z\u0400-\u04FF])'),
@@ -62,15 +58,6 @@ class NodeParser {
 
     text = text.replaceAll(RegExp(r'[ \t\n\r\f\v]+([.,;:!?\)\]»])'), r'$1');
     text = text.replaceAll(RegExp(r'([([«])[ \t\n\r\f\v]+'), r'$1');
-
-    if (!isPoetry) {
-      final hyphenator = HyphenatorHelper.instance;
-      // Hybrid hyphen kontrolü (soft hyphen + ZWSP)
-      final hasHybridHyphen = text.contains('\u00AD\u200B');
-      if (hyphenator.isInitialized && !hasHybridHyphen) {
-        text = hyphenator.hyphenate(text);
-      }
-    }
 
     return TextSpan(
       text: text,
@@ -96,7 +83,12 @@ class NodeParser {
 
     switch (node.localName) {
       case 'img':
-        return onImageNode(node, maxWidth);
+        final imageSpan = await onImageNode(node, maxWidth);
+        return TextSpan(
+          text: '',
+          semanticsLabel: 'ATTR:TYPE=IMAGE',
+          children: [imageSpan],
+        );
       case 'br':
         return const TextSpan(text: "\n");
       case 'p':
@@ -323,7 +315,6 @@ class NodeParser {
     }
 
     String poetryText = poetryLines.join('\n');
-    final centerPoetry = HtmlParsingHelpers.shouldCenterPoetry(poetryLines);
 
     return WidgetSpan(
       alignment: PlaceholderAlignment.baseline,
@@ -334,7 +325,7 @@ class NodeParser {
             bottom: isFrontMatter ? 4.h : 6.h, top: isFrontMatter ? 2.h : 4.h),
         child: Text(
           poetryText,
-          textAlign: centerPoetry ? TextAlign.center : TextAlign.left,
+          textAlign: TextAlign.left,
           style: contentStyle.copyWith(
             color: contentStyle.color,
             fontFamily: 'SFPro',
@@ -370,13 +361,6 @@ class NodeParser {
 
   Future<InlineSpan> _parseProse(dom.Element node, double maxWidth) async {
     List<InlineSpan> children = [];
-
-    if (!isFrontMatter) {
-      children.add(TextSpan(
-        text: '\u00A0\u00A0\u00A0\u00A0\u00A0',
-        style: contentStyle,
-      ));
-    }
 
     for (var child in node.nodes) {
       final span = await parseNode(child, maxWidth, isPoetry: false);
@@ -464,8 +448,7 @@ class NodeParser {
       baseline: TextBaseline.alphabetic,
       child: Container(
         width: maxWidth,
-        alignment: Alignment.centerRight,
-        margin: EdgeInsets.only(left: maxWidth / 4),
+        alignment: Alignment.centerLeft,
         padding: EdgeInsets.symmetric(vertical: 4.h),
         child: Text(
           quoteText,
@@ -541,12 +524,12 @@ class NodeParser {
       alignment: PlaceholderAlignment.baseline,
       baseline: TextBaseline.alphabetic,
       child: Container(
-        padding: EdgeInsets.fromLTRB(maxWidth / 2.5, 4.h, 0.w, 16.h),
+        padding: EdgeInsets.only(top: 4.h, bottom: 16.h),
         child: Align(
-          alignment: Alignment.centerRight,
+          alignment: Alignment.centerLeft,
           child: Text(
             authorText,
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.left,
             style: contentStyle.copyWith(
               color: contentStyle.color,
               fontStyle: FontStyle.normal,
@@ -580,7 +563,7 @@ class NodeParser {
           ),
           child: Text(
             text,
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.left,
             style: contentStyle.copyWith(
               color: contentStyle.color,
               fontStyle: FontStyle.normal,

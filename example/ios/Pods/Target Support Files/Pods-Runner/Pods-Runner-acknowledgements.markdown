@@ -26,7 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-## isar_flutter_libs
+## isar_community_flutter_libs
 
 
                                  Apache License
