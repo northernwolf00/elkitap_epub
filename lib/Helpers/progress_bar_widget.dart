@@ -58,16 +58,13 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
     _removeOverlay();
 
     _overlayEntry = OverlayEntry(
-      builder: (context) => _buildOverlayContent(context),
+      builder: (context) => _buildOverlayContent(),
     );
 
-    final overlay = Overlay.maybeOf(context);
-    if (overlay != null) {
-      overlay.insert(_overlayEntry!);
-    }
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
-  Widget _buildOverlayContent(BuildContext context) {
+  Widget _buildOverlayContent() {
     final displayPage = _isDragging ? _targetPage : widget.currentPage;
 
     return Positioned(
@@ -78,7 +75,7 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
         color: Colors.transparent,
         child: Center(
           child: Container(
-            width: MediaQuery.of(context).size.width,
+            width: Get.size.width,
             padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 8.h),
             decoration: BoxDecoration(
               color: widget.buttonBackgroundColor,
@@ -114,8 +111,7 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
                     ],
                   ],
                 ),
-                if (widget.chapterTitle != null &&
-                    widget.chapterTitle!.isNotEmpty) ...[
+                if (widget.chapterTitle != null && widget.chapterTitle!.isNotEmpty) ...[
                   SizedBox(height: 2.h),
                   Text(
                     widget.chapterTitle!,
@@ -188,8 +184,7 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
             final localX = localPosition.dx - progressBarPadding;
 
             // Check if dragged significantly (more than 10 pixels)
-            if (!_hasDraggedSignificantly &&
-                (localPosition.dx - _dragStartX).abs() > 10) {
+            if (!_hasDraggedSignificantly && (localPosition.dx - _dragStartX).abs() > 10) {
               _hasDraggedSignificantly = true;
             }
 
@@ -210,14 +205,10 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
           _removeOverlay();
 
           // Only process as drag if moved significantly
-          if (_hasDraggedSignificantly &&
-              _targetPage != widget.currentPage &&
-              widget.onJumpToPage != null) {
+          if (_hasDraggedSignificantly && _targetPage != widget.currentPage && widget.onJumpToPage != null) {
             HapticFeedback.mediumImpact();
             widget.onJumpToPage!(_targetPage);
-          } else if (!_hasDraggedSignificantly &&
-              _targetPage != widget.currentPage &&
-              widget.onJumpToPage != null) {
+          } else if (!_hasDraggedSignificantly && _targetPage != widget.currentPage && widget.onJumpToPage != null) {
             // Treat as tap if didn't drag significantly
             HapticFeedback.mediumImpact();
             widget.onJumpToPage!(_targetPage);
@@ -253,7 +244,7 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
           child: Container(
             height: 40.h,
             margin: EdgeInsets.symmetric(horizontal: 16.w),
-            width: MediaQuery.of(context).size.width,
+            width: Get.size.width,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(100),
               color: widget.buttonBackgroundColor,
@@ -264,23 +255,14 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
                 children: [
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final progress = widget.totalPages > 0
-                          ? (_isDragging
-                              ? (_targetPage / widget.totalPages)
-                                  .clamp(0.0, 1.0)
-                              : (widget.currentPage / widget.totalPages)
-                                  .clamp(0.0, 1.0))
-                          : 0.0;
+                      final progress = widget.totalPages > 0 ? (_isDragging ? (_targetPage / widget.totalPages).clamp(0.0, 1.0) : (widget.currentPage / widget.totalPages).clamp(0.0, 1.0)) : 0.0;
 
                       return AnimatedContainer(
-                        duration:
-                            Duration(milliseconds: _isDragging ? 50 : 300),
+                        duration: Duration(milliseconds: _isDragging ? 50 : 300),
                         curve: Curves.easeOut,
                         width: constraints.maxWidth * progress,
                         decoration: BoxDecoration(
-                          color: widget.isCalculating
-                              ? Colors.transparent
-                              : Color(0xFF8E8E93).withOpacity(.5),
+                          color: widget.isCalculating ? Colors.transparent : Color(0xFF8E8E93).withOpacity(.5),
                         ),
                       );
                     },
@@ -290,9 +272,7 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
                       text: TextSpan(
                         children: [
                           TextSpan(
-                            text: widget.isCalculating
-                                ? ''
-                                : '${_isDragging ? _targetPage : widget.currentPage}',
+                            text: widget.isCalculating ? '' : '${_isDragging ? _targetPage : widget.currentPage}',
                             style: TextStyle(
                               fontSize: 16.sp,
                               color: widget.buttonIconColor.withOpacity(0.6),
@@ -310,9 +290,7 @@ class _ProgressBarWidgetState extends State<ProgressBarWidget> {
                             ),
                           ),
                           TextSpan(
-                            text: widget.isCalculating
-                                ? ''
-                                : ' ${widget.totalPages}',
+                            text: widget.isCalculating ? '' : ' ${widget.totalPages}',
                             style: TextStyle(
                               fontSize: 16.sp,
                               color: widget.buttonIconColor.withOpacity(0.6),

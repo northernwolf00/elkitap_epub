@@ -39,12 +39,7 @@ class PagingWidget extends StatefulWidget {
     this.linesPerPage = 30,
     this.epubBook,
     this.subchapterTitles = const [],
-    this.precalculatedSpans,
-    this.precalculatedSubchapterMap,
   });
-
-  final List<TextSpan>? precalculatedSpans;
-  final Map<String, int>? precalculatedSubchapterMap;
 
   final String bookId;
   final String chapterTitle;
@@ -54,9 +49,8 @@ class PagingWidget extends StatefulWidget {
   final Widget? lastWidget;
   final int linesPerPage;
   final Function(int, int) onLastPage;
-  final Function(int, int, int) onPageFlip; // pageIndex, totalPages, charCount
-  final Function(Map<String, int>)?
-      onPaginationComplete; // Callback for subchapter page mapping
+  final Function(int, int) onPageFlip;
+  final Function(Map<String, int>)? onPaginationComplete; // Callback for subchapter page mapping
   final VoidCallback onTextTap;
   final bool showNavBar;
   final int starterPageIndex;
@@ -91,18 +85,15 @@ class _PagingWidgetState extends State<PagingWidget> {
     if (span is WidgetSpan) return true;
 
     if (span is TextSpan) {
-      final text = span.toPlainText();
-      final cleanText = text.replaceAll(RegExp(r'\s+'), '');
-
-      if (cleanText.isEmpty) return false;
-
-      // If only 1 or 2 characters, ensure they are at least alphanumeric
-      // (Avoids pages with just a trailing dot or quote)
-      if (cleanText.length <= 2) {
-        return cleanText.contains(RegExp(r'[a-zA-Z0-9\u0400-\u04FF]'));
+      final text = span.text ?? '';
+      if (text.replaceAll(RegExp(r'\s+'), '').isNotEmpty) {
+        return true;
       }
-
-      return true;
+      if (span.children != null && span.children!.isNotEmpty) {
+        for (final child in span.children!) {
+          if (_spanHasRealContent(child)) return true;
+        }
+      }
     }
 
     return false;
@@ -190,36 +181,10 @@ class _PagingWidgetState extends State<PagingWidget> {
     }
     contentToParse = contentToParse.trim();
 
-    // 🚀 FAST PATH: Use precalculated spans if available
-    if (widget.precalculatedSpans != null &&
-        widget.precalculatedSpans!.isNotEmpty) {
-      print('🚀 [PAGING] Using PRECALCULATED spans - bypassing heavy parsing!');
-      _pageSpans.clear();
-      _pageSpans.addAll(widget.precalculatedSpans!);
-
-      // Also restore subchapter map if available
-      if (widget.precalculatedSubchapterMap != null) {
-        _subchapterPageMap = Map.from(widget.precalculatedSubchapterMap!);
-        if (widget.onPaginationComplete != null) {
-          widget.onPaginationComplete!(_subchapterPageMap);
-        }
-      }
-
-      // Initialize style required for _finalizePages
-      _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(
-          widget.textContent, widget.chapterTitle);
-      _contentStyle = _resolveContentStyle();
-
-      _finalizePages();
-      return;
-    }
-
     // Cleaning steps before isolate
-    contentToParse =
-        contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
+    contentToParse = contentToParse.replaceAll(RegExp(r'<\?xml[^?]*\?>\s*'), '');
 
-    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true)
-        .firstMatch(contentToParse);
+    final bodyMatch = RegExp(r'<body[^>]*>(.*?)</body>', dotAll: true).firstMatch(contentToParse);
     if (bodyMatch != null) {
       contentToParse = bodyMatch.group(1) ?? contentToParse;
     }
@@ -227,8 +192,7 @@ class _PagingWidgetState extends State<PagingWidget> {
     final pageSize = _initializedRenderBox.size;
     _pageSpans.clear();
 
-    _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(
-        widget.textContent, widget.chapterTitle);
+    _isFrontMatter = HtmlParsingHelpers.isFrontMatterContent(widget.textContent, widget.chapterTitle);
     _contentStyle = _resolveContentStyle();
 
     _initializeHelpers();
@@ -285,10 +249,7 @@ class _PagingWidgetState extends State<PagingWidget> {
       return;
     }
 
-    // Reserve space for bottom navigation and page indicator
-    final bottomPadding = widget.showNavBar ? 100.h : 40.h;
-    final distributedPages = _pageDistributor.distributeContent(spans, pageSize,
-        bottomPadding: bottomPadding);
+    final distributedPages = _pageDistributor.distributeContent(spans, pageSize);
     _pageSpans.addAll(distributedPages);
 
     // Get subchapter page mapping and send it back via callback
@@ -305,10 +266,13 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
   void _finalizePages() {
-    final bottomNavHeight = widget.showNavBar ? 10.h : 0.0;
+    final bottomNavHeight = widget.showNavBar ? 10.0 : 0.0;
 
-    // Filter out all pages with no real content (whitespace, empty, etc.)
-    _pageSpans.removeWhere((span) => !_spanHasRealContent(span));
+    if (_pageSpans.length > 1) {
+      while (_pageSpans.isNotEmpty && !_spanHasRealContent(_pageSpans.first)) {
+        _pageSpans.removeAt(0);
+      }
+    }
 
     pages = _pageSpans.asMap().entries.map((entry) {
       int index = entry.key;
@@ -334,13 +298,8 @@ class _PagingWidgetState extends State<PagingWidget> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (pages.isNotEmpty) {
-        final startIndex = widget.starterPageIndex < pages.length
-            ? widget.starterPageIndex
-            : 0;
-        int charCount = (startIndex < _pageSpans.length)
-            ? _pageSpans[startIndex].toPlainText().length
-            : 0;
-        widget.onPageFlip(startIndex, pages.length, charCount);
+        final startIndex = widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0;
+        widget.onPageFlip(startIndex, pages.length);
       }
     });
   }
@@ -395,10 +354,7 @@ class _PagingWidgetState extends State<PagingWidget> {
   }
 
   Widget _buildEmptyState() {
-    final isTitlePage = widget.textContent.trim().length < 200 &&
-        widget.textContent
-            .toLowerCase()
-            .contains(widget.chapterTitle.toLowerCase());
+    final isTitlePage = widget.textContent.trim().length < 200 && widget.textContent.toLowerCase().contains(widget.chapterTitle.toLowerCase());
 
     return Center(
       child: Padding(
@@ -423,9 +379,7 @@ class _PagingWidgetState extends State<PagingWidget> {
             ),
             SizedBox(height: 8.h),
             Text(
-              isTitlePage
-                  ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.'
-                  : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
+              isTitlePage ? 'Bu bir başlık sayfasıdır. İçeriği okumak için sonraki bölüme geçin.' : 'Bu bölüm yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.',
               style: TextStyle(
                 fontSize: 14.sp,
                 color: (widget.style.color ?? Colors.black).withOpacity(0.6),
@@ -457,25 +411,16 @@ class _PagingWidgetState extends State<PagingWidget> {
                 key: _pageKey,
                 child: PageFlipWidget(
                   key: _pageController,
-                  initialIndex: widget.starterPageIndex != 0
-                      ? (pages.isNotEmpty &&
-                              widget.starterPageIndex < pages.length
-                          ? widget.starterPageIndex
-                          : 0)
-                      : widget.starterPageIndex,
+                  initialIndex: widget.starterPageIndex != 0 ? (pages.isNotEmpty && widget.starterPageIndex < pages.length ? widget.starterPageIndex : 0) : widget.starterPageIndex,
                   onPageFlip: (pageIndex) {
                     _currentPageIndex = pageIndex;
                     _handler.currentPage.value = pageIndex + 1;
-                    int charCount = (pageIndex < _pageSpans.length)
-                        ? _pageSpans[pageIndex].toPlainText().length
-                        : 0;
-                    widget.onPageFlip(pageIndex, pages.length, charCount);
+                    widget.onPageFlip(pageIndex, pages.length);
                   },
                   onLastPageSwipe: () {
                     widget.onLastPage(_currentPageIndex, pages.length);
                   },
-                  backgroundColor:
-                      widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
+                  backgroundColor: widget.style.backgroundColor ?? const Color(0xFFFFFFFF),
                   lastPage: widget.lastWidget,
                   children: pages,
                 ),

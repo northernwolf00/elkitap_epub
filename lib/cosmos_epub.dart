@@ -19,8 +19,7 @@ import 'package:http/http.dart' as http;
 ///TODO: Optimize with isolates
 
 class CosmosEpub {
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   static bool _initialized = false;
 
@@ -45,13 +44,11 @@ class CosmosEpub {
     _locale.value = locale;
   }
 
-  static void registerAddNoteHandler(
-      Future<void> Function(String bookId, String text) handler) {
+  static void registerAddNoteHandler(Future<void> Function(String bookId, String text) handler) {
     _onAddNoteHandler = handler;
   }
 
-  static void registerAddToShelfHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerAddToShelfHandler(Future<void> Function(String bookId) handler) {
     _onAddToShelfHandler = handler;
   }
 
@@ -65,8 +62,7 @@ class CosmosEpub {
 
   static Future<void> Function(String bookId)? _onSaveToMyBooksHandler;
 
-  static void registerSaveToMyBooksHandler(
-      Future<void> Function(String bookId) handler) {
+  static void registerSaveToMyBooksHandler(Future<void> Function(String bookId) handler) {
     _onSaveToMyBooksHandler = handler;
   }
 
@@ -115,8 +111,7 @@ class CosmosEpub {
 
           // Last resort: create minimal book structure from BookRef
           try {
-            final bookRef =
-                await EpubReader.openBook(bytes.buffer.asUint8List());
+            final bookRef = await EpubReader.openBook(bytes.buffer.asUint8List());
 
             final epubBook = EpubBook();
             epubBook.Title = await bookRef.Title;
@@ -186,7 +181,7 @@ class CosmosEpub {
     required String bookId,
     required String imageUrl,
     Color accentColor = Colors.indigoAccent,
-    Function(int currentPage, int totalPages, int charCount)? onPageFlip,
+    Function(int currentPage, int totalPages)? onPageFlip,
     Function(int lastPageIndex)? onLastPage,
     String chapterListTitle = 'Table of Contents',
     bool shouldOpenDrawer = false,
@@ -220,7 +215,7 @@ class CosmosEpub {
       required String bookId,
       required String imageUrl,
       Color accentColor = Colors.indigoAccent,
-      Function(int currentPage, int totalPages, int charCount)? onPageFlip,
+      Function(int currentPage, int totalPages)? onPageFlip,
       Function(int lastPageIndex)? onLastPage,
       String chapterListTitle = 'Table of Contents',
       bool shouldOpenDrawer = false,
@@ -255,7 +250,7 @@ class CosmosEpub {
       required String bookId,
       required String imageUrl,
       Color accentColor = Colors.indigoAccent,
-      Function(int currentPage, int totalPages, int charCount)? onPageFlip,
+      Function(int currentPage, int totalPages)? onPageFlip,
       Function(int lastPageIndex)? onLastPage,
       String chapterListTitle = 'Table of Contents',
       bool shouldOpenDrawer = false,
@@ -286,7 +281,7 @@ class CosmosEpub {
       {required String urlPath,
       required BuildContext context,
       Color accentColor = Colors.indigoAccent,
-      Function(int currentPage, int totalPages, int charCount)? onPageFlip,
+      Function(int currentPage, int totalPages)? onPageFlip,
       Function(int lastPageIndex)? onLastPage,
       required String bookId,
       required String imageUrl,
@@ -324,7 +319,7 @@ class CosmosEpub {
       required BuildContext context,
       required String imageUrl,
       Color accentColor = Colors.indigoAccent,
-      Function(int currentPage, int totalPages, int charCount)? onPageFlip,
+      Function(int currentPage, int totalPages)? onPageFlip,
       Function(int lastPageIndex)? onLastPage,
       required String bookId,
       String chapterListTitle = 'Table of Contents',
@@ -366,7 +361,7 @@ class CosmosEpub {
       String bookDescription = '',
       bool isInShelf = false,
       bool isInMyBooks = false,
-      Function(int currentPage, int totalPages, int charCount)? onPageFlip,
+      Function(int currentPage, int totalPages)? onPageFlip,
       Function(int lastPageIndex)? onLastPage}) async {
     CosmosEpub.bookDescription = bookDescription;
     CosmosEpub.isInShelf = isInShelf;
@@ -392,9 +387,7 @@ class CosmosEpub {
       MaterialPageRoute(
         builder: (context) => ShowEpub(
           epubBook: epubBook,
-          starterChapter: starterChapter >= 0
-              ? starterChapter
-              : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
+          starterChapter: starterChapter >= 0 ? starterChapter : bookProgress.getBookProgress(bookId).currentChapterIndex ?? 0,
           shouldOpenDrawer: shouldOpenDrawer,
           bookId: bookId,
           imageUrl: imageUrl,
@@ -442,9 +435,7 @@ class CosmosEpub {
   }
 
   static String _truncate(String text, [int maxLength = 50]) {
-    return text.length <= maxLength
-        ? text
-        : '${text.substring(0, maxLength)}...';
+    return text.length <= maxLength ? text : '${text.substring(0, maxLength)}...';
   }
 
   static Future<bool> initialize() async {
@@ -462,8 +453,7 @@ class CosmosEpub {
 
   static _checkInitialization() {
     if (!_initialized) {
-      throw Exception(
-          'CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
+      throw Exception('CosmosEpub is not initialized. Please call initialize() before using other methods. For more info pls read the docs');
     }
   }
 
