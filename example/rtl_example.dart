@@ -37,9 +37,9 @@ class RTLEpubExample extends StatelessWidget {
                   context: context,
                   imageUrl: 'https://picsum.photos/200/300',
                   bookId: 'persian_book_1',
-                  onPageFlip: (currentPage, totalPages, charCount) {
+                  onPageFlip: (currentPage, totalPages) {
                     print(
-                        'Page: $currentPage of $totalPages (Chars: $charCount)');
+                        'Page: $currentPage of $totalPages ');
                   },
                 );
               },
@@ -56,9 +56,9 @@ class RTLEpubExample extends StatelessWidget {
                   context: context,
                   imageUrl: 'https://picsum.photos/200/300',
                   bookId: 'arabic_book_1',
-                  onPageFlip: (currentPage, totalPages, charCount) {
+                  onPageFlip: (currentPage, totalPages, ) {
                     print(
-                        'Page: $currentPage of $totalPages (Chars: $charCount)');
+                        'Page: $currentPage of $totalPages ');
                   },
                 );
               },
@@ -76,9 +76,9 @@ class RTLEpubExample extends StatelessWidget {
                   context: context,
                   imageUrl: '',
                   bookId: 'mixed_book_1',
-                  onPageFlip: (currentPage, totalPages, charCount) {
+                  onPageFlip: (currentPage, totalPages, ) {
                     print(
-                        'Page: $currentPage of $totalPages (Chars: $charCount)');
+                        'Page: $currentPage of $totalPages ');
                   },
                 );
               },

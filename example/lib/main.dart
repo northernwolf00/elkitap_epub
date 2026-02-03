@@ -52,8 +52,8 @@ class _MyHomePageState extends State<MyHomePage> {
         context: context, 
         imageUrl: 'https://picsum.photos/200/300',
         bookId: '3',
-        onPageFlip: (int currentPage, int totalPages, int charCount) {
-          print('Page: $currentPage of $totalPages (Chars: $charCount)');
+        onPageFlip: (int currentPage, int totalPages,) {
+          print('Page: $currentPage of $totalPages');
         },
         onLastPage: (int lastPageIndex) {
           print('We arrived to the last widget');
